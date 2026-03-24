@@ -57,9 +57,8 @@ public interface Actor {
     com.badlogic.ashley.core.Entity getAshleyEntity();
 
     /** Referencja do GameWorld, w którym żyje Actor */
-
-    //com.polsl.poiw.engine.world.GameWorld getWorld();
-    //void setWorld(com.polsl.poiw.engine.world.GameWorld world);
+    com.polsl.poiw.engine.world.GameWorld getWorld();
+    void setWorld(com.polsl.poiw.engine.world.GameWorld world);
 
     /**
      * Ustawia czas życia — po tylu sekundach Actor zostanie automatycznie zniszczony.
