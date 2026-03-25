@@ -1,41 +1,67 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.12.0" orientation="orthogonal" renderorder="right-down" width="18" height="16" tilewidth="16" tileheight="16" infinite="0" nextlayerid="7" nextobjectid="18">
+<map version="1.10" tiledversion="1.12.0" orientation="orthogonal" renderorder="right-down" width="30" height="24" tilewidth="16" tileheight="16" infinite="0" nextlayerid="7" nextobjectid="56">
  <properties>
   <property name="music" value="TOWN"/>
  </properties>
  <tileset firstgid="1" source="objects.tsx"/>
  <tileset firstgid="9" source="tileset.tsx"/>
- <layer id="1" name="ground" width="18" height="16">
+ <layer id="1" name="ground" width="30" height="24">
   <data encoding="base64" compression="zlib">
-   eJylkjsOwjAQRN3z6SI+HVBDzwGIa6BGqYEa+tAHLpCz+GxMJK80Wm2MgeJJibUz6511cM6twdJgA8IXTIyzEhTxew8OiqOh2YKBcV5EjwdoiSeoYs3O0PB/N+sKnKL2Bi7E1ejbeS5iHp48AvlUhi4Xnol9fKZWshSPBtQ92Qp6DzpTpjbqBenH9ZLpPeHJu2vVDngXnjK2emhSWYnPi3x+2ds5zsZ3sN5Nrhdryw/1+n3/yxCMFOOe2tTdpmCmmGf0fwNwWqII
+   eJytlbtOw0AQRd3y7DCQmg+AEgRl7BpSUGEEHUHQkZ70tn+Ab/G3MSvtSJOrO2MbURxF8o737DzWGYqieBM2QpP5Et6FYSKnI+snwdqT0Gfvt7AyazWJr4mXxaF3SbyNAd1z8tW994R94SZ4N9V6ndmAu4TYamKdo/rafXR/7XcLedc5BrnOeSUOAq/Xh5K4MW+Gra3mXk3IF93DBPcSvKzm1ou9wXnQvbSmzB2d29Y8mqeo3uWI2+uXvSv3wgOBvWdjtbb2nkV5o2cr/BDYebbg0Gcdec7e1b37/Ju+f2tAHWm9hTM1I9jYjuSkPvbNbZzzeOB3PIpFn51pXcf74M2Z9hm/KXOJfBXx4n/Xc/C+N+9/uVtDsTvb6sX5XDnPvXuE/1MMvFPsvtjnqSePwofBq8WhcAQcG29b7M71Swb3Vz6Fc4OX0xnEJRZ5zfZYfV124v4ec70VuHuT51TnXO8tqbfm+xo4LoUrx4t9viCxXr3HvAuyXzS3LGfrtTlHXq3T3T975/Y28Qs3FUzM
   </data>
  </layer>
- <layer id="3" name="water" width="18" height="16">
+ <layer id="3" name="water" width="30" height="24">
   <data encoding="base64" compression="zlib">
-   eJxjYBgFo2AUjALKgScQC0LZHkTqAQAhxACj
+   eJxjYBgFo2AUjIJRMApGwSigDfAgQo0nierx6R8qAORPQRLUwgCxeugJvGisnlJASvrA5jZs+gHfcANF
   </data>
  </layer>
- <objectgroup id="6" name="trigger">
-  <object id="16" name="trap_trigger" x="97" y="114" width="14" height="12">
+ <objectgroup id="6" name="trigger" visible="0">
+  <object id="16" name="trap_trigger" x="129" y="178" width="14" height="12">
    <properties>
     <property name="sensor" type="bool" value="true"/>
    </properties>
   </object>
  </objectgroup>
  <objectgroup id="5" name="objects">
-  <object id="5" gid="3" x="202.002" y="118" width="80" height="112"/>
-  <object id="9" gid="5" x="32" y="32" width="16" height="16"/>
-  <object id="10" name="Player" gid="2" x="25" y="214" width="32" height="32">
+  <object id="5" gid="3" x="235.002" y="164" width="80" height="112"/>
+  <object id="9" gid="5" x="48" y="48" width="16" height="16"/>
+  <object id="10" name="Player" gid="2" x="257.5" y="171" width="32" height="32">
    <properties>
     <property name="camFollow" type="bool" value="true"/>
     <property name="controller" type="bool" value="true"/>
    </properties>
   </object>
-  <object id="11" gid="6" x="39.6234" y="200" width="41" height="63"/>
-  <object id="12" gid="6" x="148.254" y="206.625" width="41" height="63"/>
-  <object id="13" gid="6" x="77.6271" y="103.316" width="41" height="63"/>
-  <object id="14" gid="6" x="175.375" y="119.249" width="41" height="63"/>
-  <object id="15" gid="7" x="96" y="128" width="16" height="16"/>
-  <object id="17" gid="8" x="149" y="132" width="32" height="32"/>
+  <object id="11" gid="6" x="71.6234" y="248" width="41" height="63"/>
+  <object id="12" gid="6" x="180.254" y="254.625" width="41" height="63"/>
+  <object id="13" gid="6" x="104.627" y="157.316" width="41" height="63"/>
+  <object id="14" gid="6" x="193.875" y="138.249" width="41" height="63"/>
+  <object id="15" gid="7" x="128" y="192" width="16" height="16"/>
+  <object id="17" gid="8" x="187" y="187" width="32" height="32"/>
+  <object id="18" gid="6" x="78.6667" y="29.3333" width="41" height="63"/>
+  <object id="19" gid="6" x="10.5" y="73.5" width="41" height="63"/>
+  <object id="20" gid="6" x="59.5" y="116" width="41" height="63"/>
+  <object id="22" gid="6" x="25.5" y="123" width="41" height="63"/>
+  <object id="23" gid="6" x="71" y="358" width="41" height="63"/>
+  <object id="24" gid="6" x="402.5" y="359" width="41" height="63"/>
+  <object id="25" gid="6" x="252" y="268.5" width="41" height="63"/>
+  <object id="26" gid="6" x="190.5" y="317" width="41" height="63"/>
+  <object id="27" gid="6" x="333" y="253" width="41" height="63"/>
+  <object id="28" gid="3" x="387" y="132.5" width="80" height="112"/>
+  <object id="40" gid="6" x="125.5" y="37.5" width="41" height="63"/>
+  <object id="41" gid="6" x="154.5" y="73" width="41" height="63"/>
+  <object id="42" gid="6" x="200" y="49" width="41" height="63"/>
+  <object id="43" gid="6" x="292" y="69" width="41" height="63"/>
+  <object id="44" gid="6" x="341.5" y="45" width="41" height="63"/>
+  <object id="45" gid="6" x="449.5" y="213" width="41" height="63"/>
+  <object id="46" gid="6" x="395.5" y="242" width="41" height="63"/>
+  <object id="47" gid="6" x="116" y="276.5" width="41" height="63"/>
+  <object id="48" gid="8" x="8" y="254" width="32" height="32"/>
+  <object id="49" gid="8" x="8" y="285.5" width="32" height="32"/>
+  <object id="50" gid="8" x="8" y="318" width="32" height="32"/>
+  <object id="51" gid="6" x="2" y="382.5" width="41" height="63"/>
+  <object id="52" gid="6" x="-8" y="165" width="41" height="63"/>
+  <object id="53" gid="6" x="206.5" y="393" width="41" height="63"/>
+  <object id="54" gid="5" x="304" y="272.5" width="16" height="16"/>
+  <object id="55" gid="6" x="418.5" y="33.5" width="41" height="63"/>
  </objectgroup>
 </map>

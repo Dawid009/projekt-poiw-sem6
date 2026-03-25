@@ -5,11 +5,11 @@
     ],
     "fileStates": {
         "mainmap.tmx": {
-            "scale": 3.198828125,
+            "scale": 2,
             "selectedLayer": 3,
             "viewCenter": {
-                "x": 158.96446452558308,
-                "y": 127.7030162412993
+                "x": 240.5,
+                "y": 192.75
             }
         },
         "objects.tsx": {
@@ -19,7 +19,7 @@
         },
         "tileset.tsx": {
             "dynamicWrapping": false,
-            "scaleInDock": 1,
+            "scaleInDock": 3,
             "scaleInEditor": 1
         }
     },
