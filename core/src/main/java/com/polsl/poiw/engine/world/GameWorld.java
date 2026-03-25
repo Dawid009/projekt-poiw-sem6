@@ -48,28 +48,40 @@ public class GameWorld {
     public <T extends AbstractActor> T spawnActor(Class<T> actorClass, Vector2 position) {
         try {
             T actor = actorClass.getDeclaredConstructor().newInstance();
-            actor.setPosition(position.x, position.y);
-            actor.setWorld(this);
-
-            // Jeśli Actor ma CollisionComponent → tworzymy Box2D body
-            CollisionComponent collision = actor.getComponent(CollisionComponent.class);
-            if (collision != null) {
-                collision.createBody(box2dWorld);
-            }
-
-            // Dodaje Ashley Entity do Engine (systemy zaczynają widzieć tego Actora)
-            ashleyEngine.addEntity(actor.getAshleyEntity());
-
-            // Rejestrowanie w mapie
-            actors.put(actor.getActorId(), actor);
-
-            // Lifecycle: beginPlay
-            actor.beginPlay();
-
-            return actor;
+            return spawnActor(actor, position);
         } catch (Exception e) {
             throw new RuntimeException("Nie można stworzyć Actora: " + actorClass.getName(), e);
         }
+    }
+
+    /**
+     * Spawnuje już skonfigurowanego Actora w świecie.
+     * Używane gdy Actor wymaga konfiguracji przed spawnem (np. PlayerCharacter.configure(atlas)).
+     *
+     * @param actor skonfigurowany Actor
+     * @param position pozycja startowa
+     * @return ten sam Actor
+     */
+    public <T extends AbstractActor> T spawnActor(T actor, Vector2 position) {
+        actor.setPosition(position.x, position.y);
+        actor.setWorld(this);
+
+        // Jeśli Actor ma CollisionComponent → tworzymy Box2D body
+        CollisionComponent collision = actor.getComponent(CollisionComponent.class);
+        if (collision != null) {
+            collision.createBody(box2dWorld);
+        }
+
+        // Dodaje Ashley Entity do Engine (systemy zaczynają widzieć tego Actora)
+        ashleyEngine.addEntity(actor.getAshleyEntity());
+
+        // Rejestrowanie w mapie
+        actors.put(actor.getActorId(), actor);
+
+        // Lifecycle: beginPlay
+        actor.beginPlay();
+
+        return actor;
     }
 
     /**
