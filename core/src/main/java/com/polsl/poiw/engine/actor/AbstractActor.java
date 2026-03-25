@@ -16,7 +16,7 @@ public abstract class AbstractActor implements Actor {
     private final Entity ashleyEntity;
 
     // Mapa komponentów: typ klasy → instancja komponentu
-    // LinkedHashMap zachowuje kolejność dodawania (ważne dla tick order)
+    // LinkedHashMap zachowuje kolejność dodawania
     private final Map<Class<? extends ActorComponent>, ActorComponent> components;
 
     // Pozycja w świecie gry (w metrach Box2D, nie w pikselach!)
@@ -46,19 +46,14 @@ public abstract class AbstractActor implements Actor {
 
         // Przechowujemy referencję do Actora w Entity.
         // Dzięki temu z Ashley Entity możemy wrócić do naszego Actora:
-        //   Actor actor = (Actor) entity.getComponent(ActorRefComponent.class).actor;
-        // Lub prościej: entity ma userData (custom trick).
+        // Actor actor = (Actor) entity.getComponent(ActorRefComponent.class).actor;
+        // Lub prościej: entity ma userData.
     }
 
     @Override
     public <T extends ActorComponent> T addComponent(T component) {
-        // 1. Ustawiamy ownera
         component.setOwner(this);
-
-        // 2. Dodajemy do naszej mapy
         components.put(component.getClass(), component);
-
-        // 3. Dodajemy do Ashley Entity (bo ActorComponent extends Component)
         ashleyEntity.add(component);
 
         return component;
@@ -116,5 +111,41 @@ public abstract class AbstractActor implements Actor {
         }
     }
 
-    // gettery/settery...
+    // ===== Gettery / Settery =====
+
+    @Override
+    public int getActorId() { return actorId; }
+
+    @Override
+    public Vector2 getPosition() { return position; }
+
+    @Override
+    public void setPosition(float x, float y) { position.set(x, y); }
+
+    @Override
+    public NetRole getNetRole() { return netRole; }
+
+    @Override
+    public void setNetRole(NetRole role) { this.netRole = role; }
+
+    @Override
+    public int getOwnerId() { return ownerId; }
+
+    @Override
+    public void setOwnerId(int ownerId) { this.ownerId = ownerId; }
+
+    @Override
+    public Entity getAshleyEntity() { return ashleyEntity; }
+
+    @Override
+    public GameWorld getWorld() { return world; }
+
+    @Override
+    public void setWorld(GameWorld world) { this.world = world; }
+
+    @Override
+    public void setLifeSpan(float seconds) {
+        this.lifeSpan = seconds;
+        this.lifeSpanTimer = 0f;
+    }
 }
