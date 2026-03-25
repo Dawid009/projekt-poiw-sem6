@@ -1,89 +1,83 @@
 package com.polsl.poiw.engine.render;
 
-import com.badlogic.ashley.core.EntitySystem;
+import com.badlogic.ashley.core.Entity;
+import com.badlogic.ashley.core.Family;
+import com.badlogic.ashley.systems.IteratingSystem;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.maps.tiled.TiledMap;
-import com.badlogic.gdx.maps.tiled.TiledMapTileLayer;
+import com.badlogic.gdx.math.MathUtils;
+import com.badlogic.gdx.math.Vector2;
+import com.polsl.poiw.Main;
+import com.polsl.poiw.engine.component.CameraFollowComponent;
+import com.polsl.poiw.engine.component.TransformComponent;
 
 /**
- * System odpowiedzialny za śledzenie kamery za wyznaczonym Actorem.
- * Kamera jest ograniczona do granic mapy (nie wychodzi poza krawędzie).
+ * System śledzący kamerą entity z CameraFollowComponent + TransformComponent.
+ * Kamera płynnie podąża za entity (LERP)
  */
-public class CameraSystem extends EntitySystem {
+public class CameraSystem extends IteratingSystem {
 
     private final OrthographicCamera camera;
-    private float mapWidthInMeters;
-    private float mapHeightInMeters;
-    private boolean hasBounds = false;
+    private final float smoothingFactor;
+    private final Vector2 targetPosition;
+    private float mapW;
+    private float mapH;
 
     public CameraSystem(OrthographicCamera camera) {
-        // Priorytet tuż przed renderowaniem
-        super(99);
+        super(Family.all(CameraFollowComponent.class, TransformComponent.class).get(), 99);
         this.camera = camera;
-    }
-
-    /**
-     * Ustawia mapę — potrzebną do obliczenia granic kamery.
-     */
-    public void setMap(TiledMap map) {
-        if (map == null) {
-            hasBounds = false;
-            return;
-        }
-
-        // Oblicza wymiary mapy w metrach
-        // (tiles * tileSize / PPM = tiles, bo UNIT_SCALE = 1/16 i tileSize = 16)
-        TiledMapTileLayer firstLayer = null;
-        for (int i = 0; i < map.getLayers().getCount(); i++) {
-            if (map.getLayers().get(i) instanceof TiledMapTileLayer layer) {
-                firstLayer = layer;
-                break;
-            }
-        }
-
-        if (firstLayer != null) {
-            float tileWidth = firstLayer.getTileWidth();
-            float tileHeight = firstLayer.getTileHeight();
-            int mapWidth = firstLayer.getWidth();
-            int mapHeight = firstLayer.getHeight();
-
-            // Konwersja na metry: (tiles * tileSize) * UNIT_SCALE = tiles * (tileSize / PPM)
-            // Ale UNIT_SCALE = 1/16 i tileSize = 16, więc wynik = ilość tile'ów
-            this.mapWidthInMeters = mapWidth * tileWidth * com.polsl.poiw.Main.UNIT_SCALE;
-            this.mapHeightInMeters = mapHeight * tileHeight * com.polsl.poiw.Main.UNIT_SCALE;
-            this.hasBounds = true;
-        }
+        this.smoothingFactor = 4f;
+        this.targetPosition = new Vector2();
     }
 
     @Override
-    public void update(float deltaTime) {
-        if (hasBounds) {
-            clampCameraToBounds();
-        }
+    protected void processEntity(Entity entity, float deltaTime) {
+        TransformComponent scene = TransformComponent.MAPPER.get(entity);
+        calcTargetPosition(scene.getPosition());
+
+        // Płynne śledzenie (LERP)
+        float progress = smoothingFactor * deltaTime;
+        float smoothedX = MathUtils.lerp(camera.position.x, targetPosition.x, progress);
+        float smoothedY = MathUtils.lerp(camera.position.y, targetPosition.y, progress);
+        camera.position.set(smoothedX, smoothedY, camera.position.z);
         camera.update();
     }
 
     /**
-     * Ogranicza kamerę tak, aby nie wychodziła poza granice mapy.
+     * Oblicza docelową pozycję kamery z ograniczeniem do granic mapy.
      */
-    private void clampCameraToBounds() {
-        float cameraHalfWidth = camera.viewportWidth * camera.zoom / 2f;
-        float cameraHalfHeight = camera.viewportHeight * camera.zoom / 2f;
-
-        // Jeśli mapa jest mniejsza niż viewport — wycentruj
-        if (mapWidthInMeters <= camera.viewportWidth * camera.zoom) {
-            camera.position.x = mapWidthInMeters / 2f;
-        } else {
-            camera.position.x = Math.max(cameraHalfWidth,
-                Math.min(mapWidthInMeters - cameraHalfWidth, camera.position.x));
+    private void calcTargetPosition(Vector2 entityPosition) {
+        float targetX = entityPosition.x;
+        float camHalfW = camera.viewportWidth * 0.5f;
+        if (mapW > camHalfW) {
+            float min = Math.min(camHalfW, mapW - camHalfW);
+            float max = Math.max(camHalfW, mapW - camHalfW);
+            targetX = MathUtils.clamp(targetX, min, max);
         }
 
-        if (mapHeightInMeters <= camera.viewportHeight * camera.zoom) {
-            camera.position.y = mapHeightInMeters / 2f;
-        } else {
-            camera.position.y = Math.max(cameraHalfHeight,
-                Math.min(mapHeightInMeters - cameraHalfHeight, camera.position.y));
+        float targetY = entityPosition.y;
+        float camHalfH = camera.viewportHeight * 0.5f;
+        if (mapH > camHalfH) {
+            float min = Math.min(camHalfH, mapH - camHalfH);
+            float max = Math.max(camHalfH, mapH - camHalfH);
+            targetY = MathUtils.clamp(targetY, min, max);
         }
+
+        this.targetPosition.set(targetX, targetY);
+    }
+
+    /**
+     * Ustawia mapę — oblicza granice kamery z properties mapy.
+     */
+    public void setMap(TiledMap tiledMap) {
+        if (tiledMap == null) return;
+
+        int width = tiledMap.getProperties().get("width", 0, Integer.class);
+        int tileW = tiledMap.getProperties().get("tilewidth", 0, Integer.class);
+        int height = tiledMap.getProperties().get("height", 0, Integer.class);
+        int tileH = tiledMap.getProperties().get("tileheight", 0, Integer.class);
+        mapW = width * tileW * Main.UNIT_SCALE;
+        mapH = height * tileH * Main.UNIT_SCALE;
     }
 
     public OrthographicCamera getCamera() { return camera; }
