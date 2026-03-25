@@ -57,7 +57,7 @@ public class GameWorld {
                 collision.createBody(box2dWorld);
             }
 
-            // Dodaj Ashley Entity do Engine (systemy zaczynają widzieć tego Actora)
+            // Dodaje Ashley Entity do Engine (systemy zaczynają widzieć tego Actora)
             ashleyEngine.addEntity(actor.getAshleyEntity());
 
             // Rejestrowanie w mapie
@@ -100,7 +100,7 @@ public class GameWorld {
         // 3. Ashley Systems update
         ashleyEngine.update(delta);
 
-        // 4. Niszcz oznaczonych Actorów
+        // 4. Niszczenie oznaczonych Actorów
         for (Actor actor : pendingDestroy) {
             actor.endPlay();
             ashleyEngine.removeEntity(actor.getAshleyEntity());
@@ -111,12 +111,12 @@ public class GameWorld {
 
     // ===== Queries =====
 
-    /** Znajdź Actora po ID */
+    /** Znajduje Actora po ID */
     public Actor getActorById(int actorId) {
         return actors.get(actorId);
     }
 
-    /** Pobierz wszystkich Actorów danej klasy */
+    /** Pobiera wszystkich Actorów danej klasy */
     @SuppressWarnings("unchecked")
     public <T extends Actor> List<T> getActorsOfClass(Class<T> clazz) {
         List<T> result = new ArrayList<>();
@@ -128,7 +128,7 @@ public class GameWorld {
         return result;
     }
 
-    /** Pobierz Actorów w promieniu od punktu */
+    /** Pobiera Actorów w promieniu od punktu */
     public List<Actor> getActorsInRadius(Vector2 center, float radius) {
         List<Actor> result = new ArrayList<>();
         float radiusSq = radius * radius;
@@ -149,6 +149,15 @@ public class GameWorld {
 
     public void addSystem(com.badlogic.ashley.core.EntitySystem system) {
         ashleyEngine.addSystem(system);
+    }
+
+    /**
+     * Pobiera system po typie klasy.
+     * Używane np. do dostępu do RenderSystem, CameraSystem z GameScreen.
+     */
+    @SuppressWarnings("unchecked")
+    public <T extends com.badlogic.ashley.core.EntitySystem> T getSystem(Class<T> systemClass) {
+        return ashleyEngine.getSystem(systemClass);
     }
 
     public Engine getAshleyEngine() { return ashleyEngine; }

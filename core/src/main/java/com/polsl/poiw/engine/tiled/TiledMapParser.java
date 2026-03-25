@@ -11,6 +11,8 @@ import com.badlogic.gdx.physics.box2d.BodyDef;
 import com.badlogic.gdx.physics.box2d.FixtureDef;
 import com.badlogic.gdx.physics.box2d.PolygonShape;
 import com.polsl.poiw.engine.actor.Actor;
+import com.polsl.poiw.engine.asset.AssetService;
+import com.polsl.poiw.engine.asset.MapAsset;
 import com.polsl.poiw.engine.world.GameWorld;
 
 import java.util.ArrayList;
@@ -30,23 +32,48 @@ import static com.polsl.poiw.engine.tiled.TiledConstants.*;
 public class TiledMapParser {
 
     private final GameWorld gameWorld;
-    private final TiledObjectFactory objectFactory;
+    private final AssetService assetService;
+    private TiledObjectFactory objectFactory;
+    private TiledMap currentMap;
 
     // Pozycje startowe graczy (odczytane z warstwy "player")
     private final List<Vector2> playerStartPositions = new ArrayList<>();
 
-    public TiledMapParser(GameWorld gameWorld, TiledObjectFactory objectFactory) {
+    public TiledMapParser(GameWorld gameWorld, AssetService assetService) {
         this.gameWorld = gameWorld;
-        this.objectFactory = objectFactory;
+        this.assetService = assetService;
+    }
+
+    /**
+     * Ustawia fabrykę obiektów — tłumaczy typ obiektu Tiled na Actora.
+     * Opcjonalna — jeśli null, obiekty z warstw spawns/objects/triggers nie będą tworzone.
+     */
+    public void setObjectFactory(TiledObjectFactory factory) {
+        this.objectFactory = factory;
+    }
+
+    /**
+     * Ładuje mapę synchronicznie przez AssetService.
+     * @param mapAsset enum mapy do załadowania
+     * @return załadowana TiledMap
+     */
+    public TiledMap loadMap(MapAsset mapAsset) {
+        return assetService.load(mapAsset);
+    }
+
+    /** Zwraca aktualnie sparsowaną mapę. */
+    public TiledMap getCurrentMap() {
+        return currentMap;
     }
 
     /**
      * Parsuje całą mapę Tiled.
      *
-     * Wywoływane RAZ przy ładowaniu poziomu (np. w GameScreen.show()).
+     * Wywoływane RAZ przy ładowaniu poziomu
      * @param map załadowana mapa TiledMap (z AssetManager)
      */
     public void parse(TiledMap map) {
+        this.currentMap = map;
         parseCollisionLayer(map);
         parsePlayerStartLayer(map);
         parseObjectLayers(map);
@@ -124,13 +151,13 @@ public class TiledMapParser {
             if (layer == null) continue;
 
             for (MapObject obj : layer.getObjects()) {
-                String type = obj.getProperties().get(PROP_TYPE, "", String.class);
-                if (type.isEmpty()) {
+                String type = obj.getProperties().get(PROP_TYPE, String.class);
+                if (type == null || type.isEmpty()) {
                     type = obj.getName(); // fallback: nazwa obiektu
                 }
 
-                if (!type.isEmpty() && objectFactory != null) {
-                    Actor actor = objectFactory.createFromMapObject(type, obj);
+                if (type != null && !type.isEmpty() && objectFactory != null) {
+                    objectFactory.createFromMapObject(type, obj);
                     // Actor jest już dodany do GameWorld przez fabrykę (lub null jeśli pomijany)
                 }
             }

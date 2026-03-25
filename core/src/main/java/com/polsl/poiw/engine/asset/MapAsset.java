@@ -12,8 +12,7 @@ public enum MapAsset implements Asset<TiledMap> {
 
     MapAsset(String mapName) {
         BaseTiledMapLoader.Parameters parameters = new TmxMapLoader.Parameters();
-        //TODO: Uzupełnić poprawnie ścieżkę
-        parameters.projectFilePath = "maps/ ";
+        parameters.projectFilePath = "maps/tiled.tiled-project";
         this.descriptor = new AssetDescriptor<>("maps/" + mapName, TiledMap.class, parameters);
     }
 
