@@ -46,6 +46,13 @@ public abstract class CollisionComponent extends AbstractActorComponent {
      * @param box2dWorld świat fizyki Box2D
      */
     public void createBody(World box2dWorld) {
+        createBody(box2dWorld, 0f, 0f);
+    }
+
+    /**
+     * Tworzy Box2D Body i Fixture z opcjonalnym offsetem pozycji.
+    */
+    public void createBody(World box2dWorld, float bodyCenterOffsetX, float bodyCenterOffsetY) {
         BodyDef bodyDef = new BodyDef();
 
         // Typ body zależy od profilu:
@@ -59,8 +66,13 @@ public abstract class CollisionComponent extends AbstractActorComponent {
             bodyDef.type = BodyDef.BodyType.DynamicBody;
         }
 
-        bodyDef.position.set(getOwner().getPosition());
+        // Body position = Actor.position + offset (centrum sprite'a)
+        bodyDef.position.set(
+            getOwner().getPosition().x + bodyCenterOffsetX,
+            getOwner().getPosition().y + bodyCenterOffsetY
+        );
         bodyDef.fixedRotation = true; // nie obracamy body
+        bodyDef.gravityScale = 0f;    // top-down — brak grawitacji na body
 
         body = box2dWorld.createBody(bodyDef);
         body.setUserData(getOwner()); // pozwala odzyskać Actora z Body

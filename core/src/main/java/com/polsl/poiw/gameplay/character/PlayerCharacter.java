@@ -6,10 +6,12 @@ import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.math.Vector2;
 import com.polsl.poiw.Main;
 import com.polsl.poiw.engine.actor.AbstractActor;
+import com.polsl.poiw.engine.collision.BoxCollisionComponent;
+import com.polsl.poiw.engine.collision.CollisionProfile;
 import com.polsl.poiw.engine.component.*;
 
 /**
- * Postać gracza — podstawowy Actor z komponentami ruchu, grafiki i kamery.
+ * Postać gracza — podstawowy Actor z komponentami ruchu, grafiki, kamery i kolizji.
  */
 public class PlayerCharacter extends AbstractActor {
 
@@ -41,31 +43,52 @@ public class PlayerCharacter extends AbstractActor {
         float sizeW = SPRITE_PX * Main.UNIT_SCALE;
         float sizeH = SPRITE_PX * Main.UNIT_SCALE;
 
-
-        //TransformComponent - odpowiada za umieszczenie w świecie gry
+        // TransformComponent - odpowiada za umieszczenie w świecie gry
         addComponent(new TransformComponent(
             new Vector2(getPosition()),
             1,
             new Vector2(sizeW, sizeH)
         ));
-        //Sprite component odpowiada za sprite - który będzie rysowany
+
+        // Sprite component odpowiada za sprite - który będzie rysowany
         addComponent(new SpriteComponent(region, Color.WHITE.cpy()));
-        //Movement component - opisuje aktualny ruch i jego parametry
+
+        // Movement component - opisuje aktualny ruch i jego parametry
         addComponent(new MovementComponent(PLAYER_SPEED));
-        //Camera follow - kamera podążajaca za aktorem
+
+        // Camera follow - kamera podążajaca za aktorem
         addComponent(new CameraFollowComponent());
-        //Działa jako inputy z klawiatury
+
+        // Działa jako inputy z klawiatury
         addComponent(new ControllerComponent());
+
+        // Kolizja gracza — kształt z objects.tsx: x=11,y=18,w=9,h=5 px (sprite 32x32)
+        // halfW = 9/2/PPM = 0.28125m, halfH = 5/2/PPM = 0.15625m
+        // offset: centrum kolizji przesunięte do stóp gracza
+        float ppm = 16f;
+        float collHalfW = 9f / 2f / ppm;       // 0.28125
+        float collHalfH = 5f / 2f / ppm;       // 0.15625
+        float offsetX = (11f + 4.5f - 16f) / ppm;  // -0.03125 (prawie centrum X)
+        float offsetY = -((18f + 2.5f - 16f) / ppm); // -0.28125 (poniżej centrum — stopy)
+        addComponent(new BoxCollisionComponent(
+            CollisionProfile.PLAYER, collHalfW, collHalfH, new Vector2(offsetX, offsetY)
+        ));
+
+        // sortOffsetY — punkt Y-sort na stopach gracza (dolna krawędź kolizji)
+        // = sizeH/2 + offsetY - collHalfH (bo position.y to dół sprite'a)
+        TransformComponent transform = getComponent(TransformComponent.class);
+        if (transform != null) {
+            transform.setSortOffsetY(sizeH / 2f + offsetY - collHalfH);
+        }
     }
 
     @Override
     public void beginPlay() {
         super.beginPlay();
-        // Synchronizuj SceneComponent.position z Actor.position
-        //TODO: Przemyśleć, to aby było to synchronizowane automatycznie
-        TransformComponent scene = getComponent(TransformComponent.class);
-        if (scene != null) {
-            scene.getPosition().set(getPosition());
+        // Synchronizuj TransformComponent.position z Actor.position
+        TransformComponent transform = getComponent(TransformComponent.class);
+        if (transform != null) {
+            transform.getPosition().set(getPosition());
         }
     }
 
