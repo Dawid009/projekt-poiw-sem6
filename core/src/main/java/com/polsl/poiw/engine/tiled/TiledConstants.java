@@ -9,9 +9,10 @@ public final class TiledConstants {
 
     /** Nazwy warstw w pliku .tmx (muszą się zgadzać z Tiled) */
     public static final String LAYER_COLLISION = "collision";
+    public static final String LAYER_WATER = "water";
     public static final String LAYER_SPAWNS = "spawns";
     public static final String LAYER_OBJECTS = "objects";
-    public static final String LAYER_TRIGGERS = "triggers";
+    public static final String LAYER_TRIGGERS = "trigger";
     public static final String LAYER_PLAYER_START = "player";
 
     /** Custom properties na obiektach w Tiled */
