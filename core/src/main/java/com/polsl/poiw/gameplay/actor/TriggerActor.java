@@ -1,0 +1,70 @@
+package com.polsl.poiw.gameplay.actor;
+
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.math.Vector2;
+import com.polsl.poiw.engine.actor.AbstractActor;
+import com.polsl.poiw.engine.actor.Actor;
+import com.polsl.poiw.engine.collision.BoxCollisionComponent;
+import com.polsl.poiw.engine.collision.CollisionProfile;
+import com.polsl.poiw.engine.collision.CollisionResult;
+import com.polsl.poiw.engine.collision.OverlapListener;
+import com.polsl.poiw.engine.component.TransformComponent;
+
+/**
+ * Trigger — niewidoczna strefa z mapy Tiled (warstwa "trigger").
+ */
+public class TriggerActor extends AbstractActor implements OverlapListener {
+
+    private String triggerName;
+
+    /**
+     * Konfiguruje trigger z danymi z Tiled.
+     *
+     * @param name      nazwa triggera (z Tiled, np. "trap_trigger")
+     * @param halfW     połowa szerokości strefy w metrach
+     * @param halfH     połowa wysokości strefy w metrach
+     */
+    public void configure(String name, float halfW, float halfH) {
+        this.triggerName = name;
+
+        // Transform — potrzebny do pozycjonowania (brak grafiki)
+        addComponent(new TransformComponent(
+            new Vector2(getPosition()),
+            0,
+            new Vector2(halfW * 2f, halfH * 2f)
+        ));
+
+        // Kolizja — sensor, nie blokuje ruchu
+        BoxCollisionComponent collision = new BoxCollisionComponent(
+            CollisionProfile.TRIGGER, halfW, halfH
+        );
+        collision.addOverlapListener(this);
+        addComponent(collision);
+    }
+
+    @Override
+    public void beginPlay() {
+        super.beginPlay();
+        TransformComponent transform = getComponent(TransformComponent.class);
+        if (transform != null) {
+            transform.getPosition().set(getPosition());
+        }
+    }
+
+    // ===== Overlap Events =====
+
+    @Override
+    public void onBeginOverlap(Actor self, Actor other, CollisionResult result) {
+        Gdx.app.debug("TriggerActor",
+            "Trigger '" + triggerName + "' activated by Actor #" + other.getActorId());
+        // TODO: Gameplay — obsługa konkretnych triggerów (pułapka, zmiana mapy, etc.)
+    }
+
+    @Override
+    public void onEndOverlap(Actor self, Actor other) {
+        Gdx.app.debug("TriggerActor",
+            "Trigger '" + triggerName + "' deactivated by Actor #" + other.getActorId());
+    }
+
+    public String getTriggerName() { return triggerName; }
+}
