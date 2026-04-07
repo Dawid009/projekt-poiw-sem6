@@ -11,7 +11,7 @@ application.applicationName = appName + '-backend'
 eclipse.project.name = appName + '-backend'
 
 dependencies {
-
+    implementation 'com.h2database:h2:2.2.224'
 }
 
 jar {
@@ -29,6 +29,18 @@ jar {
   doLast {
     file(archiveFile).setExecutable(true, false)
   }
+}
+
+task runH2Console(type: JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'org.h2.tools.Console'
+    args = ['-url', 'jdbc:h2:./database/game_db', '-user', 'sa', '-password', '']
+}
+
+task runH2Server(type: JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'org.h2.tools.Server'
+    args = ['-tcp', '-tcpPort', '9092', '-baseDir', './database']
 }
 
 task dist(dependsOn: [jar]) {
