@@ -1,0 +1,35 @@
+apply plugin: 'application'
+
+java.sourceCompatibility = 17
+java.targetCompatibility = 17
+if (JavaVersion.current().isJava9Compatible()) {
+        compileJava.options.release.set(17)
+}
+
+application.mainClass = 'com.polsl.poiw.backend.BackendLauncher'
+application.applicationName = appName + '-backend'
+eclipse.project.name = appName + '-backend'
+
+dependencies {
+
+}
+
+jar {
+  archiveBaseName.set(appName + '-backend')
+  duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+  dependsOn configurations.runtimeClasspath
+  from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
+  exclude('META-INF/INDEX.LIST', 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA')
+  dependencies {
+    exclude('META-INF/INDEX.LIST', 'META-INF/maven/**')
+  }
+  manifest {
+    attributes 'Main-Class': application.mainClass, 'Enable-Native-Access': 'ALL-UNNAMED', 'Multi-Release': 'true'
+  }
+  doLast {
+    file(archiveFile).setExecutable(true, false)
+  }
+}
+
+task dist(dependsOn: [jar]) {
+}
