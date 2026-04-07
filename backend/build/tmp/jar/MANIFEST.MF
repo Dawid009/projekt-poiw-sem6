@@ -1,5 +1,0 @@
-Manifest-Version: 1.0
-Main-Class: com.polsl.poiw.backend.BackendLauncher
-Enable-Native-Access: ALL-UNNAMED
-Multi-Release: true
-
