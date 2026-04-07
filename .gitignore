@@ -12,6 +12,7 @@ gradle-app.setting
 /ios-moe/build/
 /headless/build/
 /server/build/
+/backend/build/
 /shared/build/
 
 ## Java:
@@ -76,6 +77,7 @@ www-test/
 /ios-moe/bin/
 /headless/bin/
 /server/bin/
+/backend/bin/
 /shared/bin/
 *.tmp
 *.bak
@@ -154,6 +156,7 @@ Thumbs.db
 *#*#
 /.kotlin/
 /assets/assets.txt
+/backend/database/
 
 ## Special cases:
 
