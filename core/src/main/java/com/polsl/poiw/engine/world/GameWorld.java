@@ -5,7 +5,6 @@ import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.physics.box2d.World;
 import com.polsl.poiw.engine.actor.AbstractActor;
 import com.polsl.poiw.engine.actor.Actor;
-import com.polsl.poiw.engine.collision.BoxCollisionComponent;
 import com.polsl.poiw.engine.collision.CollisionComponent;
 import com.polsl.poiw.engine.component.TransformComponent;
 
@@ -68,9 +67,9 @@ public class GameWorld {
         actor.setPosition(position.x, position.y);
         actor.setWorld(this);
 
-        // Jeśli Actor ma BoxCollisionComponent → tworzymy Box2D body
+        // Jeśli Actor ma CollisionComponent (dowolny podtyp) → tworzymy Box2D body
         // Body position = centrum sprite'a (Actor.position + size/2)
-        BoxCollisionComponent collision = actor.getComponent(BoxCollisionComponent.class);
+        CollisionComponent collision = actor.getComponentByType(CollisionComponent.class);
         if (collision != null) {
             TransformComponent transform = actor.getComponent(TransformComponent.class);
             if (transform != null) {

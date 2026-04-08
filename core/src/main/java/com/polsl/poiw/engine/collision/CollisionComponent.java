@@ -88,6 +88,7 @@ public abstract class CollisionComponent extends AbstractActorComponent {
         }
 
         fixture = body.createFixture(fixtureDef);
+        fixture.setUserData(this); // Pozwala CollisionSystem odczytać CollisionComponent z Fixture
         fixtureDef.shape.dispose(); // shape nie jest już potrzebny po createFixture
     }
 

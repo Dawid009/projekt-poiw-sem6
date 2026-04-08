@@ -20,6 +20,13 @@ public interface Actor {
     boolean hasComponent(Class<? extends ActorComponent> type);
 
     /**
+     * Znajduje komponent po typie bazowym (szuka wśród subklas).
+     * Np. getComponentByType(CollisionComponent.class) znajdzie BoxCollisionComponent.
+     * Wolniejsze niż getComponent() — używaj gdy nie znasz dokładnej klasy.
+     */
+    <T extends ActorComponent> T getComponentByType(Class<T> baseType);
+
+    /**
      * Wywoływane RAZ po dodaniu Actora do GameWorld.
      * Tutaj inicjalizuje się komponenty, rejestruje listenery itd.
      */

@@ -5,14 +5,15 @@ import com.badlogic.ashley.core.Family;
 import com.badlogic.ashley.systems.IteratingSystem;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.physics.box2d.Body;
-import com.polsl.poiw.engine.collision.BoxCollisionComponent;
+import com.polsl.poiw.engine.actor.Actor;
+import com.polsl.poiw.engine.collision.CollisionComponent;
 import com.polsl.poiw.engine.component.MovementComponent;
 import com.polsl.poiw.engine.component.TransformComponent;
 
 /**
  * System ruchu — obsługuje dwa tryby:
  * <ul>
- *   <li><b>Z fizyką:</b> jeśli entity ma {@link BoxCollisionComponent} z body → ustawia linearVelocity
+ *   <li><b>Z fizyką:</b> jeśli entity ma {@link CollisionComponent} z body → ustawia linearVelocity
  *       na Box2D body, a następnie synchronizuje pozycję body → TransformComponent.</li>
  *   <li><b>Bez fizyki:</b> bezpośrednio modyfikuje TransformComponent.position (fallback).</li>
  * </ul>
@@ -29,9 +30,9 @@ public class MovementSystem extends IteratingSystem {
         MovementComponent move = MovementComponent.MAPPER.get(entity);
         TransformComponent transform = TransformComponent.MAPPER.get(entity);
 
-        // Sprawdź czy entity ma Box2D body
-        BoxCollisionComponent collision = BoxCollisionComponent.MAPPER.get(entity);
-        Body body = (collision != null) ? collision.getBody() : null;
+        // Pobierz Body z CollisionComponent przez Actora
+        // (Actor jest na Body.userData, CollisionComponent może być dowolnym podtypem)
+        Body body = findBody(transform);
 
         if (move.isRooted()) {
             if (body != null) {
@@ -68,5 +69,16 @@ public class MovementSystem extends IteratingSystem {
             pos.x += TMP.x * speed * deltaTime;
             pos.y += TMP.y * speed * deltaTime;
         }
+    }
+
+    /**
+     * Znajduje Box2D Body powiązane z Actorem przez CollisionComponent.
+     * Używa Actor.getComponentByType() aby znaleźć dowolny podtyp CollisionComponent.
+     */
+    private Body findBody(TransformComponent transform) {
+        Actor owner = transform.getOwner();
+        if (owner == null) return null;
+        CollisionComponent collision = owner.getComponentByType(CollisionComponent.class);
+        return (collision != null) ? collision.getBody() : null;
     }
 }

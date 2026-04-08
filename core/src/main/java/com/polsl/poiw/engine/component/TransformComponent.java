@@ -46,13 +46,6 @@ public class TransformComponent extends AbstractActorComponent implements Compar
         return Float.compare(this.position.x, other.position.x);
     }
 
-    @Override
-    public void tick(float delta) {
-        if (getOwner() != null) {
-            getOwner().setPosition(position.x, position.y);
-        }
-    }
-
     // ===== Gettery / Settery =====
 
     public Vector2 getPosition() { return position; }

@@ -107,23 +107,24 @@ public class CollisionSystem extends EntitySystem implements ContactListener {
 
     /**
      * Wyciąga parę Actorów z Box2D Contact.
-     * Zwraca null jeśli któryś Body nie ma przypisanego Actora (np. surowe collision body z mapy).
+     * Używa Fixture.userData (CollisionComponent) zamiast szukania po typie.
+     * Zwraca null jeśli któryś Fixture nie ma przypisanego CollisionComponent
+     * (np. surowe collision body z mapy).
      */
     private ActorPair extractActors(Contact contact) {
-        Body bodyA = contact.getFixtureA().getBody();
-        Body bodyB = contact.getFixtureB().getBody();
+        // Odczytaj CollisionComponent bezpośrednio z Fixture.userData
+        Object fixtureDataA = contact.getFixtureA().getUserData();
+        Object fixtureDataB = contact.getFixtureB().getUserData();
 
-        Object udA = bodyA.getUserData();
-        Object udB = bodyB.getUserData();
-
-        if (!(udA instanceof Actor actorA) || !(udB instanceof Actor actorB)) {
+        if (!(fixtureDataA instanceof CollisionComponent collA)
+            || !(fixtureDataB instanceof CollisionComponent collB)) {
             return null;
         }
 
-        CollisionComponent collA = actorA.getComponent(BoxCollisionComponent.class);
-        CollisionComponent collB = actorB.getComponent(BoxCollisionComponent.class);
+        Actor actorA = collA.getOwner();
+        Actor actorB = collB.getOwner();
 
-        if (collA == null || collB == null) return null;
+        if (actorA == null || actorB == null) return null;
         if (!collA.isEnabled() || !collB.isEnabled()) return null;
 
         return new ActorPair(actorA, actorB, collA, collB);

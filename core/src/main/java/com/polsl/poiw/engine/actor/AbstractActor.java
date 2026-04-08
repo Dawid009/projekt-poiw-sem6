@@ -2,6 +2,7 @@ package com.polsl.poiw.engine.actor;
 
 import com.badlogic.ashley.core.Entity;
 import com.badlogic.gdx.math.Vector2;
+import com.polsl.poiw.engine.component.TransformComponent;
 import com.polsl.poiw.engine.world.GameWorld;
 
 import java.util.LinkedHashMap;
@@ -19,8 +20,9 @@ public abstract class AbstractActor implements Actor {
     // LinkedHashMap zachowuje kolejność dodawania
     private final Map<Class<? extends ActorComponent>, ActorComponent> components;
 
-    // Pozycja w świecie gry (w metrach Box2D, nie w pikselach!)
-    private final Vector2 position;
+    // Fallback pozycja — używana TYLKO gdy Actor nie ma jeszcze TransformComponent.
+    // Po dodaniu TransformComponent, getPosition()/setPosition() delegują do niego.
+    private final Vector2 fallbackPosition;
 
     // Rola sieciowa
     private NetRole netRole;
@@ -39,15 +41,10 @@ public abstract class AbstractActor implements Actor {
         this.actorId = ActorIdGenerator.next();
         this.ashleyEntity = new Entity();
         this.components = new LinkedHashMap<>();
-        this.position = new Vector2();
+        this.fallbackPosition = new Vector2();
         this.netRole = NetRole.NONE;
         this.ownerId = -1;
         this.lifeSpan = -1f;
-
-        // Przechowujemy referencję do Actora w Entity.
-        // Dzięki temu z Ashley Entity możemy wrócić do naszego Actora:
-        // Actor actor = (Actor) entity.getComponent(ActorRefComponent.class).actor;
-        // Lub prościej: entity ma userData.
     }
 
     @Override
@@ -68,6 +65,18 @@ public abstract class AbstractActor implements Actor {
     @Override
     public boolean hasComponent(Class<? extends ActorComponent> type) {
         return components.containsKey(type);
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public <T extends ActorComponent> T getComponentByType(Class<T> baseType) {
+        // Szukaj komponentu, którego klasa jest subklasą baseType
+        for (ActorComponent comp : components.values()) {
+            if (baseType.isInstance(comp)) {
+                return (T) comp;
+            }
+        }
+        return null;
     }
 
     @Override
@@ -116,11 +125,32 @@ public abstract class AbstractActor implements Actor {
     @Override
     public int getActorId() { return actorId; }
 
+    /**
+     * Zwraca pozycję Actora w świecie (w metrach Box2D).
+     * Deleguje do TransformComponent jeśli istnieje (single source of truth).
+     */
     @Override
-    public Vector2 getPosition() { return position; }
+    public Vector2 getPosition() {
+        TransformComponent transform = getComponent(TransformComponent.class);
+        if (transform != null) {
+            return transform.getPosition();
+        }
+        return fallbackPosition;
+    }
 
+    /**
+     * Ustawia pozycję Actora w świecie.
+     * Deleguje do TransformComponent jeśli istnieje.
+     */
     @Override
-    public void setPosition(float x, float y) { position.set(x, y); }
+    public void setPosition(float x, float y) {
+        TransformComponent transform = getComponent(TransformComponent.class);
+        if (transform != null) {
+            transform.getPosition().set(x, y);
+        } else {
+            fallbackPosition.set(x, y);
+        }
+    }
 
     @Override
     public NetRole getNetRole() { return netRole; }

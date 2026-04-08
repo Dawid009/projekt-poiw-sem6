@@ -43,9 +43,10 @@ public class PlayerCharacter extends AbstractActor {
         float sizeW = SPRITE_PX * Main.UNIT_SCALE;
         float sizeH = SPRITE_PX * Main.UNIT_SCALE;
 
-        // TransformComponent - odpowiada za umieszczenie w świecie gry
+        // TransformComponent — single source of truth dla pozycji Actora.
+        // Pozycja startowa ustawiana przez GameWorld.spawnActor() → Actor.setPosition().
         addComponent(new TransformComponent(
-            new Vector2(getPosition()),
+            new Vector2(),
             1,
             new Vector2(sizeW, sizeH)
         ));
@@ -85,11 +86,6 @@ public class PlayerCharacter extends AbstractActor {
     @Override
     public void beginPlay() {
         super.beginPlay();
-        // Synchronizuj TransformComponent.position z Actor.position
-        TransformComponent transform = getComponent(TransformComponent.class);
-        if (transform != null) {
-            transform.getPosition().set(getPosition());
-        }
     }
 
     @Override

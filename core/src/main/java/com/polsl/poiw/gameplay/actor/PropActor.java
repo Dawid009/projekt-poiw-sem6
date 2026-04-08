@@ -21,9 +21,10 @@ public class PropActor extends AbstractActor {
                           float collHalfW, float collHalfH, Vector2 collOffset,
                           float sortOffsetY, int zOrder) {
 
-        // Pozycja i rozmiar w świecie
+        // TransformComponent — single source of truth dla pozycji Actora.
+        // Pozycja startowa ustawiana przez GameWorld.spawnActor() → Actor.setPosition().
         addComponent(new TransformComponent(
-            new Vector2(getPosition()),
+            new Vector2(),
             zOrder,
             new Vector2(sizeW, sizeH),
             new Vector2(1f, 1f),
@@ -45,9 +46,5 @@ public class PropActor extends AbstractActor {
     @Override
     public void beginPlay() {
         super.beginPlay();
-        TransformComponent transform = getComponent(TransformComponent.class);
-        if (transform != null) {
-            transform.getPosition().set(getPosition());
-        }
     }
 }
