@@ -1,7 +1,9 @@
 package com.polsl.poiw.engine.collision;
 
+import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.physics.box2d.*;
 import com.polsl.poiw.engine.component.AbstractActorComponent;
+import com.polsl.poiw.engine.component.TransformComponent;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -43,21 +45,18 @@ public abstract class CollisionComponent extends AbstractActorComponent {
     /**
      * Tworzy Box2D Body i Fixture.
      * Wywoływane przez GameWorld po dodaniu Actora do świata.
+     * <p>
+     * Body position = centrum sprite'a (Actor.position + halfSize).
+     * Komponent sam odczytuje TransformComponent z Ownera — nie wymaga
+     * zewnętrznego przekazywania offsetów (wzorzec self-contained component jak w UE).
+     *
      * @param box2dWorld świat fizyki Box2D
      */
     public void createBody(World box2dWorld) {
-        createBody(box2dWorld, 0f, 0f);
-    }
-
-    /**
-     * Tworzy Box2D Body i Fixture z opcjonalnym offsetem pozycji.
-    */
-    public void createBody(World box2dWorld, float bodyCenterOffsetX, float bodyCenterOffsetY) {
         BodyDef bodyDef = new BodyDef();
 
         // Typ body zależy od profilu:
-        // ENVIRONMENT → STATIC (ściany nie się nie ruszają)
-        // TRIGGER → STATIC (trigger nie się nie rusza)
+        // ENVIRONMENT / TRIGGER → STATIC (nie poruszają się)
         // Reszta → DYNAMIC (gracz, wróg, pocisk — poruszają się)
         if (profile.getObjectType() == CollisionChannel.ENVIRONMENT
             || profile.getObjectType() == CollisionChannel.TRIGGER) {
@@ -66,11 +65,21 @@ public abstract class CollisionComponent extends AbstractActorComponent {
             bodyDef.type = BodyDef.BodyType.DynamicBody;
         }
 
-        // Body position = Actor.position + offset (centrum sprite'a)
-        bodyDef.position.set(
-            getOwner().getPosition().x + bodyCenterOffsetX,
-            getOwner().getPosition().y + bodyCenterOffsetY
-        );
+        // Body position = centrum sprite'a
+        // Actor.position = lewy-dolny róg sprite'a (konwencja LibGDX)
+        // Body center = position + (size / 2)
+        Vector2 actorPos = getOwner().getPosition();
+        TransformComponent transform = getOwner().getComponent(TransformComponent.class);
+        if (transform != null) {
+            Vector2 size = transform.getSize();
+            bodyDef.position.set(
+                actorPos.x + size.x * 0.5f,
+                actorPos.y + size.y * 0.5f
+            );
+        } else {
+            bodyDef.position.set(actorPos);
+        }
+
         bodyDef.fixedRotation = true; // nie obracamy body
         bodyDef.gravityScale = 0f;    // top-down — brak grawitacji na body
 
@@ -81,7 +90,7 @@ public abstract class CollisionComponent extends AbstractActorComponent {
         FixtureDef fixtureDef = new FixtureDef();
         fixtureDef.shape = createShape();
 
-        // TRIGGER i OVERLAP to "sensory" — nie blokują fizycznie
+        // TRIGGER i ITEM to "sensory" — nie blokują fizycznie
         if (profile.getObjectType() == CollisionChannel.TRIGGER
             || profile.getObjectType() == CollisionChannel.ITEM) {
             fixtureDef.isSensor = true;

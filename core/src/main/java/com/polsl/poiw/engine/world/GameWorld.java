@@ -6,7 +6,6 @@ import com.badlogic.gdx.physics.box2d.World;
 import com.polsl.poiw.engine.actor.AbstractActor;
 import com.polsl.poiw.engine.actor.Actor;
 import com.polsl.poiw.engine.collision.CollisionComponent;
-import com.polsl.poiw.engine.component.TransformComponent;
 
 import java.util.*;
 
@@ -68,17 +67,10 @@ public class GameWorld {
         actor.setWorld(this);
 
         // Jeśli Actor ma CollisionComponent (dowolny podtyp) → tworzymy Box2D body
-        // Body position = centrum sprite'a (Actor.position + size/2)
+        // CollisionComponent sam oblicza body position z TransformComponent ownera
         CollisionComponent collision = actor.getComponentByType(CollisionComponent.class);
         if (collision != null) {
-            TransformComponent transform = actor.getComponent(TransformComponent.class);
-            if (transform != null) {
-                collision.createBody(box2dWorld,
-                    transform.getSize().x * 0.5f,
-                    transform.getSize().y * 0.5f);
-            } else {
-                collision.createBody(box2dWorld);
-            }
+            collision.createBody(box2dWorld);
         }
 
         // Dodaje Ashley Entity do Engine (systemy zaczynają widzieć tego Actora)
