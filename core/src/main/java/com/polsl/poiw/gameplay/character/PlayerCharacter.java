@@ -3,9 +3,11 @@ package com.polsl.poiw.gameplay.character;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector2;
 import com.polsl.poiw.Main;
 import com.polsl.poiw.engine.actor.AbstractActor;
+import com.polsl.poiw.engine.binding.PropertyBinding;
 import com.polsl.poiw.engine.collision.BoxCollisionComponent;
 import com.polsl.poiw.engine.collision.CollisionProfile;
 import com.polsl.poiw.engine.component.*;
@@ -17,6 +19,15 @@ public class PlayerCharacter extends AbstractActor {
 
     /** Prędkość gracza w metrach/s */
     private static final float PLAYER_SPEED = 3.5f;
+
+    /** Maksymalne i początkowe HP */
+    private static final float MAX_HEALTH = 100f;
+
+    /** Obserwowalne HP — UI binduje się do tego pola */
+    private final PropertyBinding<Float> health = new PropertyBinding<>(MAX_HEALTH);
+
+    /** Obserwowalne max HP */
+    private final PropertyBinding<Float> maxHealth = new PropertyBinding<>(MAX_HEALTH);
 
     /** Klucz regionu w atlasie */
     private static final String PLAYER_REGION = "player/idle_down";
@@ -92,4 +103,28 @@ public class PlayerCharacter extends AbstractActor {
     public void tick(float delta) {
         super.tick(delta);
     }
+
+    // ===== System zdrowia =====
+
+    /** Zadaje obrażenia graczowi */
+    public void applyDamage(float amount) {
+        float newHp = MathUtils.clamp(health.get() - amount, 0f, maxHealth.get());
+        health.set(newHp);
+    }
+
+    /** Leczy gracza */
+    public void heal(float amount) {
+        float newHp = MathUtils.clamp(health.get() + amount, 0f, maxHealth.get());
+        health.set(newHp);
+    }
+
+    public boolean isAlive() {
+        return health.get() > 0f;
+    }
+
+    /** Obserwowalne HP — binduj do UI */
+    public PropertyBinding<Float> getHealth() { return health; }
+
+    /** Obserwowalne max HP — binduj do UI */
+    public PropertyBinding<Float> getMaxHealth() { return maxHealth; }
 }
