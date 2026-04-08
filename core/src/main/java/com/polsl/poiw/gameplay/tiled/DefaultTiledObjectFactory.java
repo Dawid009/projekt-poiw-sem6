@@ -100,8 +100,15 @@ public class DefaultTiledObjectFactory implements TiledObjectFactory {
         TriggerActor trigger = new TriggerActor();
         trigger.configure(name, halfW, halfH);
 
+        // Odczytaj opcjonalną właściwość "dps" (damage per second) z Tiled
+        Float dps = rectObj.getProperties().get("dps", Float.class);
+        if (dps != null) {
+            trigger.setDamagePerSecond(dps);
+        }
+
         gameWorld.spawnActor(trigger, new Vector2(cx - halfW, cy - halfH));
-        Gdx.app.debug(TAG, "Trigger '" + name + "' at (" + cx + ", " + cy + ")");
+        Gdx.app.debug(TAG, "Trigger '" + name + "' at (" + cx + ", " + cy + ")"
+            + (dps != null ? " [dps=" + dps + "]" : ""));
         return trigger;
     }
 
