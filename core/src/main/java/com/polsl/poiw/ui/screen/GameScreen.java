@@ -14,28 +14,38 @@ import com.polsl.poiw.engine.asset.AtlasAsset;
 import com.polsl.poiw.engine.asset.MapAsset;
 import com.polsl.poiw.engine.asset.SkinAsset;
 import com.polsl.poiw.engine.collision.CollisionSystem;
+import com.polsl.poiw.engine.gameframework.GameMode;
+import com.polsl.poiw.engine.gameframework.PlayerController;
 import com.polsl.poiw.engine.render.CameraSystem;
 import com.polsl.poiw.engine.render.DebugRenderSystem;
 import com.polsl.poiw.engine.render.RenderSystem;
 import com.polsl.poiw.engine.system.ControllerSystem;
 import com.polsl.poiw.engine.system.MovementSystem;
 import com.polsl.poiw.engine.tiled.TiledMapParser;
+import com.polsl.poiw.engine.ui.HUD;
 import com.polsl.poiw.gameplay.tiled.DefaultTiledObjectFactory;
 import com.polsl.poiw.engine.world.GameWorld;
 import com.polsl.poiw.gameplay.character.PlayerCharacter;
+import com.polsl.poiw.gameplay.gamemode.MainGameMode;
+import com.polsl.poiw.gameplay.gamemode.MainPlayerController;
+import com.polsl.poiw.gameplay.actor.TriggerActor;
 import com.polsl.poiw.input.GameControllerState;
 import com.polsl.poiw.input.KeyboardController;
 
 /**
  * Główny ekran gry — łączy GameWorld, TiledMapParser, systemy Ashley i rendering.
+ * Wykorzystuje GameMode / PlayerController / HUD do organizacji logiki gry.
  */
 public class GameScreen extends ScreenAdapter {
     private final Main game;
 
     private GameWorld gameWorld;
     private TiledMapParser tiledParser;
-    private Stage stage;
     private Skin skin;
+
+    private GameMode gameMode;
+    private PlayerController playerController;
+    private HUD hud;
 
     private RenderSystem renderSystem;
     private CameraSystem cameraSystem;
@@ -77,15 +87,30 @@ public class GameScreen extends ScreenAdapter {
         renderSystem.setMap(map);
         cameraSystem.setMap(map);
 
-        // 7. Spawn gracza na pozycji startowej
-        spawnPlayer();
-
-        // 8. UI Stage
-        this.stage = new Stage(new FitViewport(320f, 180f), game.getBatch());
+        // 7. Skin UI
         this.skin = game.getAssetService().get(SkinAsset.DEFAULT);
 
-        // 9. Ustaw input: Stage (UI) → KeyboardController (ruch)
-        game.setInputProcessors(stage, keyboardController);
+        // 8. HUD — Stage UI z osobnym viewportem
+        Stage hudStage = new Stage(new FitViewport(320f, 180f), game.getBatch());
+        this.hud = new HUD(hudStage);
+
+        // 9. GameMode
+        this.gameMode = new MainGameMode();
+        gameMode.initGame(gameWorld);
+
+        // 10. PlayerController z HUD
+        this.playerController = new MainPlayerController(skin);
+        playerController.initialize(gameWorld, gameMode, hud);
+
+        // 11. Spawn gracza i possess
+        PlayerCharacter player = spawnPlayer();
+        playerController.possess(player);
+
+        // 12. Testowy trigger zadający obrażenia — spawnuje się 2 metry obok gracza
+        spawnDamageTrigger(player.getPosition());
+
+        // 13. Ustaw input: HUD Stage (UI) → KeyboardController (ruch)
+        game.setInputProcessors(hudStage, keyboardController);
 
         Gdx.app.debug("GameScreen", "GameScreen zainicjalizowany.");
     }
@@ -117,7 +142,7 @@ public class GameScreen extends ScreenAdapter {
     /**
      * Tworzy gracza na pierwszej pozycji startowej z mapy.
      */
-    private void spawnPlayer() {
+    private PlayerCharacter spawnPlayer() {
         Vector2 startPos = tiledParser.getPlayerStartPosition(0);
         TextureAtlas atlas = game.getAssetService().get(AtlasAsset.OBJECTS);
 
@@ -127,6 +152,24 @@ public class GameScreen extends ScreenAdapter {
         gameWorld.spawnActor(player, startPos);
 
         Gdx.app.debug("GameScreen", "Gracz zespawnowany na pozycji: " + startPos);
+        return player;
+    }
+
+    /**
+     * Spawnuje testowy trigger obrażeń obok gracza — zadaje 10 HP/s.
+     * Służy do demonstracji systemu bindingów HP → UI.
+     */
+    private void spawnDamageTrigger(Vector2 playerPos) {
+        TriggerActor damageTrigger = new TriggerActor();
+        float halfW = 1.0f;
+        float halfH = 1.0f;
+        damageTrigger.configure("damage_zone", halfW, halfH);
+        damageTrigger.setDamagePerSecond(10f);
+
+        // 2 metry na prawo od gracza
+        Vector2 triggerPos = new Vector2(playerPos.x + 2f, playerPos.y);
+        gameWorld.spawnActor(damageTrigger, triggerPos);
+        Gdx.app.debug("GameScreen", "Damage trigger zespawnowany na: " + triggerPos);
     }
 
     @Override
@@ -141,16 +184,19 @@ public class GameScreen extends ScreenAdapter {
 
         gameWorld.update(delta);
 
-        // HUD
-        stage.getViewport().apply();
-        stage.act(delta);
-        stage.draw();
+        // Tick GameMode i PlayerController
+        gameMode.tick(delta);
+        playerController.tick(delta);
+
+        // HUD — aktualizacja i rendering
+        hud.update(delta);
+        hud.render();
     }
 
     @Override
     public void resize(int width, int height) {
         game.getViewport().update(width, height, true);
-        stage.getViewport().update(width, height, true);
+        hud.resize(width, height);
     }
 
     @Override
@@ -161,6 +207,14 @@ public class GameScreen extends ScreenAdapter {
     @Override
     public void dispose() {
         Gdx.app.debug("GameScreen", "Dispose GameScreen...");
+        if (playerController != null) {
+            playerController.destroy();
+            playerController = null;
+        }
+        if (gameMode != null) {
+            gameMode.endGame();
+            gameMode = null;
+        }
         if (debugRenderSystem != null) {
             debugRenderSystem.dispose();
         }
@@ -171,9 +225,9 @@ public class GameScreen extends ScreenAdapter {
             gameWorld.dispose();
             gameWorld = null;
         }
-        if (stage != null) {
-            stage.dispose();
-            stage = null;
+        if (hud != null) {
+            hud.dispose();
+            hud = null;
         }
     }
 }
