@@ -27,9 +27,10 @@ public class TriggerActor extends AbstractActor implements OverlapListener {
     public void configure(String name, float halfW, float halfH) {
         this.triggerName = name;
 
-        // Transform — potrzebny do pozycjonowania (brak grafiki)
+        // TransformComponent — single source of truth dla pozycji Actora.
+        // Pozycja startowa ustawiana przez GameWorld.spawnActor() → Actor.setPosition().
         addComponent(new TransformComponent(
-            new Vector2(getPosition()),
+            new Vector2(),
             0,
             new Vector2(halfW * 2f, halfH * 2f)
         ));
@@ -45,10 +46,6 @@ public class TriggerActor extends AbstractActor implements OverlapListener {
     @Override
     public void beginPlay() {
         super.beginPlay();
-        TransformComponent transform = getComponent(TransformComponent.class);
-        if (transform != null) {
-            transform.getPosition().set(getPosition());
-        }
     }
 
     // ===== Overlap Events =====
