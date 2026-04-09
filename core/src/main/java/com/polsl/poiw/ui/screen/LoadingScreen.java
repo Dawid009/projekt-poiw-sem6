@@ -7,9 +7,12 @@ import com.polsl.poiw.Main;
 import com.polsl.poiw.engine.asset.AssetService;
 import com.polsl.poiw.engine.asset.AtlasAsset;
 import com.polsl.poiw.engine.asset.SkinAsset;
+import com.polsl.poiw.gameplay.level.LevelDefinitions;
 
 /**
  * Ekran ładowania zasobów.
+ * <p>
+ * Po załadowaniu przełącza na LevelScreen i wykonuje travel do menu głównego.
  */
 public class LoadingScreen extends ScreenAdapter {
     private final Main game;
@@ -31,33 +34,23 @@ public class LoadingScreen extends ScreenAdapter {
 
         // Kolejkuj skin UI
         assetService.queue(SkinAsset.DEFAULT);
-
-        // Dźwięki — audio folder jest pusty póki to co pomijamy
-        // for (SoundAsset s : SoundAsset.values()) { assetService.queue(s); }
     }
 
     @Override
     public void render(float delta) {
-        // Placeholder
         Gdx.gl.glClearColor(0.05f, 0.05f, 0.15f, 1f);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
         // AssetManager ładuje w tle — update() zwraca true gdy skończy
         if (assetService.update()) {
-            Gdx.app.debug("LoadingScreen", "Zasoby załadowane. Tworzę ekrany.");
-            createScreens();
-            game.removeScreen(this);
-            this.dispose();
-            game.setScreen(GameScreen.class);
-        }
-    }
+            Gdx.app.debug("LoadingScreen", "Zasoby załadowane. Przechodzę do menu.");
 
-    /**
-     * Tworzy ekrany gry po załadowaniu zasobów.
-     * Ekrany wymagają zasobów (skin, atlas) — dlatego tworzymy je PO załadowaniu.
-     */
-    private void createScreens() {
-        game.addScreen(new GameScreen(game));
-        // W przyszłości: game.addScreen(new MenuScreen(game));
+            // Przełącz na LevelScreen i travel do menu głównego
+            game.switchToLevelScreen();
+            game.getGameInstance().travel(LevelDefinitions.MAIN_MENU);
+
+            // LoadingScreen już nie jest potrzebny
+            this.dispose();
+        }
     }
 }

@@ -8,7 +8,7 @@ import com.badlogic.gdx.utils.Disposable;
 
 /**
  * System debugowy rysujący kształty kolizji Box2D (czerwone prostokąty/krawędzie).
- * Domyślnie wyłączony. Przełączany klawiszem F3 z GameScreen.
+ * Domyślnie wyłączony. Przełączany klawiszem F3 z WorldContext.
  */
 public class DebugRenderSystem extends EntitySystem implements Disposable {
 

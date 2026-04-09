@@ -95,7 +95,7 @@ public class GameWorld {
     }
 
     /**
-     * Aktualizuje cały świat gry — wywoływane CO KLATKĘ z GameScreen.render().
+     * Aktualizuje cały świat gry — wywoływane CO KLATKĘ z WorldContext.update().
      */
     public void update(float delta) {
         // 1. Fizyka (Box2D) — fixed timestep
@@ -166,7 +166,7 @@ public class GameWorld {
 
     /**
      * Pobiera system po typie klasy.
-     * Używane np. do dostępu do RenderSystem, CameraSystem z GameScreen.
+     * Używane np. do dostępu do RenderSystem, CameraSystem z WorldContext.
      */
     @SuppressWarnings("unchecked")
     public <T extends com.badlogic.ashley.core.EntitySystem> T getSystem(Class<T> systemClass) {

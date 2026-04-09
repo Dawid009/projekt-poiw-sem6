@@ -5,25 +5,35 @@ import com.badlogic.gdx.Game;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.InputMultiplexer;
 import com.badlogic.gdx.InputProcessor;
-import com.badlogic.gdx.Screen;
-import com.badlogic.gdx.assets.loaders.resolvers.InternalFileHandleResolver;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-import com.badlogic.gdx.utils.GdxRuntimeException;
+import com.badlogic.gdx.graphics.g2d.TextureAtlas;
+import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.polsl.poiw.engine.asset.AssetService;
+import com.polsl.poiw.engine.asset.AtlasAsset;
+import com.polsl.poiw.engine.level.LevelScreen;
+import com.polsl.poiw.engine.level.WorldContext;
+import com.polsl.poiw.gameplay.actor.TriggerActor;
+import com.polsl.poiw.gameplay.character.PlayerCharacter;
+import com.polsl.poiw.gameplay.level.LevelDefinitions;
 import com.polsl.poiw.ui.screen.LoadingScreen;
 
-import java.util.HashMap;
-import java.util.Map;
+import com.badlogic.gdx.assets.loaders.resolvers.InternalFileHandleResolver;
 
 /**
  * Główna klasa gry — punkt startowy aplikacji.
  * <p>
- * Extends {@link Game} z LibGDX, który zarządza aktywnym {@link Screen}.
- * Main odpowiada za zasoby współdzielone przez WSZYSTKIE ekrany:
- * SpriteBatch, AssetService, OrthographicCamera + Viewport, GameInstance, InputMultiplexer.
+ * Zarządza zasobami współdzielonymi między ekranami:
+ * SpriteBatch, AssetService, Camera, Viewport, GameInstance, InputMultiplexer.
+ * <p>
+ * Przepływ:
+ * <ol>
+ *   <li>LoadingScreen ładuje zasoby</li>
+ *   <li>Po załadowaniu: travel do "main_menu"</li>
+ *   <li>Z menu: travel do "game" (spawn gracza, trigger, itp.)</li>
+ * </ol>
  */
 public class Main extends Game {
 
@@ -41,8 +51,8 @@ public class Main extends Game {
     private GameInstance gameInstance;
     private InputMultiplexer inputMultiplexer;
 
-    /** Cache ekranów — pozwala na przełączanie się między ekranami po klasie */
-    private final Map<Class<? extends Screen>, Screen> screenCache = new HashMap<>();
+    /** Uniwersalny ekran hostujący aktywny WorldContext */
+    private LevelScreen levelScreen;
 
     @Override
     public void create() {
@@ -59,32 +69,73 @@ public class Main extends Game {
         viewport = new FitViewport(WORLD_WIDTH, WORLD_HEIGHT, camera);
         gameInstance = new GameInstance();
 
+        // LevelScreen — jeden ekran dla wszystkich poziomów
+        levelScreen = new LevelScreen(this);
+
+        // Rejestracja poziomów
+        LevelDefinitions.registerAll(gameInstance.getLevelRegistry());
+
+        // Połącz GameInstance z LevelScreen
+        gameInstance.setLevelScreen(levelScreen);
+
+        // Travel callback — konfiguracja specyficzna dla poziomu po otwarciu
+        gameInstance.setTravelCallback(this::onLevelReady);
+
         // Zacznij od LoadingScreen (ładuje zasoby)
-        addScreen(new LoadingScreen(this));
-        setScreen(LoadingScreen.class);
+        setScreen(new LoadingScreen(this));
     }
 
     /**
-     * Dodaje ekran do cache. Pozwala później przełączyć się na niego przez {@link #setScreen(Class)}.
+     * Callback wywoływany po otwarciu poziomu przez travel().
+     * Konfiguruje nowo otwarty świat (np. spawn gracza).
      */
-    public void addScreen(Screen screen) {
-        screenCache.put(screen.getClass(), screen);
-    }
+    private void onLevelReady(WorldContext context) {
+        String levelId = context.getLevelDefinition().getLevelId();
 
-    /**
-     * Przełącza aktywny ekran po klasie. Ekran musi być wcześniej dodany przez {@link #addScreen(Screen)}.
-     */
-    public void setScreen(Class<? extends Screen> screenClass) {
-        Screen screen = screenCache.get(screenClass);
-        if (screen == null) {
-            throw new GdxRuntimeException("Screen " + screenClass.getSimpleName() + " not found in cache.");
+        switch (levelId) {
+            case LevelDefinitions.GAME -> setupGameLevel(context);
+            // Menu nie wymaga dodatkowej konfiguracji
         }
-        super.setScreen(screen);
     }
 
-    /** Usuwa ekran z cache. */
-    public void removeScreen(Screen screen) {
-        screenCache.remove(screen.getClass());
+    /**
+     * Konfiguracja poziomu gry — spawn gracza i testowy trigger obrażeń.
+     */
+    private void setupGameLevel(WorldContext context) {
+        // Spawn gracza na pierwszej pozycji startowej z mapy
+        Vector2 startPos = context.getTiledParser().getPlayerStartPosition(0);
+        TextureAtlas atlas = assetService.get(AtlasAsset.OBJECTS);
+
+        PlayerCharacter player = new PlayerCharacter();
+        player.configure(atlas);
+        context.getGameWorld().spawnActor(player, startPos);
+        Gdx.app.debug("Main", "Gracz zespawnowany na: " + startPos);
+
+        // Possess — controller przejmuje kontrolę nad graczem
+        context.getPlayerController().possess(player);
+
+        // Testowy trigger obrażeń — 2 metry na prawo od gracza
+        TriggerActor damageTrigger = new TriggerActor();
+        damageTrigger.configure("damage_zone", 1.0f, 1.0f);
+        damageTrigger.setDamagePerSecond(10f);
+
+        Vector2 triggerPos = new Vector2(startPos.x + 2f, startPos.y);
+        context.getGameWorld().spawnActor(damageTrigger, triggerPos);
+        Gdx.app.debug("Main", "Damage trigger na: " + triggerPos);
+    }
+
+    /**
+     * Przełącza na LevelScreen. Wywoływane po załadowaniu zasobów.
+     */
+    public void switchToLevelScreen() {
+        setScreen(levelScreen);
+    }
+
+    /**
+     * Zwraca LevelScreen — potrzebne do travel z LoadingScreen.
+     */
+    public LevelScreen getLevelScreen() {
+        return levelScreen;
     }
 
     @Override
@@ -102,10 +153,9 @@ public class Main extends Game {
 
     @Override
     public void dispose() {
-        for (Screen screen : screenCache.values()) {
-            screen.dispose();
+        if (levelScreen != null) {
+            levelScreen.dispose();
         }
-        screenCache.clear();
         batch.dispose();
         assetService.debugDiagnostics();
         assetService.dispose();

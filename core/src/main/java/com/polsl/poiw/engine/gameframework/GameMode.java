@@ -6,15 +6,7 @@ import com.polsl.poiw.engine.world.GameWorld;
 
 /**
  * GameMode — definiuje reguły gry dla danego poziomu/mapy.
- * <p>
- * Decyduje o:
- * <ul>
- *   <li>klasie postaci gracza (defaultPawnClass)</li>
- *   <li>klasie PlayerControllera</li>
- *   <li>klasie HUD do wyświetlenia</li>
- * </ul>
- * <p>
- * GameMode jest tworzony przez GameScreen i zarządza cyklem życia rozgrywki.
+ * GameMode jest tworzony przez WorldContext i zarządza cyklem życia rozgrywki.
  * Subklasy mogą nadpisywać metody aby dostosować zachowanie
  */
 public class GameMode {

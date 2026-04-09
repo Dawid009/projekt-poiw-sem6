@@ -1,11 +1,11 @@
 package com.polsl.poiw.gameplay.gamemode;
 
 import com.badlogic.gdx.graphics.Color;
-import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.polsl.poiw.engine.actor.Actor;
 import com.polsl.poiw.engine.binding.BindingHandle;
 import com.polsl.poiw.engine.gameframework.PlayerController;
 import com.polsl.poiw.engine.ui.EAnchor;
+import com.polsl.poiw.engine.ui.ProgressBarWidget;
 import com.polsl.poiw.engine.ui.TextBlock;
 import com.polsl.poiw.gameplay.character.PlayerCharacter;
 
@@ -15,9 +15,8 @@ import com.polsl.poiw.gameplay.character.PlayerCharacter;
  */
 public class MainPlayerController extends PlayerController {
 
-    private final Skin skin;
-
     private TextBlock hpText;
+    private ProgressBarWidget progressBar;
     private BindingHandle healthBinding;
     private BindingHandle maxHealthBinding;
 
@@ -25,22 +24,29 @@ public class MainPlayerController extends PlayerController {
     private float currentHp = 0f;
     private float currentMaxHp = 0f;
 
-    public MainPlayerController(Skin skin) {
-        this.skin = skin;
-    }
-
     @Override
     protected void setupHUD() {
         // TextBlock wyświetlający HP — lewy górny róg
-        hpText = new TextBlock("HP: ---", skin);
-        hpText.setAnchor(EAnchor.TOP_LEFT);
-        hpText.setAlignment(EAnchor.TOP_LEFT);
-        hpText.setOffset(4f, -4f);
+        hpText = new TextBlock("HP: ---", getSkin());
+        hpText.setAnchor(EAnchor.BOTTOM_CENTER);
+        hpText.setAlignment(EAnchor.TOP_CENTER);
+        hpText.setOffset(0f, -4f);
         hpText.setColor(Color.WHITE);
         hpText.setFontScale(1f);
         hpText.setVariable(true);
 
-        addWidgetToViewport(hpText);
+        progressBar = new ProgressBarWidget(0, 100, 1, false, getSkin());
+        progressBar.setBarColor(Color.RED);
+        progressBar.setAnchor(EAnchor.TOP_LEFT);
+        progressBar.setAlignment(EAnchor.TOP_LEFT);
+        progressBar.setOffset(5f, -10f);
+        progressBar.setVariable(true);
+        progressBar.setValue(50f);
+        progressBar.setBarSize(100f, 10f);
+
+        progressBar.addChild(hpText);
+
+        addWidgetToViewport(progressBar);
     }
 
     @Override
@@ -80,7 +86,8 @@ public class MainPlayerController extends PlayerController {
         if (hpText != null) {
             int hp = Math.round(currentHp);
             int max = Math.round(currentMaxHp);
-            hpText.setText("HP: " + hp + " / " + max);
+            hpText.setText(hp + " / " + max);
+            progressBar.setValue(hp);
 
             // Kolor zależny od poziomu HP
             float ratio = currentMaxHp > 0 ? currentHp / currentMaxHp : 0f;
