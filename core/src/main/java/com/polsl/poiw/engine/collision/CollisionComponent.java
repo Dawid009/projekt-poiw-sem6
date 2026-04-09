@@ -26,6 +26,10 @@ public abstract class CollisionComponent extends AbstractActorComponent {
     /** Czy kolizja jest aktywna (false = wyłączona, np. po śmierci) */
     private boolean enabled = true;
 
+    /** Poprzednia i aktualna pozycja body — do interpolacji renderingu między krokami fizyki */
+    private final Vector2 previousBodyPosition = new Vector2();
+    private final Vector2 currentBodyPosition = new Vector2();
+
     public CollisionComponent(CollisionProfile profile) {
         this.profile = profile;
     }
@@ -99,6 +103,9 @@ public abstract class CollisionComponent extends AbstractActorComponent {
         fixture = body.createFixture(fixtureDef);
         fixture.setUserData(this); // Pozwala CollisionSystem odczytać CollisionComponent z Fixture
         fixtureDef.shape.dispose(); // shape nie jest już potrzebny po createFixture
+
+        previousBodyPosition.set(body.getPosition());
+        currentBodyPosition.set(body.getPosition());
     }
 
     @Override
@@ -137,4 +144,23 @@ public abstract class CollisionComponent extends AbstractActorComponent {
     public Body getBody() { return body; }
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
+
+    /** Wywoływane tuż przed krokiem fizyki. */
+    public void capturePreviousBodyPosition() {
+        if (body != null) {
+            previousBodyPosition.set(currentBodyPosition);
+        }
+    }
+
+    /** Wywoływane zaraz po kroku fizyki. */
+    public void captureCurrentBodyPosition() {
+        if (body != null) {
+            currentBodyPosition.set(body.getPosition());
+        }
+    }
+
+    /** Zwraca interpolowaną pozycję body dla aktualnej klatki renderingu. */
+    public Vector2 getInterpolatedBodyPosition(float alpha, Vector2 out) {
+        return out.set(previousBodyPosition).lerp(currentBodyPosition, alpha);
+    }
 }

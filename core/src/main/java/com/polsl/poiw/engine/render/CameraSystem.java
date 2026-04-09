@@ -17,6 +17,8 @@ import com.polsl.poiw.engine.component.TransformComponent;
  */
 public class CameraSystem extends IteratingSystem {
 
+    private static final float CAMERA_EPSILON = 0.001f;
+
     private final OrthographicCamera camera;
     private final float smoothingFactor;
     private final Vector2 targetPosition;
@@ -29,7 +31,7 @@ public class CameraSystem extends IteratingSystem {
     public CameraSystem(OrthographicCamera camera) {
         super(Family.all(CameraFollowComponent.class, TransformComponent.class).get(), 99);
         this.camera = camera;
-        this.smoothingFactor = 4f;
+        this.smoothingFactor = 10f;
         this.targetPosition = new Vector2();
     }
 
@@ -43,10 +45,18 @@ public class CameraSystem extends IteratingSystem {
             camera.position.set(targetPosition.x, targetPosition.y, camera.position.z);
             firstFrame = false;
         } else {
-            // Płynne śledzenie (LERP)
-            float progress = smoothingFactor * deltaTime;
+            // Płynne śledzenie niezależne od FPS.
+            float progress = 1f - (float) Math.exp(-smoothingFactor * deltaTime);
             float smoothedX = MathUtils.lerp(camera.position.x, targetPosition.x, progress);
             float smoothedY = MathUtils.lerp(camera.position.y, targetPosition.y, progress);
+
+            if (Math.abs(targetPosition.x - smoothedX) < CAMERA_EPSILON) {
+                smoothedX = targetPosition.x;
+            }
+            if (Math.abs(targetPosition.y - smoothedY) < CAMERA_EPSILON) {
+                smoothedY = targetPosition.y;
+            }
+
             camera.position.set(smoothedX, smoothedY, camera.position.z);
         }
         camera.update();

@@ -26,6 +26,9 @@ import com.polsl.poiw.engine.system.ControllerSystem;
 import com.polsl.poiw.engine.system.MovementSystem;
 import com.polsl.poiw.engine.tiled.TiledMapParser;
 import com.polsl.poiw.engine.ui.HUD;
+import com.polsl.poiw.engine.ui.EAnchor;
+import com.polsl.poiw.engine.ui.EVisibility;
+import com.polsl.poiw.engine.ui.TextBlock;
 import com.polsl.poiw.engine.world.GameWorld;
 import com.polsl.poiw.input.GameControllerState;
 import com.polsl.poiw.input.KeyboardController;
@@ -73,6 +76,10 @@ public class WorldContext implements Disposable {
     private HUD hud;
     private Skin skin;
 
+    // ===== Debug UI =====
+    private TextBlock fpsDebugText;
+    private float fpsUpdateTimer = 0f;
+
     // ===== Stan =====
     private boolean initialized = false;
 
@@ -109,6 +116,8 @@ public class WorldContext implements Disposable {
         // PlayerController
         this.playerController = createInstance(levelDef.getControllerClass(), "PlayerController");
         playerController.initialize(game.getGameInstance(), gameWorld, gameMode, hud, skin);
+
+        initializeDebugHud();
 
         // Input
         configureInput();
@@ -203,6 +212,20 @@ public class WorldContext implements Disposable {
         }
     }
 
+    private void initializeDebugHud() {
+        if (!levelDef.isGameWorld()) {
+            return;
+        }
+
+        fpsDebugText = new TextBlock("FPS: --", skin);
+        fpsDebugText.setAnchor(EAnchor.TOP_RIGHT);
+        fpsDebugText.setAlignment(EAnchor.TOP_RIGHT);
+        fpsDebugText.setOffset(-6f, -6f);
+        fpsDebugText.setVariable(true);
+        fpsDebugText.setVisibility(EVisibility.HIDDEN);
+        hud.addToViewport(fpsDebugText);
+    }
+
     // ===== Update / Render =====
 
     /**
@@ -214,6 +237,11 @@ public class WorldContext implements Disposable {
         // F3 — debug rendering (tylko w GAME world)
         if (debugRenderSystem != null && Gdx.input.isKeyJustPressed(Input.Keys.F3)) {
             debugRenderSystem.toggle();
+            if (fpsDebugText != null) {
+                fpsDebugText.setVisibility(debugRenderSystem.isDebugEnabled()
+                    ? EVisibility.VISIBLE
+                    : EVisibility.HIDDEN);
+            }
         }
 
         // GameWorld tick (fizyka, aktorzy, systemy Ashley)
@@ -226,7 +254,22 @@ public class WorldContext implements Disposable {
         playerController.tick(delta);
 
         // HUD tick i act
+        updateDebugHud(delta);
         hud.update(delta);
+    }
+
+    private void updateDebugHud(float delta) {
+        if (fpsDebugText == null || debugRenderSystem == null || !debugRenderSystem.isDebugEnabled()) {
+            fpsUpdateTimer = 0f;
+            return;
+        }
+
+        fpsUpdateTimer += delta;
+        if (fpsUpdateTimer >= 1f) {
+            fpsUpdateTimer -= 1f;
+            fpsDebugText.setText("FPS: " + Gdx.graphics.getFramesPerSecond());
+            fpsDebugText.updateLayout();
+        }
     }
 
     /**
