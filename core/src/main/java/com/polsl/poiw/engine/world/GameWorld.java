@@ -29,6 +29,9 @@ public class GameWorld {
     private static final int POSITION_ITERATIONS = 2;
     private float physicsAccumulator = 0f;
 
+    /** Współczynnik interpolacji między krokami fizyki (0..1) */
+    private float physicsAlpha = 1f;
+
     public GameWorld() {
         this.ashleyEngine = new Engine();
         // Box2D World z zerową grawitacją
@@ -98,20 +101,24 @@ public class GameWorld {
      * Aktualizuje cały świat gry — wywoływane CO KLATKĘ z WorldContext.update().
      */
     public void update(float delta) {
-        // 1. Fizyka (Box2D) — fixed timestep
+        // 1. Tick Actorów (input commands, logika gameplay)
+        for (Actor actor : actors.values()) {
+            actor.tick(delta);
+        }
+
+        // 2. Ashley Systems — ControllerSystem ustawia direction,
+        //    MovementSystem ustawia velocity na Body
+        ashleyEngine.update(delta);
+
+        // 3. Fizyka (Box2D) — fixed timestep
         physicsAccumulator += delta;
         while (physicsAccumulator >= PHYSICS_STEP) {
             box2dWorld.step(PHYSICS_STEP, VELOCITY_ITERATIONS, POSITION_ITERATIONS);
             physicsAccumulator -= PHYSICS_STEP;
         }
 
-        // 2. Tick Actorów
-        for (Actor actor : actors.values()) {
-            actor.tick(delta);
-        }
-
-        // 3. Ashley Systems update
-        ashleyEngine.update(delta);
+        // Współczynnik interpolacji: ile czasu minęło od ostatniego pełnego kroku
+        physicsAlpha = physicsAccumulator / PHYSICS_STEP;
 
         // 4. Niszczenie oznaczonych Actorów
         for (Actor actor : pendingDestroy) {
@@ -175,6 +182,9 @@ public class GameWorld {
 
     public Engine getAshleyEngine() { return ashleyEngine; }
     public World getBox2dWorld() { return box2dWorld; }
+
+    /** Współczynnik interpolacji fizyki (0..1). Używane do smooth renderingu. */
+    public float getPhysicsAlpha() { return physicsAlpha; }
 
     /** Sprzątanie — wywoływane przy zmianie ekranu */
     public void dispose() {

@@ -28,12 +28,12 @@ public class MenuPlayerController extends PlayerController {
         menuContainer.setSize(200f, 120f);
 
         // Tytuł gry
-        TextBlock title = new TextBlock("Projekt POIW", skin);
+        TextBlock title = new TextBlock("Gra 2D", skin);
         title.setAnchor(EAnchor.TOP_CENTER);
         title.setAlignment(EAnchor.TOP_CENTER);
         title.setOffset(0f, -5f);
         title.setFontScale(1.5f);
-        title.setColor(Color.WHITE);
+        title.setColor(Color.CYAN);
         menuContainer.addChild(title);
 
         // Przycisk Play
@@ -58,7 +58,7 @@ public class MenuPlayerController extends PlayerController {
         ButtonWidget quitButton = new ButtonWidget("Wyjdz", skin);
         quitButton.setAnchor(EAnchor.CENTER);
         quitButton.setAlignment(EAnchor.CENTER);
-        quitButton.setOffset(0f, -34f);
+        quitButton.setOffset(0f, -54f);
         quitButton.setButtonSize(80f, 20f);
         quitButton.onClick(this::onQuitClicked);
         menuContainer.addChild(quitButton);

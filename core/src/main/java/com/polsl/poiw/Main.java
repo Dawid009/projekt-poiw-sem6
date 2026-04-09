@@ -10,7 +10,7 @@ import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.math.Vector2;
-import com.badlogic.gdx.utils.viewport.FitViewport;
+import com.badlogic.gdx.utils.viewport.ExtendViewport;
 import com.polsl.poiw.engine.asset.AssetService;
 import com.polsl.poiw.engine.asset.AtlasAsset;
 import com.polsl.poiw.engine.level.LevelScreen;
@@ -47,7 +47,7 @@ public class Main extends Game {
     private SpriteBatch batch;
     private AssetService assetService;
     private OrthographicCamera camera;
-    private FitViewport viewport;
+    private ExtendViewport viewport;
     private GameInstance gameInstance;
     private InputMultiplexer inputMultiplexer;
 
@@ -66,7 +66,7 @@ public class Main extends Game {
         batch = new SpriteBatch();
         assetService = new AssetService(new InternalFileHandleResolver());
         camera = new OrthographicCamera();
-        viewport = new FitViewport(WORLD_WIDTH, WORLD_HEIGHT, camera);
+        viewport = new ExtendViewport(WORLD_WIDTH, WORLD_HEIGHT, camera);
         gameInstance = new GameInstance();
 
         // LevelScreen — jeden ekran dla wszystkich poziomów
@@ -179,6 +179,6 @@ public class Main extends Game {
     public SpriteBatch getBatch() { return batch; }
     public AssetService getAssetService() { return assetService; }
     public OrthographicCamera getCamera() { return camera; }
-    public FitViewport getViewport() { return viewport; }
+    public ExtendViewport getViewport() { return viewport; }
     public GameInstance getGameInstance() { return gameInstance; }
 }
