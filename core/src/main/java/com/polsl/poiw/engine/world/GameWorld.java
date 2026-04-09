@@ -101,24 +101,25 @@ public class GameWorld {
      * Aktualizuje cały świat gry — wywoływane CO KLATKĘ z WorldContext.update().
      */
     public void update(float delta) {
-        // 1. Tick Actorów (input commands, logika gameplay)
-        for (Actor actor : actors.values()) {
-            actor.tick(delta);
-        }
-
-        // 2. Ashley Systems — ControllerSystem ustawia direction,
-        //    MovementSystem ustawia velocity na Body
-        ashleyEngine.update(delta);
-
-        // 3. Fizyka (Box2D) — fixed timestep
+        // 1. Fizyka (Box2D) — fixed timestep
         physicsAccumulator += delta;
         while (physicsAccumulator >= PHYSICS_STEP) {
+            capturePreviousPhysicsState();
             box2dWorld.step(PHYSICS_STEP, VELOCITY_ITERATIONS, POSITION_ITERATIONS);
+            captureCurrentPhysicsState();
             physicsAccumulator -= PHYSICS_STEP;
         }
 
         // Współczynnik interpolacji: ile czasu minęło od ostatniego pełnego kroku
         physicsAlpha = physicsAccumulator / PHYSICS_STEP;
+
+        // 2. Tick Actorów
+        for (Actor actor : actors.values()) {
+            actor.tick(delta);
+        }
+
+        // 3. Ashley Systems update
+        ashleyEngine.update(delta);
 
         // 4. Niszczenie oznaczonych Actorów
         for (Actor actor : pendingDestroy) {
@@ -185,6 +186,24 @@ public class GameWorld {
 
     /** Współczynnik interpolacji fizyki (0..1). Używane do smooth renderingu. */
     public float getPhysicsAlpha() { return physicsAlpha; }
+
+    private void capturePreviousPhysicsState() {
+        for (Actor actor : actors.values()) {
+            CollisionComponent collision = actor.getComponentByType(CollisionComponent.class);
+            if (collision != null) {
+                collision.capturePreviousBodyPosition();
+            }
+        }
+    }
+
+    private void captureCurrentPhysicsState() {
+        for (Actor actor : actors.values()) {
+            CollisionComponent collision = actor.getComponentByType(CollisionComponent.class);
+            if (collision != null) {
+                collision.captureCurrentBodyPosition();
+            }
+        }
+    }
 
     /** Sprzątanie — wywoływane przy zmianie ekranu */
     public void dispose() {
