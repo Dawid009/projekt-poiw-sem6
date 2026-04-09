@@ -1,6 +1,8 @@
 package com.polsl.poiw.engine.gameframework;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.scenes.scene2d.ui.Skin;
+import com.polsl.poiw.GameInstance;
 import com.polsl.poiw.engine.actor.Actor;
 import com.polsl.poiw.engine.ui.HUD;
 import com.polsl.poiw.engine.ui.UserWidget;
@@ -11,22 +13,16 @@ import java.util.List;
 
 /**
  * PlayerController — zarządza lokalnym graczem.
- * <p>
- * Odpowiada za:
- * <ul>
- *   <li>Posiadanie (possess) aktora gracza — kontrolowany Pawn</li>
- *   <li>Dostęp do HUD i dodawanie/usuwanie widgetów z viewportu</li>
- *   <li>Przechowywanie referencji do GameWorld i GameMode</li>
- * </ul>
- * <p>
  */
 public class PlayerController {
 
     private static final String TAG = "PlayerController";
 
+    private GameInstance gameInstance;
     private GameWorld world;
     private GameMode gameMode;
     private HUD hud;
+    private Skin skin;
 
     /** Kontrolowany aktor (possessed pawn) */
     private Actor possessedPawn;
@@ -42,11 +38,14 @@ public class PlayerController {
 
     // ===== Lifecycle =====
 
-    /** Wywoływane po stworzeniu controllera przez GameMode */
-    public void initialize(GameWorld world, GameMode gameMode, HUD hud) {
+    /** Wywoływane po stworzeniu controllera */
+    public void initialize(GameInstance gameInstance, GameWorld world, GameMode gameMode,
+                           HUD hud, Skin skin) {
+        this.gameInstance = gameInstance;
         this.world = world;
         this.gameMode = gameMode;
         this.hud = hud;
+        this.skin = skin;
         setupHUD();
     }
 
@@ -132,9 +131,11 @@ public class PlayerController {
     // ===== Gettery =====
 
     public Actor getPossessedPawn() { return possessedPawn; }
+    public GameInstance getGameInstance() { return gameInstance; }
     public GameWorld getWorld() { return world; }
     public GameMode getGameMode() { return gameMode; }
     public HUD getHUD() { return hud; }
+    public Skin getSkin() { return skin; }
     public int getPlayerId() { return playerId; }
     public void setPlayerId(int playerId) { this.playerId = playerId; }
 }

@@ -125,7 +125,7 @@ public class DefaultTiledObjectFactory implements TiledObjectFactory {
             tileType = type;
         }
 
-        // Pomijaj obiekty typu Player — gracze są spawnowani osobno w GameScreen
+        // Pomijaj obiekty typu Player — gracze są spawnowani osobno w travel callback
         String objName = tileObj.getName();
         if ("Player".equals(objName)) {
             return null;

@@ -64,6 +64,8 @@ public class TriggerActor extends AbstractActor implements OverlapListener {
         super.tick(delta);
 
         // Zadawaj obrażenia graczom przebywającym w strefie
+        //TODO: trzeba poprawić żeby nie było apply damage w kazdym ticku mnożone przez delte, tylko jednorazowy apply
+        //Ale to będzie w gameplayability system
         if (damagePerSecond > 0f) {
             for (Actor actor : overlappingActors) {
                 if (actor instanceof PlayerCharacter player && player.isAlive()) {
