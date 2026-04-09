@@ -23,6 +23,9 @@ public class CameraSystem extends IteratingSystem {
     private float mapW;
     private float mapH;
 
+    /** Flaga pierwszej klatki — kamera od razu skacze na cel zamiast lerpować */
+    private boolean firstFrame = true;
+
     public CameraSystem(OrthographicCamera camera) {
         super(Family.all(CameraFollowComponent.class, TransformComponent.class).get(), 99);
         this.camera = camera;
@@ -35,32 +38,51 @@ public class CameraSystem extends IteratingSystem {
         TransformComponent scene = TransformComponent.MAPPER.get(entity);
         calcTargetPosition(scene.getPosition());
 
-        // Płynne śledzenie (LERP)
-        float progress = smoothingFactor * deltaTime;
-        float smoothedX = MathUtils.lerp(camera.position.x, targetPosition.x, progress);
-        float smoothedY = MathUtils.lerp(camera.position.y, targetPosition.y, progress);
-        camera.position.set(smoothedX, smoothedY, camera.position.z);
+        if (firstFrame) {
+            // Pierwsza klatka — natychmiast ustaw kamerę na graczu
+            camera.position.set(targetPosition.x, targetPosition.y, camera.position.z);
+            firstFrame = false;
+        } else {
+            // Płynne śledzenie (LERP)
+            float progress = smoothingFactor * deltaTime;
+            float smoothedX = MathUtils.lerp(camera.position.x, targetPosition.x, progress);
+            float smoothedY = MathUtils.lerp(camera.position.y, targetPosition.y, progress);
+            camera.position.set(smoothedX, smoothedY, camera.position.z);
+        }
         camera.update();
     }
 
     /**
+     * Resetuje flagę pierwszej klatki — kamera snapnie do celu przy następnym update.
+     * Wywoływane np. przy zmianie poziomu.
+     */
+    public void resetFirstFrame() {
+        this.firstFrame = true;
+    }
+
+    /**
      * Oblicza docelową pozycję kamery z ograniczeniem do granic mapy.
+     * Uwzględnia aktualny rozmiar viewportu (ważne dla ExtendViewport).
      */
     private void calcTargetPosition(Vector2 entityPosition) {
         float targetX = entityPosition.x;
-        float camHalfW = camera.viewportWidth * 0.5f;
-        if (mapW > camHalfW) {
-            float min = Math.min(camHalfW, mapW - camHalfW);
-            float max = Math.max(camHalfW, mapW - camHalfW);
+        float camHalfW = camera.viewportWidth * camera.zoom * 0.5f;
+        if (mapW > camHalfW * 2f) {
+            float min = camHalfW;
+            float max = mapW - camHalfW;
             targetX = MathUtils.clamp(targetX, min, max);
+        } else {
+            targetX = mapW * 0.5f;
         }
 
         float targetY = entityPosition.y;
-        float camHalfH = camera.viewportHeight * 0.5f;
-        if (mapH > camHalfH) {
-            float min = Math.min(camHalfH, mapH - camHalfH);
-            float max = Math.max(camHalfH, mapH - camHalfH);
+        float camHalfH = camera.viewportHeight * camera.zoom * 0.5f;
+        if (mapH > camHalfH * 2f) {
+            float min = camHalfH;
+            float max = mapH - camHalfH;
             targetY = MathUtils.clamp(targetY, min, max);
+        } else {
+            targetY = mapH * 0.5f;
         }
 
         this.targetPosition.set(targetX, targetY);

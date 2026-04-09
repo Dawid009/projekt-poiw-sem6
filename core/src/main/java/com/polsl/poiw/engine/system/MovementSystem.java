@@ -14,7 +14,8 @@ import com.polsl.poiw.engine.component.TransformComponent;
  * System ruchu — obsługuje dwa tryby:
  * <ul>
  *   <li><b>Z fizyką:</b> jeśli entity ma {@link CollisionComponent} z body → ustawia linearVelocity
- *       na Box2D body, a następnie synchronizuje pozycję body → TransformComponent.</li>
+ *       na Box2D body, a następnie synchronizuje pozycję body → TransformComponent.
+ *       Używa interpolacji między krokami fizyki aby wyeliminować jitter.</li>
  *   <li><b>Bez fizyki:</b> bezpośrednio modyfikuje TransformComponent.position (fallback).</li>
  * </ul>
  */
@@ -31,7 +32,6 @@ public class MovementSystem extends IteratingSystem {
         TransformComponent transform = TransformComponent.MAPPER.get(entity);
 
         // Pobierz Body z CollisionComponent przez Actora
-        // (Actor jest na Body.userData, CollisionComponent może być dowolnym podtypem)
         Body body = findBody(transform);
 
         if (move.isRooted()) {
@@ -51,14 +51,31 @@ public class MovementSystem extends IteratingSystem {
                 body.setLinearVelocity(TMP.x * speed, TMP.y * speed);
             }
 
-            // Synchronizuj pozycję body → TransformComponent
-            // Body center = lewy dolny róg sprite + połowa rozmiaru
+            // Synchronizacja pozycji body → TransformComponent
+            // Dodajemy interpolację na podstawie velocity i czasu od ostatniego kroku fizyki,
+            // aby pozycja renderingu była płynna między krokami fixed timestep.
             Vector2 bodyPos = body.getPosition();
+            Vector2 bodyVel = body.getLinearVelocity();
             Vector2 size = transform.getSize();
-            transform.getPosition().set(
-                bodyPos.x - size.x * 0.5f,
-                bodyPos.y - size.y * 0.5f
-            );
+
+            // Pozycja bazowa (body center → lewy dolny róg sprite)
+            float baseX = bodyPos.x - size.x * 0.5f;
+            float baseY = bodyPos.y - size.y * 0.5f;
+
+            // Pobierz alpha z GameWorld (czas od ostatniego fizycznego kroku)
+            float alpha = 0f;
+            Actor owner = transform.getOwner();
+            if (owner != null && owner.getWorld() != null) {
+                alpha = owner.getWorld().getPhysicsAlpha();
+            }
+
+            // Interpolacja: przesunięcie renderingu o velocity * alpha * PHYSICS_STEP
+            // Dzięki temu ruch wygląda płynnie nawet gdy FPS > 60Hz
+            float physicsStep = 1f / 60f;
+            float renderX = baseX + bodyVel.x * alpha * physicsStep;
+            float renderY = baseY + bodyVel.y * alpha * physicsStep;
+
+            transform.getPosition().set(renderX, renderY);
         } else {
             // === Tryb bezpośredni (bez Box2D body) ===
             if (move.getDirection().isZero()) return;
