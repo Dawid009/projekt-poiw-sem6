@@ -39,7 +39,7 @@ public class PunktyService {
             return false;
             
         } catch (SQLException e) {
-            System.err.println(" Blad przy zapisywaniu wyniku: " + e.getMessage());
+            System.err.println(" Błąd przy zapisywaniu wyniku: " + e.getMessage());
             return false;
         }
     }

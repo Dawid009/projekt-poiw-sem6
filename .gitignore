@@ -15,6 +15,9 @@ gradle-app.setting
 /backend/build/
 /shared/build/
 
+## passy bazy danych:
+/backend/src/main/resources/db.properties
+
 ## Java:
 *.class
 *.war

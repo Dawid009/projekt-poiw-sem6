@@ -10,7 +10,7 @@ public class BackendLauncher {
         // 1. Inicjalizacja bazy danych
         DatabaseConfig.initializeDatabase();
         
-        System.out.println("\nZapisywanie wynikow\n");
+        System.out.println("\nZapisywanie wyników\n");
         
         // 2. Zapisywanie wyników
         PunktyService.addScore("Gracz1", 1500);
@@ -28,7 +28,7 @@ public class BackendLauncher {
         
         // 5. Statystyki
         System.out.println("\nStatystyki");
-        System.out.println("\nCalkowita liczba wynikow: " + PunktyService.getScoreCount());
+        System.out.println("\nCałkowita liczba wyników: " + PunktyService.getScoreCount());
         
         
     }
