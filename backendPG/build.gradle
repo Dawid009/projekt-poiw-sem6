@@ -7,15 +7,15 @@ if (JavaVersion.current().isJava9Compatible()) {
 }
 
 application.mainClass = 'com.polsl.poiw.backend.BackendLauncher'
-application.applicationName = appName + '-backend'
-eclipse.project.name = appName + '-backend'
+application.applicationName = appName + '-backendPG'
+eclipse.project.name = appName + '-backendPG'
 
 dependencies {
-    implementation 'com.h2database:h2:2.2.224'
+  implementation 'org.postgresql:postgresql:42.7.4'
 }
 
 jar {
-  archiveBaseName.set(appName + '-backend')
+  archiveBaseName.set(appName + '-backendPG')
   duplicatesStrategy = DuplicatesStrategy.EXCLUDE
   dependsOn configurations.runtimeClasspath
   from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
