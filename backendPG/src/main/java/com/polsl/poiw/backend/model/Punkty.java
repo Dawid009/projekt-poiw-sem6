@@ -1,8 +1,6 @@
 package com.polsl.poiw.backend.model;
 
-/**
- * Model wynikó gry - reprezentuje pojedynczy wynik gracza
- */
+// Model wyniku gry - reprezentuje pojedynczy wynik gracza.
 public class Punkty {
     private int id;
     private String nazwaGracza;

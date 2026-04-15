@@ -10,18 +10,11 @@ import java.util.List;
 import com.polsl.poiw.backend.config.DatabaseConfig;
 import com.polsl.poiw.backend.model.Punkty;
 
-/**
- * Serwis do zarzadzania punktami gracza
- * Obsluguje wszystkie operacje CRUD na tabeli PUNKTY
- */
+// Serwis do zarzadzania punktami gracza.
+// Obsluguje wszystkie operacje CRUD na tabeli PUNKTY.
 public class PunktyService {
     
-    /**
-     * Dodaje nowy wynik do bazy danych
-     * @param nazwaGracza Nazwa gracza
-     * @param punkty Liczba zdobytych punktow
-     * @return true jesli sie powiodlo, false w przypadku bledu
-     */
+    // Dodaje nowy wynik do bazy danych.
     public static boolean addScore(String nazwaGracza, int punkty) {
         String sql = "INSERT INTO PUNKTY (\"nazwaGracza\", \"punkty\") VALUES (?, ?)";
         
@@ -44,10 +37,7 @@ public class PunktyService {
         }
     }
     
-    /**
-     * Pobiera wszystkie wyniki z bazy
-     * @return Lista wszystkich wynikow
-     */
+    // Pobiera wszystkie wyniki z bazy.
     public static List<Punkty> getAllScores() {
         List<Punkty> scores = new ArrayList<>();
         String sql = "SELECT id, \"nazwaGracza\", \"punkty\", \"dataUtworzenia\" FROM PUNKTY";
@@ -73,10 +63,7 @@ public class PunktyService {
         return scores;
     }
     
-    /**
-     * Pobiera wyniki posortowane malejaco (najlepsze pierwsze)
-     * @return Lista wynikow posortowana
-     */
+    // Pobiera wyniki posortowane malejaco (najlepsze pierwsze).
     public static List<Punkty> getAllScoresSorted() {
         List<Punkty> scores = new ArrayList<>();
         String sql = "SELECT id, \"nazwaGracza\", \"punkty\", \"dataUtworzenia\" FROM PUNKTY ORDER BY \"punkty\" DESC";
@@ -102,21 +89,13 @@ public class PunktyService {
         return scores;
     }
     
-    /**
-     * Pobiera TOP N najlepszych wynikow
-     * @param limit Liczba wynikow do pobrania
-     * @return Lista top wynikow
-     */
+    // Pobiera TOP N najlepszych wynikow.
     public static List<Punkty> getTopScores(int limit) {
         List<Punkty> scores = getAllScoresSorted();
         return scores.stream().limit(limit).toList();
     }
     
-    /**
-     * Pobiera wszystkie wyniki konkretnego gracza
-     * @param nazwaGracza Nazwa gracza
-     * @return Lista wynikow gracza
-     */
+    // Pobiera wszystkie wyniki konkretnego gracza.
     public static List<Punkty> getScoresByPlayer(String nazwaGracza) {
         List<Punkty> scores = new ArrayList<>();
         String sql = "SELECT id, \"nazwaGracza\", \"punkty\", \"dataUtworzenia\" FROM PUNKTY WHERE \"nazwaGracza\" = ? ORDER BY \"dataUtworzenia\" DESC";
@@ -144,10 +123,7 @@ public class PunktyService {
         return scores;
     }
     
-    /**
-     * Pobiera liczbe wszystkich wynikow
-     * @return Liczba rekordow w bazie
-     */
+    // Pobiera liczbe wszystkich wynikow.
     public static long getScoreCount() {
         String sql = "SELECT COUNT(*) as count FROM PUNKTY";
         
@@ -166,11 +142,7 @@ public class PunktyService {
         return 0;
     }
     
-    /**
-     * Usuwa wynik z bazy
-     * @param id ID wyniku do usuniecia
-     * @return true jesli sie powiodlo
-     */
+    // Usuwa wynik z bazy.
     public static boolean deleteScore(int id) {
         String sql = "DELETE FROM PUNKTY WHERE id = ?";
         
@@ -192,12 +164,7 @@ public class PunktyService {
         }
     }
     
-    /**
-     * Aktualizuje punkty dla wyniku
-     * @param id ID wyniku
-     * @param punkty Nowa liczba punktow
-     * @return true jesli sie powiodlo
-     */
+    // Aktualizuje punkty dla wyniku.
     public static boolean updateScore(int id, int punkty) {
         String sql = "UPDATE PUNKTY SET \"punkty\" = ? WHERE id = ?";
         

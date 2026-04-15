@@ -1,6 +1,9 @@
 package com.polsl.poiw.backend;
 import com.polsl.poiw.backend.config.DatabaseConfig;
+import com.polsl.poiw.backend.http.ScoreHttpServer;
 import com.polsl.poiw.backend.service.PunktyService;
+
+import java.io.IOException;
 
 public class BackendLauncher {
 
@@ -29,7 +32,17 @@ public class BackendLauncher {
         // 5. Statystyki
         System.out.println("\nStatystyki");
         System.out.println("\nCalkowita liczba wynikow: " + PunktyService.getScoreCount());
-        
-        
+
+        try {
+            int port = 8080;
+            ScoreHttpServer server = new ScoreHttpServer(port);
+            server.start();
+            System.out.println("\nHTTP endpoint uruchomiony: GET /scores oraz GET /scores/{nazwaGracza}");
+            System.out.println("Przyklad (wszystkie): http://localhost:" + port + "/scores");
+            System.out.println("Przyklad (gracz): http://localhost:" + port + "/scores/Gracz1");
+        } catch (IOException e) {
+            System.err.println("Nie udalo sie uruchomic HTTP endpointu: " + e.getMessage());
+        }
+
     }
 }
