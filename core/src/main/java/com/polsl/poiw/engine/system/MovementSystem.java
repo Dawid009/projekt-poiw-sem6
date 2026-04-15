@@ -6,6 +6,7 @@ import com.badlogic.ashley.systems.IteratingSystem;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.physics.box2d.Body;
 import com.polsl.poiw.engine.actor.Actor;
+import com.polsl.poiw.engine.actor.NetRole;
 import com.polsl.poiw.engine.collision.CollisionComponent;
 import com.polsl.poiw.engine.component.MovementComponent;
 import com.polsl.poiw.engine.component.TransformComponent;
@@ -31,6 +32,12 @@ public class MovementSystem extends IteratingSystem {
     protected void processEntity(Entity entity, float deltaTime) {
         MovementComponent move = MovementComponent.MAPPER.get(entity);
         TransformComponent transform = TransformComponent.MAPPER.get(entity);
+
+        // SIMULATED_PROXY - position managed by InterpolationSystem, do not modify
+        Actor actor = transform.getOwner();
+        if (actor != null && actor.getNetRole() == NetRole.SIMULATED_PROXY) {
+            return;
+        }
 
         CollisionComponent collision = findCollision(transform);
         Body body = collision != null ? collision.getBody() : null;

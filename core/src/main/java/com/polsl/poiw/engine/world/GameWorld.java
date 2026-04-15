@@ -5,6 +5,7 @@ import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.physics.box2d.World;
 import com.polsl.poiw.engine.actor.AbstractActor;
 import com.polsl.poiw.engine.actor.Actor;
+import com.polsl.poiw.engine.actor.ActorIdGenerator;
 import com.polsl.poiw.engine.collision.CollisionComponent;
 
 import java.util.*;
@@ -66,6 +67,24 @@ public class GameWorld {
      * @return ten sam Actor
      */
     public <T extends AbstractActor> T spawnActor(T actor, Vector2 position) {
+        return spawnActorInternal(actor, position);
+    }
+
+    /**
+     * spawns actor with overriden id (replication from server)
+     * used on client when server sends ActorSpawn with specific actorId.
+      *
+      * @param actor configured Actor
+      * @param actorId id overridden by server
+      * @param position starting position
+      * @return the same Actor
+      */
+    public <T extends AbstractActor> T spawnActorWithId(T actor, int actorId, Vector2 position) {
+        actor.overrideActorId(actorId);
+        return spawnActorInternal(actor, position);
+    }
+
+    private <T extends AbstractActor> T spawnActorInternal(T actor, Vector2 position) {
         actor.setPosition(position.x, position.y);
         actor.setWorld(this);
 
@@ -95,6 +114,19 @@ public class GameWorld {
         if (!pendingDestroy.contains(actor)) {
             pendingDestroy.add(actor);
         }
+    }
+
+    // destroys actor by id (used in replication - server informs about destruction)
+    public void destroyActorById(int actorId) {
+        Actor actor = actors.get(actorId);
+        if (actor != null) {
+            destroyActor(actor);
+        }
+    }
+    
+    // resets the ActorIdGenerator (e.g. when changing level)
+    public void resetActorIds() {
+        ActorIdGenerator.reset();
     }
 
     /**

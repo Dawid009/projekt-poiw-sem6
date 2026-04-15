@@ -4,6 +4,8 @@ import com.polsl.poiw.engine.actor.AbstractActor;
 import com.polsl.poiw.engine.ui.HUD;
 import com.polsl.poiw.engine.world.GameWorld;
 
+import com.badlogic.gdx.math.Vector2;
+
 /**
  * GameMode — definiuje reguły gry dla danego poziomu/mapy.
  * GameMode jest tworzony przez WorldContext i zarządza cyklem życia rozgrywki.
@@ -12,6 +14,7 @@ import com.polsl.poiw.engine.world.GameWorld;
 public class GameMode {
 
     private GameWorld world;
+    private GameState gameState;
 
     /** Klasa Actora używana jako postać gracza */
     private Class<? extends AbstractActor> defaultPawnClass;
@@ -30,6 +33,7 @@ public class GameMode {
     /** Wywoływane po stworzeniu GameMode. Konfiguruj klasy w subklasach. */
     public void initGame(GameWorld world) {
         this.world = world;
+        this.gameState = new GameState();
     }
 
     /** Wywoływane co klatkę */
@@ -38,6 +42,24 @@ public class GameMode {
 
     /** Wywoływane przy zamykaniu poziomu */
     public void endGame() {
+    }
+
+    // ===== Networking callbacks =====
+
+    // called on server when a new player connects
+    // default implementation does nothing - override in subclasses
+    public void onPlayerLogin(int connectionId, int playerId, String playerName) {
+    }
+
+    // called on server when a player disconnects
+    public void onPlayerLogout(int connectionId) {
+    }
+
+    // start pos for player spawns
+    // can be overridden to provide different spawn points for different players
+    // TODO: to change depending on the specifications
+    public Vector2 getPlayerStartPosition(int playerIndex) {
+        return new Vector2(2f + playerIndex * 2f, 2f);
     }
 
     // ===== Konfiguracja klas =====
@@ -69,4 +91,5 @@ public class GameMode {
     // ===== Dostęp =====
 
     public GameWorld getWorld() { return world; }
+    public GameState getGameState() { return gameState; }
 }

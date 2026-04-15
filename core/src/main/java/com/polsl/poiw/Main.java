@@ -100,8 +100,15 @@ public class Main extends Game {
 
     /**
      * Konfiguracja poziomu gry — spawn gracza i testowy trigger obrażeń.
+     * W multiplayer: serwer kontroluje spawn gracza (nie tworzymy lokalnie).
      */
     private void setupGameLevel(WorldContext context) {
+        // in multiplayer server spawns the pawn - client waits for ActorSpawn
+        if (gameInstance.isMultiplayer()) {
+            Gdx.app.debug("Main", "Multiplayer: pawn będzie zespawnowany przez serwer");
+            return;
+        }
+
         // Spawn gracza na pierwszej pozycji startowej z mapy
         Vector2 startPos = context.getTiledParser().getPlayerStartPosition(0);
         TextureAtlas atlas = assetService.get(AtlasAsset.OBJECTS);
@@ -115,6 +122,7 @@ public class Main extends Game {
         context.getPlayerController().possess(player);
 
         // Testowy trigger obrażeń — 2 metry na prawo od gracza
+        //TODO: the damage from the trigger seems to be dealt by client, server currently disallows health modification from client
         TriggerActor damageTrigger = new TriggerActor();
         damageTrigger.configure("damage_zone", 1.0f, 1.0f);
         damageTrigger.setDamagePerSecond(10f);

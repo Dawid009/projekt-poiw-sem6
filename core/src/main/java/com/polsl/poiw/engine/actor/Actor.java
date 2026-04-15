@@ -57,6 +57,15 @@ public interface Actor {
     int getOwnerId();
     void setOwnerId(int ownerId);
 
+    // check autority, is it singleplayer or server
+    boolean hasAuthority();
+
+    boolean isLocallyControlled();
+    
+    // is the actor replicated over network (if false, it exists only on the local machine and is not synchronized)
+    boolean isReplicated();
+    void setReplicated(boolean replicated);
+
     /**
      * Dostęp do wewnętrznego Ashley Entity.
      * Używane przez systemy Ashley (RenderSystem, CollisionSystem, etc.)
