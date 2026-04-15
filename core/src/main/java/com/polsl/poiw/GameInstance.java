@@ -2,9 +2,11 @@ package com.polsl.poiw;
 
 import com.badlogic.gdx.Gdx;
 import com.polsl.poiw.engine.level.LevelDefinition;
+import com.polsl.poiw.shared.protocol.NetworkProtocol;
 import com.polsl.poiw.engine.level.LevelRegistry;
 import com.polsl.poiw.engine.level.LevelScreen;
 import com.polsl.poiw.engine.level.WorldContext;
+import com.polsl.poiw.engine.net.driver.NetDriver;
 
 /**
  * GameInstance — globalny stan gry utrzymywany przez cały czas życia aplikacji.
@@ -35,8 +37,16 @@ public class GameInstance {
 
     private Mode mode = Mode.SINGLE_PLAYER;
     private String serverHost = "localhost";
+    private int serverTcpPort = NetworkProtocol.DEFAULT_TCP_PORT;
     private String playerName = "Player";
     private int localPlayerId = -1;
+
+    // ===== Networking =====
+
+    private NetDriver netDriver;
+    private boolean isServer = false;
+    private boolean isConnected = false;
+    private float serverTime = 0f;
 
     // ===== System poziomów =====
 
@@ -131,13 +141,29 @@ public class GameInstance {
 
     public void setMode(Mode mode) { this.mode = mode; }
     public void setServerHost(String host) { this.serverHost = host; }
+    public void setServerTcpPort(int port) { this.serverTcpPort = port; }
     public void setPlayerName(String name) { this.playerName = name; }
     public void setLocalPlayerId(int id) { this.localPlayerId = id; }
 
     public Mode getMode() { return mode; }
     public String getServerHost() { return serverHost; }
+    public int getServerTcpPort() { return serverTcpPort; }
+    public int getServerUdpPort() { return serverTcpPort + (NetworkProtocol.DEFAULT_UDP_PORT - NetworkProtocol.DEFAULT_TCP_PORT); }
     public String getPlayerName() { return playerName; }
     public int getLocalPlayerId() { return localPlayerId; }
     public boolean isMultiplayer() { return mode == Mode.MULTIPLAYER; }
+
+    // ===== Networking accessors =====
+
+    public NetDriver getNetDriver() { return netDriver; }
+    public void setNetDriver(NetDriver netDriver) { this.netDriver = netDriver; }
+    public boolean isServer() { return isServer; }
+    public void setServer(boolean server) { this.isServer = server; }
+    public boolean isClient() { return !isServer && mode == Mode.MULTIPLAYER; }
+    public boolean isSinglePlayer() { return mode == Mode.SINGLE_PLAYER; }
+    public boolean isConnected() { return isConnected; }
+    public void setConnected(boolean connected) { this.isConnected = connected; }
+    public float getServerTime() { return serverTime; }
+    public void setServerTime(float serverTime) { this.serverTime = serverTime; }
 }
 

@@ -36,7 +36,31 @@ public class PlayerCharacter extends AbstractActor {
     private static final float SPRITE_PX = 32f;
 
     public PlayerCharacter() {
-        // Komponenty dodawane są w configure(), bo tam mamy dostęp do parametrów
+        // components are added in configure() or configureServer()
+    }
+    
+    /**
+     * server configuration (headless) - without sprites and camera
+     * adds TransformComponent, MovementComponent, ControllerComponent, BoxCollisionComponent
+     */
+    public void configureServer() {
+        float sizeW = SPRITE_PX / 16f; // Main.UNIT_SCALE = 1/16
+        float sizeH = SPRITE_PX / 16f;
+
+        addComponent(new TransformComponent(
+            new Vector2(), 1, new Vector2(sizeW, sizeH)
+        ));
+        addComponent(new MovementComponent(PLAYER_SPEED));
+        addComponent(new ControllerComponent());
+
+        float ppm = 16f;
+        float collHalfW = 9f / 2f / ppm;
+        float collHalfH = 5f / 2f / ppm;
+        float offsetX = (11f + 4.5f - 16f) / ppm;
+        float offsetY = -((18f + 2.5f - 16f) / ppm);
+        addComponent(new BoxCollisionComponent(
+            CollisionProfile.PLAYER, collHalfW, collHalfH, new Vector2(offsetX, offsetY)
+        ));
     }
 
     /**
@@ -108,12 +132,14 @@ public class PlayerCharacter extends AbstractActor {
 
     /** Zadaje obrażenia graczowi */
     public void applyDamage(float amount) {
+        if (!hasAuthority()) return; // only server can modify health
         float newHp = MathUtils.clamp(health.get() - amount, 0f, maxHealth.get());
         health.set(newHp);
     }
 
     /** Leczy gracza */
     public void heal(float amount) {
+        if (!hasAuthority()) return;
         float newHp = MathUtils.clamp(health.get() + amount, 0f, maxHealth.get());
         health.set(newHp);
     }
