@@ -39,20 +39,30 @@ public class DatabaseConfig {
     }
 
     public static void initializeDatabase() {
-        // Przykładowy SQL tworzący tabelę wyników
-        String createTableSQL = "CREATE TABLE IF NOT EXISTS PUNKTY (" +
-                                "id SERIAL PRIMARY KEY, " +
-                                "\"nazwaGracza\" VARCHAR(255) NOT NULL, " +
-                                "\"punkty\" INT DEFAULT 0, " +
-                                "\"dataUtworzenia\" TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
-                                ");";
+        String createPunktySQL = "CREATE TABLE IF NOT EXISTS PUNKTY (" +
+                                 "id SERIAL PRIMARY KEY, " +
+                                 "\"nazwaGracza\" VARCHAR(255) NOT NULL, " +
+                                 "\"punkty\" INT DEFAULT 0, " +
+                                 "\"dataUtworzenia\" TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
+                                 ");";
 
-        try (Connection conn = getConnection(); 
+        // Tabela kont graczy — email unikalny, haslo hashowane SHA-256 z sola
+        String createGraczeSQL = "CREATE TABLE IF NOT EXISTS GRACZE (" +
+                                 "id SERIAL PRIMARY KEY, " +
+                                 "email VARCHAR(255) NOT NULL UNIQUE, " +
+                                 "nazwa VARCHAR(100) NOT NULL, " +
+                                 "sol VARCHAR(64) NOT NULL, " +
+                                 "haslo VARCHAR(64) NOT NULL, " +
+                                 "\"dataRejestracji\" TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
+                                 ");";
+
+        try (Connection conn = getConnection();
              Statement stmt = conn.createStatement()) {
-            
-            stmt.execute(createTableSQL);
+
+            stmt.execute(createPunktySQL);
+            stmt.execute(createGraczeSQL);
             System.out.println("Baza danych utworzona albo zaaktualizowana");
-            
+
         } catch (SQLException e) {
             System.err.println("Błąd podczas inicjalizacji bazy: " + e.getMessage());
             e.printStackTrace();
