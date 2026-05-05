@@ -39,11 +39,10 @@ public class MenuPlayerController extends PlayerController {
         menuContainer.setSize(200f, 150f);
 
         // Tytuł gry
-        TextBlock title = new TextBlock("Gra 2D", skin);
+        TextBlock title = new TextBlock("Gra 2D", skin, "subtitle");
         title.setAnchor(EAnchor.TOP_CENTER);
         title.setAlignment(EAnchor.TOP_CENTER);
         title.setOffset(0f, -5f);
-        title.setFontScale(1.5f);
         title.setColor(Color.CYAN);
         menuContainer.addChild(title);
 
@@ -93,11 +92,10 @@ public class MenuPlayerController extends PlayerController {
         multiplayerPanel.setVisibility(EVisibility.COLLAPSED);
 
         // Tytuł panelu
-        TextBlock panelTitle = new TextBlock("Tryb sieciowy", skin);
+        TextBlock panelTitle = new TextBlock("Tryb sieciowy", skin, "subtitle");
         panelTitle.setAnchor(EAnchor.TOP_CENTER);
         panelTitle.setAlignment(EAnchor.TOP_CENTER);
         panelTitle.setOffset(0f, -5f);
-        panelTitle.setFontScale(1.2f);
         panelTitle.setColor(Color.CYAN);
         multiplayerPanel.addChild(panelTitle);
 

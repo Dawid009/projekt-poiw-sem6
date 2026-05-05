@@ -18,7 +18,7 @@ public class TextFieldWidget extends UserWidget {
 
     public TextFieldWidget(String placeholder, Skin skin, String styleName) {
         super();
-        this.textField = new TextField("", skin, styleName);
+        this.textField = new TextField("", UiSkinStyles.copyTextFieldStyle(skin, styleName));
         this.textField.setMessageText(placeholder);
         addActor(textField);
         syncSize();
@@ -34,6 +34,11 @@ public class TextFieldWidget extends UserWidget {
 
     public void setPlaceholder(String placeholder) {
         textField.setMessageText(placeholder);
+    }
+
+    public void setStyle(Skin skin, String styleName) {
+        textField.setStyle(UiSkinStyles.copyTextFieldStyle(skin, styleName));
+        syncSize();
     }
 
 

@@ -76,14 +76,12 @@ public class PlayerCharacter extends AbstractActor {
             new Vector2(), 1, new Vector2(sizeW, sizeH)
         ));
         addComponent(new SpriteComponent(region, Color.WHITE.cpy()));
-<<<<<<< HEAD
-=======
+
 
         // Animacje idle/walk zależne od kierunku i ruchu
         addComponent(new PlayerAnimationComponent(atlas));
 
         // Movement component - opisuje aktualny ruch i jego parametry
->>>>>>> bc9a6c0 (dodano proste animacje postaci)
         addComponent(new MovementComponent(PLAYER_SPEED));
         addComponent(new CameraFollowComponent());
         addComponent(new ControllerComponent());

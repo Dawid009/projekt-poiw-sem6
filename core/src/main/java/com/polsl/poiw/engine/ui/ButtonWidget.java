@@ -42,7 +42,7 @@ public class ButtonWidget extends UserWidget {
 
     public ButtonWidget(String text, Skin skin, String styleName) {
         super();
-        this.button = new TextButton(text, skin, styleName);
+        this.button = new TextButton(text, UiSkinStyles.copyTextButtonStyle(skin, styleName));
         addActor(button);
 
         button.addListener(new ClickListener() {
@@ -115,6 +115,21 @@ public class ButtonWidget extends UserWidget {
 
     public void setTextColor(Color color) {
         button.getLabel().setColor(color);
+    }
+
+    public void setFontScale(float scale) {
+        button.getLabel().setFontScale(scale);
+        syncSize();
+    }
+
+    public void setFontScale(float scaleX, float scaleY) {
+        button.getLabel().setFontScale(scaleX, scaleY);
+        syncSize();
+    }
+
+    public void setStyle(Skin skin, String styleName) {
+        button.setStyle(UiSkinStyles.copyTextButtonStyle(skin, styleName));
+        syncSize();
     }
 
     public void setButtonSize(float width, float height) {

@@ -35,7 +35,7 @@ public class MainPlayerController extends PlayerController {
         hpText.setFontScale(1f);
         hpText.setVariable(true);
 
-        progressBar = new ProgressBarWidget(0, 100, 1, false, getSkin());
+        progressBar = new ProgressBarWidget(0, 100, 1, false, getSkin(), "curved");
         progressBar.setBarColor(Color.RED);
         progressBar.setAnchor(EAnchor.TOP_LEFT);
         progressBar.setAlignment(EAnchor.TOP_LEFT);
