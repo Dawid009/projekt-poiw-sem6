@@ -10,7 +10,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.Skin;
  * Parametry:
  * <ul>
  *   <li>text — treść do wyświetlenia</li>
- *   <li>fontName — nazwa fontu z Skin (np. "default-font", "font-subtitle")</li>
+ *   <li>styleNameOrFontName — nazwa LabelStyle lub fontu z Skin (np. "default", "subtitle", "font")</li>
  *   <li>fontSize — skalowanie fontu (1.0 = domyślny)</li>
  *   <li>color — kolor tekstu</li>
  *   <li>variable — czy tekst zmienia się dynamicznie (hint dla optymalizacji)</li>
@@ -19,17 +19,15 @@ import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 public class TextBlock extends UserWidget {
 
     private final Label label;
-    private final Label.LabelStyle style;
     private boolean variable = false;
 
     public TextBlock(String text, Skin skin) {
-        this(text, skin, "default-font");
+        this(text, skin, "default");
     }
 
-    public TextBlock(String text, Skin skin, String fontName) {
+    public TextBlock(String text, Skin skin, String styleNameOrFontName) {
         super();
-        this.style = new Label.LabelStyle(skin.getFont(fontName), Color.WHITE.cpy());
-        this.label = new Label(text, style);
+        this.label = new Label(text, UiSkinStyles.resolveLabelStyle(skin, styleNameOrFontName));
         addActor(label);
         syncSize();
     }
@@ -71,11 +69,15 @@ public class TextBlock extends UserWidget {
         syncSize();
     }
 
+    /** Zmienia styl lub font na inny ze Skina */
+    public void setStyle(Skin skin, String styleNameOrFontName) {
+        label.setStyle(UiSkinStyles.resolveLabelStyle(skin, styleNameOrFontName));
+        syncSize();
+    }
+
     /** Zmienia font na inny ze Skina */
     public void setFont(Skin skin, String fontName) {
-        style.font = skin.getFont(fontName);
-        label.setStyle(style);
-        syncSize();
+        setStyle(skin, fontName);
     }
 
     /** Ustawia wrap (zawijanie tekstu) */

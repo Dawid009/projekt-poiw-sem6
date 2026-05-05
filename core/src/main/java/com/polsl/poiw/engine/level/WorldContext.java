@@ -2,12 +2,8 @@ package com.polsl.poiw.engine.level;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
-import com.badlogic.gdx.graphics.GL20;
-import com.badlogic.gdx.graphics.OrthographicCamera;
-import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.maps.tiled.TiledMap;
-import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.utils.Disposable;
@@ -24,6 +20,7 @@ import com.polsl.poiw.engine.render.DebugRenderSystem;
 import com.polsl.poiw.engine.render.RenderSystem;
 import com.polsl.poiw.engine.system.ControllerSystem;
 import com.polsl.poiw.engine.system.MovementSystem;
+import com.polsl.poiw.engine.system.PlayerAnimationSystem;
 import com.polsl.poiw.engine.tiled.TiledMapParser;
 import com.polsl.poiw.engine.ui.HUD;
 import com.polsl.poiw.engine.ui.EAnchor;
@@ -331,6 +328,7 @@ public class WorldContext implements Disposable {
         gameWorld.addSystem(new CollisionSystem(gameWorld.getBox2dWorld()));
         gameWorld.addSystem(new ControllerSystem());
         gameWorld.addSystem(new MovementSystem());
+        gameWorld.addSystem(new PlayerAnimationSystem());
 
         // in multiplayer the client adds InterpolationSystem + NetworkClock + ClientPrediction
         if (game.getGameInstance().isMultiplayer()) {
@@ -578,7 +576,6 @@ public class WorldContext implements Disposable {
 
     // ===== Internals =====
 
-    @SuppressWarnings("unchecked")
     private <T> T createInstance(Class<? extends T> clazz, String label) {
         try {
             return clazz.getDeclaredConstructor().newInstance();

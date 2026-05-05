@@ -27,7 +27,7 @@ public class ProgressBarWidget extends UserWidget {
     public ProgressBarWidget(float min, float max, float step, boolean vertical,
                              Skin skin, String styleName) {
         super();
-        this.bar = new ProgressBar(min, max, step, vertical, skin, styleName);
+        this.bar = new ProgressBar(min, max, step, vertical, UiSkinStyles.copyProgressBarStyle(skin, styleName));
         addActor(bar);
         syncSize();
     }
@@ -55,6 +55,11 @@ public class ProgressBarWidget extends UserWidget {
 
     public void setBarColor(Color color) {
         bar.setColor(color);
+    }
+
+    public void setStyle(Skin skin, String styleName) {
+        bar.setStyle(UiSkinStyles.copyProgressBarStyle(skin, styleName));
+        syncSize();
     }
 
     public void setBarSize(float width, float height) {

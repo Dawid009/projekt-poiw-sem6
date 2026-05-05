@@ -2,14 +2,19 @@ package com.polsl.poiw.gameplay.gamemode;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.scenes.scene2d.ui.Label;
+import com.badlogic.gdx.scenes.scene2d.ui.Table;
+import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
+import com.badlogic.gdx.scenes.scene2d.ui.TextField;
+import com.badlogic.gdx.scenes.scene2d.ui.Window;
+import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.polsl.poiw.GameInstance;
 import com.polsl.poiw.engine.gameframework.PlayerController;
-import com.polsl.poiw.engine.ui.ButtonWidget;
 import com.polsl.poiw.engine.ui.EAnchor;
 import com.polsl.poiw.engine.ui.EVisibility;
-import com.polsl.poiw.engine.ui.TextBlock;
-import com.polsl.poiw.engine.ui.TextFieldWidget;
+import com.polsl.poiw.engine.ui.SettingsPanelWidget;
+import com.polsl.poiw.engine.ui.UiSkinStyles;
 import com.polsl.poiw.engine.ui.UserWidget;
 import com.polsl.poiw.shared.protocol.NetworkProtocol;
 
@@ -20,13 +25,21 @@ import com.polsl.poiw.shared.protocol.NetworkProtocol;
 public class MenuPlayerController extends PlayerController {
 
     private static final String TAG = "MenuPlayerController";
+    private static final float CONTENT_FONT_SCALE = 0.5f;
+    private static final float MENU_BUTTON_WIDTH = 55f;
+    private static final float MENU_BUTTON_HEIGHT = 12f;
+    private static final float PANEL_BUTTON_WIDTH = 55f;
+    private static final float PANEL_BUTTON_HEIGHT = 12f;
+    private static final float PANEL_FIELD_WIDTH = 55f;
+    private static final float PANEL_FIELD_HEIGHT = 12f;
 
     private UserWidget menuContainer;
     private UserWidget multiplayerPanel;
-    private TextFieldWidget ipField;
-    private TextFieldWidget portField;
-    private TextBlock statusText;
-    private ButtonWidget connectButton;
+    private TextField ipField;
+    private TextField portField;
+    private Label statusText;
+    private TextButton connectButton;
+    private SettingsPanelWidget settingsPanel;
 
     @Override
     protected void setupHUD() {
@@ -36,52 +49,54 @@ public class MenuPlayerController extends PlayerController {
         menuContainer = new UserWidget();
         menuContainer.setAnchor(EAnchor.CENTER);
         menuContainer.setAlignment(EAnchor.CENTER);
-        menuContainer.setSize(200f, 150f);
+        Window menuWindow = new Window("Gra 2D", skin, "atlas");
+        menuWindow.setMovable(false);
+        UiSkinStyles.centerWindowTitle(menuWindow);
 
-        // Tytuł gry
-        TextBlock title = new TextBlock("Gra 2D", skin);
-        title.setAnchor(EAnchor.TOP_CENTER);
-        title.setAlignment(EAnchor.TOP_CENTER);
-        title.setOffset(0f, -5f);
-        title.setFontScale(1.5f);
-        title.setColor(Color.CYAN);
-        menuContainer.addChild(title);
+        Table menuContent = new Table();
+        menuContent.defaults().width(MENU_BUTTON_WIDTH).height(MENU_BUTTON_HEIGHT);
 
-        // Przycisk Play
-        ButtonWidget playButton = new ButtonWidget("Graj", skin);
-        playButton.setAnchor(EAnchor.CENTER);
-        playButton.setAlignment(EAnchor.CENTER);
-        playButton.setOffset(0f, 30f);
-        playButton.setButtonSize(80f, 20f);
-        playButton.onClick(this::onPlayClicked);
-        menuContainer.addChild(playButton);
+        TextButton playButton = createMenuButton(skin, "Graj", MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT);
+        playButton.addListener(new ClickListener() {
+            @Override
+            public void clicked(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y) {
+                onPlayClicked();
+            }
+        });
+        menuContent.add(playButton).padBottom(1f).padTop(4f).row();
 
-        // Przycisk Multiplayer
-        ButtonWidget multiplayerButton = new ButtonWidget("Multiplayer", skin);
-        multiplayerButton.setAnchor(EAnchor.CENTER);
-        multiplayerButton.setAlignment(EAnchor.CENTER);
-        multiplayerButton.setOffset(0f, 5f);
-        multiplayerButton.setButtonSize(80f, 20f);
-        multiplayerButton.onClick(this::openMultiplayerPanel);
-        menuContainer.addChild(multiplayerButton);
+        TextButton multiplayerButton = createMenuButton(skin, "Multiplayer", MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT);
+        multiplayerButton.addListener(new ClickListener() {
+            @Override
+            public void clicked(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y) {
+                openMultiplayerPanel();
+            }
+        });
+        menuContent.add(multiplayerButton).padBottom(1f).row();
 
-        // Przycisk Options
-        ButtonWidget optionsButton = new ButtonWidget("Opcje", skin);
-        optionsButton.setAnchor(EAnchor.CENTER);
-        optionsButton.setAlignment(EAnchor.CENTER);
-        optionsButton.setOffset(0f, -20f);
-        optionsButton.setButtonSize(80f, 20f);
-        optionsButton.onClick(this::onOptionsClicked);
-        menuContainer.addChild(optionsButton);
+        TextButton optionsButton = createMenuButton(skin, "Opcje", MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT);
+        optionsButton.addListener(new ClickListener() {
+            @Override
+            public void clicked(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y) {
+                onOptionsClicked();
+            }
+        });
+        menuContent.add(optionsButton).row();
 
-        // Przycisk Quit
-        ButtonWidget quitButton = new ButtonWidget("Wyjdz", skin);
-        quitButton.setAnchor(EAnchor.CENTER);
-        quitButton.setAlignment(EAnchor.CENTER);
-        quitButton.setOffset(0f, -45f);
-        quitButton.setButtonSize(80f, 20f);
-        quitButton.onClick(this::onQuitClicked);
-        menuContainer.addChild(quitButton);
+        TextButton quitButton = createMenuButton(skin, "Wyjdz", MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT);
+        quitButton.addListener(new ClickListener() {
+            @Override
+            public void clicked(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y) {
+                onQuitClicked();
+            }
+        });
+        menuContent.add(quitButton).padTop(10f);
+
+        menuWindow.add(menuContent).pad(10f, 8f, 7f, 8f);
+        menuWindow.pack();
+        menuWindow.setSize(menuWindow.getPrefWidth(), menuWindow.getPrefHeight());
+        menuContainer.setSize(menuWindow.getWidth(), menuWindow.getHeight());
+        menuContainer.getRoot().addActor(menuWindow);
 
         addWidgetToViewport(menuContainer);
 
@@ -89,81 +104,68 @@ public class MenuPlayerController extends PlayerController {
         multiplayerPanel = new UserWidget();
         multiplayerPanel.setAnchor(EAnchor.CENTER);
         multiplayerPanel.setAlignment(EAnchor.CENTER);
-        multiplayerPanel.setSize(200f, 160f);
         multiplayerPanel.setVisibility(EVisibility.COLLAPSED);
+        Window multiplayerWindow = new Window("Siec", skin, "atlas");
+        multiplayerWindow.setMovable(false);
+        UiSkinStyles.centerWindowTitle(multiplayerWindow);
+        multiplayerWindow.getTitleLabel().setStyle(UiSkinStyles.resolveLabelStyle(skin, "font"));
 
-        // Tytuł panelu
-        TextBlock panelTitle = new TextBlock("Tryb sieciowy", skin);
-        panelTitle.setAnchor(EAnchor.TOP_CENTER);
-        panelTitle.setAlignment(EAnchor.TOP_CENTER);
-        panelTitle.setOffset(0f, -5f);
-        panelTitle.setFontScale(1.2f);
-        panelTitle.setColor(Color.CYAN);
-        multiplayerPanel.addChild(panelTitle);
-
-        // Etykieta IP
-        TextBlock ipLabel = new TextBlock("Adres IP:", skin);
-        ipLabel.setAnchor(EAnchor.TOP_CENTER);
-        ipLabel.setAlignment(EAnchor.CENTER_RIGHT);
-        ipLabel.setOffset(-5f, -40f);
-        multiplayerPanel.addChild(ipLabel);
-
-        // Pole IP
-        ipField = new TextFieldWidget("localhost", skin);
-        ipField.setText("localhost");
-        ipField.setAnchor(EAnchor.TOP_CENTER);
-        ipField.setAlignment(EAnchor.CENTER_LEFT);
-        ipField.setOffset(5f, -40f);
-        ipField.setFieldSize(90f, 16f);
-        multiplayerPanel.addChild(ipField);
-
-        // Etykieta Port
-        TextBlock portLabel = new TextBlock("Port:", skin);
-        portLabel.setAnchor(EAnchor.TOP_CENTER);
-        portLabel.setAlignment(EAnchor.CENTER_RIGHT);
-        portLabel.setOffset(-5f, -64f);
-        multiplayerPanel.addChild(portLabel);
-
-        // Pole Port
-        portField = new TextFieldWidget("54555", skin);
-        portField.setText(String.valueOf(NetworkProtocol.DEFAULT_TCP_PORT));
-        portField.setAnchor(EAnchor.TOP_CENTER);
-        portField.setAlignment(EAnchor.CENTER_LEFT);
-        portField.setOffset(5f, -64f);
-        portField.setFieldSize(90f, 16f);
-        portField.getTextField().setTextFieldFilter(new com.badlogic.gdx.scenes.scene2d.ui.TextField.TextFieldFilter.DigitsOnlyFilter());
-        multiplayerPanel.addChild(portField);
-
-        // Przycisk Połącz
-        connectButton = new ButtonWidget("Polacz", skin);
-        connectButton.setAnchor(EAnchor.CENTER);
-        connectButton.setAlignment(EAnchor.CENTER);
-        connectButton.setOffset(0f, -20f);
-        connectButton.setButtonSize(80f, 20f);
-        connectButton.onClick(this::onConnectClicked);
-        multiplayerPanel.addChild(connectButton);
-
-        // Status tekst — informuje o stanie łączenia / błędach
-        statusText = new TextBlock("", skin);
-        statusText.setAnchor(EAnchor.CENTER);
-        statusText.setAlignment(EAnchor.CENTER);
-        statusText.setOffset(0f, -6f);
+        Label ipLabel = new Label("Adres", UiSkinStyles.copyScaledLabelStyle(skin, "font", CONTENT_FONT_SCALE));
+        Label portLabel = new Label("Port", UiSkinStyles.copyScaledLabelStyle(skin, "font", CONTENT_FONT_SCALE));
+        statusText = new Label("", UiSkinStyles.copyScaledLabelStyle(skin, "font", CONTENT_FONT_SCALE));
         statusText.setColor(Color.YELLOW);
-        statusText.setFontScale(0.8f);
-        statusText.setVariable(true);
-        statusText.setVisibility(EVisibility.COLLAPSED);
-        multiplayerPanel.addChild(statusText);
+        statusText.setVisible(false);
 
-        // Przycisk Powrót
-        ButtonWidget backButton = new ButtonWidget("Powrot", skin);
-        backButton.setAnchor(EAnchor.CENTER);
-        backButton.setAlignment(EAnchor.CENTER);
-        backButton.setOffset(0f, -45f);
-        backButton.setButtonSize(80f, 20f);
-        backButton.onClick(this::closeMultiplayerPanel);
-        multiplayerPanel.addChild(backButton);
+        ipField = new TextField("", UiSkinStyles.copyCompactTextFieldStyle(skin, "atlas", "font", 24f, 14f, CONTENT_FONT_SCALE));
+        ipField.setMessageText("localhost");
+        ipField.setText("localhost");
+        ipField.setAlignment(com.badlogic.gdx.utils.Align.left);
+
+        portField = new TextField(String.valueOf(NetworkProtocol.DEFAULT_TCP_PORT),
+            UiSkinStyles.copyCompactTextFieldStyle(skin, "atlas", "font", 24f, 14f, CONTENT_FONT_SCALE));
+        portField.setMessageText("54555");
+        portField.setTextFieldFilter(new TextField.TextFieldFilter.DigitsOnlyFilter());
+        portField.setAlignment(com.badlogic.gdx.utils.Align.left);
+
+        connectButton = createMenuButton(skin, "Polacz", PANEL_BUTTON_WIDTH, PANEL_BUTTON_HEIGHT);
+        connectButton.addListener(new ClickListener() {
+            @Override
+            public void clicked(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y) {
+                onConnectClicked();
+            }
+        });
+
+        TextButton backButton = createMenuButton(skin, "Powrot", PANEL_BUTTON_WIDTH, PANEL_BUTTON_HEIGHT);
+        backButton.addListener(new ClickListener() {
+            @Override
+            public void clicked(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y) {
+                closeMultiplayerPanel();
+            }
+        });
+
+        Table form = new Table();
+        form.defaults().padBottom(4f);
+        form.add(ipLabel).left().padRight(5f);
+        form.add(ipField).width(PANEL_FIELD_WIDTH).height(PANEL_FIELD_HEIGHT).left().row();
+        form.add(portLabel).left().padRight(5f);
+        form.add(portField).width(PANEL_FIELD_WIDTH).height(PANEL_FIELD_HEIGHT).left().row();
+        form.add(connectButton).colspan(2).width(PANEL_BUTTON_WIDTH).height(PANEL_BUTTON_HEIGHT).center().padTop(2f).row();
+        form.add(statusText).colspan(2).center().padTop(1f).padBottom(1f).row();
+        form.add(backButton).colspan(2).width(PANEL_BUTTON_WIDTH).height(PANEL_BUTTON_HEIGHT).center().padTop(2f);
+
+        multiplayerWindow.add(form).pad(16f, 7f, 7f, 7f);
+        multiplayerWindow.pack();
+        multiplayerWindow.setSize(multiplayerWindow.getPrefWidth(), multiplayerWindow.getPrefHeight());
+        multiplayerPanel.setSize(multiplayerWindow.getWidth(), multiplayerWindow.getHeight());
+        multiplayerPanel.getRoot().addActor(multiplayerWindow);
 
         addWidgetToViewport(multiplayerPanel);
+
+        settingsPanel = new SettingsPanelWidget(skin);
+        settingsPanel.setAnchor(EAnchor.CENTER);
+        settingsPanel.setAlignment(EAnchor.CENTER);
+        settingsPanel.setCloseAction(this::closeSettingsPanel);
+        addWidgetToViewport(settingsPanel);
     }
 
 
@@ -182,7 +184,7 @@ public class MenuPlayerController extends PlayerController {
     }
 
     private void onOptionsClicked() {
-        Gdx.app.debug(TAG, "Options (niezaimplementowane)");
+        openSettingsPanel();
     }
 
     private void onQuitClicked() {
@@ -241,8 +243,7 @@ public class MenuPlayerController extends PlayerController {
         if (statusText != null) {
             statusText.setText(text);
             statusText.setColor(color);
-            statusText.setVisibility(EVisibility.VISIBLE);
-            statusText.updateLayout();
+            statusText.setVisible(true);
         }
     }
 
@@ -250,8 +251,35 @@ public class MenuPlayerController extends PlayerController {
         multiplayerPanel.setVisibility(EVisibility.COLLAPSED);
         menuContainer.setVisibility(EVisibility.VISIBLE);
         // reset statusu i przycisku
-        if (statusText != null) statusText.setVisibility(EVisibility.COLLAPSED);
+        if (statusText != null) statusText.setVisible(false);
         if (connectButton != null) connectButton.setDisabled(false);
+    }
+
+    private void openSettingsPanel() {
+        if (settingsPanel == null) {
+            return;
+        }
+
+        settingsPanel.refreshFromAppliedSettings();
+        settingsPanel.setVisibility(EVisibility.VISIBLE);
+        menuContainer.setVisibility(EVisibility.HIDDEN);
+        multiplayerPanel.setVisibility(EVisibility.COLLAPSED);
+    }
+
+    private void closeSettingsPanel() {
+        if (settingsPanel != null) {
+            settingsPanel.setVisibility(EVisibility.HIDDEN);
+        }
+        menuContainer.setVisibility(EVisibility.VISIBLE);
+    }
+
+    private TextButton createMenuButton(Skin skin, String text, float width, float height) {
+        TextButton button = new TextButton(text,
+            UiSkinStyles.copyCompactTextButtonStyle(skin, "atlas", "font", 18f, 14f, CONTENT_FONT_SCALE));
+        button.getLabel().setWrap(false);
+        button.getLabelCell().padBottom(0f);
+        button.setSize(width, height);
+        return button;
     }
 }
 
