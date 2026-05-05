@@ -23,7 +23,7 @@ public class TriggerActor extends AbstractActor implements OverlapListener {
     private String triggerName;
 
     /** Obrażenia zadawane graczowi na sekundę (0 = brak obrażeń) */
-    private float damagePerSecond = 1f;
+    private float damagePerSecond = 0f;
 
     /** Aktory aktualnie w strefie triggera */
     private final Set<Actor> overlappingActors = new HashSet<>();
@@ -62,6 +62,7 @@ public class TriggerActor extends AbstractActor implements OverlapListener {
     @Override
     public void tick(float delta) {
         super.tick(delta);
+        if (!hasAuthority()) return; // damage only applied by server/singleplayer
 
         // Zadawaj obrażenia graczom przebywającym w strefie
         //TODO: trzeba poprawić żeby nie było apply damage w kazdym ticku mnożone przez delte, tylko jednorazowy apply

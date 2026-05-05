@@ -30,6 +30,9 @@ import com.polsl.poiw.engine.ui.EAnchor;
 import com.polsl.poiw.engine.ui.EVisibility;
 import com.polsl.poiw.engine.ui.TextBlock;
 import com.polsl.poiw.engine.world.GameWorld;
+import com.polsl.poiw.engine.net.driver.NetDriver;
+import com.polsl.poiw.engine.net.prediction.InterpolationSystem;
+import com.polsl.poiw.engine.net.replication.ClientReplicationHandler;
 import com.polsl.poiw.input.GameControllerState;
 import com.polsl.poiw.input.KeyboardController;
 
@@ -83,6 +86,13 @@ public class WorldContext implements Disposable {
     // ===== Stan =====
     private boolean initialized = false;
 
+    // ===== Networking (multiplayer client) =====
+    private NetDriver netDriver;
+    private ClientReplicationHandler replicationHandler;
+    private InterpolationSystem interpolationSystem;
+    private com.polsl.poiw.engine.net.prediction.NetworkClock networkClock;
+    private com.polsl.poiw.engine.net.prediction.ClientPrediction clientPrediction;
+
     public WorldContext(Main game, LevelDefinition levelDef) {
         this.game = game;
         this.levelDef = levelDef;
@@ -103,6 +113,12 @@ public class WorldContext implements Disposable {
         Stage hudStage = new Stage(new FitViewport(320f, 180f), game.getBatch());
         this.hud = new HUD(hudStage);
 
+        // in multiplayer: client generates negative IDs BEFORE loading the map
+        // so that actors from TiledMap dont collide with positive IDs from the server
+        if (game.getGameInstance().isMultiplayer() && levelDef.isGameWorld()) {
+            com.polsl.poiw.engine.actor.ActorIdGenerator.setServerMode(false);
+        }
+
         if (levelDef.isGameWorld()) {
             initializeGameWorld();
         }
@@ -122,8 +138,168 @@ public class WorldContext implements Disposable {
         // Input
         configureInput();
 
+        // Multiplayer client: connect with server
+        if (game.getGameInstance().isMultiplayer() && levelDef.isGameWorld()) {
+            initializeMultiplayer();
+        }
+
         initialized = true;
         Gdx.app.debug(TAG, "Zainicjalizowano: " + levelDef.getLevelId());
+    }
+
+    /**
+     * re-uses the existing NetDriver from GameInstance (connection already established).
+     * sets up replication handler, actor factory, and gameplay message handlers.
+     * connection was already made in GameInstance.connectToServer() — we only attach gameplay handlers here.
+     */
+    private void initializeMultiplayer() {
+        var gi = game.getGameInstance();
+
+        // re-use NetDriver from GameInstance (created during connectToServer())
+        netDriver = gi.getNetDriver();
+        if (netDriver == null) {
+            Gdx.app.error(TAG, "NetDriver is null — connection was not established");
+            return;
+        }
+
+        replicationHandler = new ClientReplicationHandler(gameWorld, gi.getLocalPlayerId());
+
+        // actor factory — client configures actors with atlas (sprite, collision etc.)
+        replicationHandler.setActorFactory((actorClass, initialProps) -> {
+            try {
+                Class<?> clazz = Class.forName(actorClass);
+                var actor = (com.polsl.poiw.engine.actor.AbstractActor) clazz.getDeclaredConstructor().newInstance();
+                if (actor instanceof com.polsl.poiw.gameplay.character.PlayerCharacter pc) {
+                    TextureAtlas atlas = game.getAssetService().get(AtlasAsset.OBJECTS);
+                    pc.configure(atlas);
+                }
+                return actor;
+            } catch (Exception e) {
+                Gdx.app.error(TAG, "Cannot create actor: " + actorClass, e);
+                return null;
+            }
+        });
+
+        // attach InterpolationSystem so that replicationHandler can feed snapshots
+        if (interpolationSystem != null) {
+            replicationHandler.setInterpolationSystem(interpolationSystem);
+        }
+
+        // override message handler — gameplay messages (ActorSpawn, BatchUpdate, etc.)
+        netDriver.setMessageHandler((connectionId, message) -> handleNetworkMessage(message));
+        netDriver.setDisconnectHandler(connectionId -> {
+            Gdx.app.log(TAG, "Rozłączono z serwerem w trakcie gry");
+            gi.returnToMenu("Utracono polaczenie z serwerem");
+        });
+
+        // give PlayerController access to ClientPrediction for saveMove()
+        if (clientPrediction != null) {
+            playerController.setClientPrediction(clientPrediction);
+        }
+    }
+
+
+    // handles network messages on the client during gameplay.
+    private void handleNetworkMessage(Object message) {
+        var gi = game.getGameInstance();
+
+        if (message instanceof com.polsl.poiw.shared.protocol.NetworkProtocol.ServerAccept accept) {
+            // ServerAccept already handled in GameInstance.connectToServer() —
+            // but keep graceful handling if WorldContext receives it (e.g. after travel)
+            gi.setLocalPlayerId(accept.assignedPlayerId);
+            gi.setServerTime(accept.serverTime);
+            playerController.setPlayerId(accept.assignedPlayerId);
+            var oldFactory = replicationHandler.getActorFactory();
+            var oldInterp = replicationHandler.getInterpolationSystem();
+            replicationHandler = new ClientReplicationHandler(gameWorld, accept.assignedPlayerId);
+            if (oldFactory != null) replicationHandler.setActorFactory(oldFactory);
+            if (oldInterp != null) replicationHandler.setInterpolationSystem(oldInterp);
+            Gdx.app.log(TAG, "Zaakceptowany przez serwer, playerId=" + accept.assignedPlayerId);
+
+        } else if (message instanceof com.polsl.poiw.shared.protocol.NetworkProtocol.ServerReject reject) {
+            Gdx.app.error(TAG, "Serwer odrzucił połączenie: " + reject.reason);
+            gi.returnToMenu("Serwer odrzucil: " + reject.reason);
+
+        } else if (message instanceof com.polsl.poiw.shared.protocol.NetworkProtocol.ActorSpawn spawn) {
+            replicationHandler.handleActorSpawn(spawn);
+            var actor = gameWorld.getActorById(spawn.actorId);
+            if (actor != null) {
+                if (spawn.ownerId == gi.getLocalPlayerId()) {
+                    playerController.possess(actor);
+                } else {
+                    actor.removeComponent(com.polsl.poiw.engine.component.CameraFollowComponent.class);
+                }
+            }
+
+        } else if (message instanceof com.polsl.poiw.shared.protocol.NetworkProtocol.ActorDestroy destroy) {
+            if (interpolationSystem != null) interpolationSystem.removeInterpolator(destroy.actorId);
+            replicationHandler.handleActorDestroy(destroy);
+
+        } else if (message instanceof com.polsl.poiw.shared.protocol.NetworkProtocol.BatchReplicationUpdate batch) {
+            replicationHandler.handleBatchUpdate(batch);
+
+        } else if (message instanceof com.polsl.poiw.shared.protocol.NetworkProtocol.BatchMovementSnapshot moveBatch) {
+            handleMovementBatch(moveBatch);
+
+        } else if (message instanceof com.polsl.poiw.shared.protocol.NetworkProtocol.ServerPositionCorrection correction) {
+            var actor = gameWorld.getActorById(correction.actorId);
+            if (actor == null) return;
+
+            if (actor.getNetRole() == com.polsl.poiw.engine.actor.NetRole.AUTONOMOUS_PROXY) {
+                // reconciliation for local player
+                if (clientPrediction != null) {
+                    var collision = actor.getComponentByType(
+                        com.polsl.poiw.engine.collision.CollisionComponent.class);
+                    if (collision != null && collision.getBody() != null) {
+                        clientPrediction.reconcile(correction.x, correction.y,
+                            correction.velX, correction.velY,
+                            correction.lastProcessedInput, collision.getBody());
+                    }
+                }
+            } else if (actor.getNetRole() == com.polsl.poiw.engine.actor.NetRole.SIMULATED_PROXY) {
+                // feed interpolation for remote players
+                if (interpolationSystem != null) {
+                    interpolationSystem.addSnapshot(correction.actorId, correction.serverTime,
+                        correction.x, correction.y, correction.velX, correction.velY);
+                }
+            }
+
+        } else if (message instanceof com.polsl.poiw.shared.protocol.NetworkProtocol.Pong pong) {
+            float ping = (System.currentTimeMillis() - pong.clientTimestamp) / 1000f;
+            gi.setServerTime(pong.serverTimestamp / 1000f);
+
+        } else if (message instanceof com.polsl.poiw.shared.protocol.NetworkProtocol.ServerTravel travel) {
+            Gdx.app.log(TAG, "ServerTravel received: " + travel.levelId);
+            gi.clientTravel(travel.levelId, gi.getServerHost());
+        }
+    }
+
+    /**
+     * obsługuje batch snapshotów ruchu z serwera (UDP).
+     * SIMULATED_PROXY → InterpolationSystem (remote players).
+     * AUTONOMOUS_PROXY nie jest tutaj obsługiwany — reconciliation przez ServerPositionCorrection.
+     */
+    private void handleMovementBatch(com.polsl.poiw.shared.protocol.NetworkProtocol.BatchMovementSnapshot batch) {
+        if (batch.snapshots == null) return;
+
+        // update network clock with server time
+        if (networkClock != null) {
+            networkClock.onServerTimeReceived(batch.serverTime);
+        }
+
+        for (var snapshot : batch.snapshots) {
+            var actor = gameWorld.getActorById(snapshot.actorId);
+            if (actor == null) continue;
+
+            if (actor.getNetRole() == com.polsl.poiw.engine.actor.NetRole.SIMULATED_PROXY) {
+                // feed interpolation system
+                if (interpolationSystem != null) {
+                    interpolationSystem.addSnapshot(snapshot.actorId, batch.serverTime,
+                        snapshot.x, snapshot.y, snapshot.velX, snapshot.velY);
+                }
+            }
+            // AUTONOMOUS_PROXY — skip; reconciliation is handled by ServerPositionCorrection
+        }
     }
 
     /**
@@ -155,6 +331,15 @@ public class WorldContext implements Disposable {
         gameWorld.addSystem(new CollisionSystem(gameWorld.getBox2dWorld()));
         gameWorld.addSystem(new ControllerSystem());
         gameWorld.addSystem(new MovementSystem());
+
+        // in multiplayer the client adds InterpolationSystem + NetworkClock + ClientPrediction
+        if (game.getGameInstance().isMultiplayer()) {
+            networkClock = new com.polsl.poiw.engine.net.prediction.NetworkClock();
+            clientPrediction = new com.polsl.poiw.engine.net.prediction.ClientPrediction();
+            interpolationSystem = new InterpolationSystem();
+            interpolationSystem.setNetworkClock(networkClock);
+            gameWorld.addSystem(interpolationSystem);
+        }
 
         cameraSystem = new CameraSystem(game.getCamera());
         gameWorld.addSystem(cameraSystem);
@@ -234,6 +419,16 @@ public class WorldContext implements Disposable {
     public void update(float delta) {
         delta = Math.min(delta, 1f / 30f);
 
+        // update network clock
+        if (networkClock != null) {
+            networkClock.update(delta);
+        }
+
+        // process network messages (main thread!)
+        if (netDriver != null) {
+            netDriver.processMessages();
+        }
+
         // F3 — debug rendering (tylko w GAME world)
         if (debugRenderSystem != null && Gdx.input.isKeyJustPressed(Input.Keys.F3)) {
             debugRenderSystem.toggle();
@@ -244,14 +439,58 @@ public class WorldContext implements Disposable {
             }
         }
 
+        // F4 - network debug info
+        if (Gdx.input.isKeyJustPressed(Input.Keys.F4) && gameWorld != null) {
+            var gi = game.getGameInstance();
+            Gdx.app.log(TAG, "=== NETWORK DEBUG ===");
+            Gdx.app.log(TAG, "PlayerId=" + gi.getLocalPlayerId()
+                + " connected=" + gi.isConnected()
+                + " multiplayer=" + gi.isMultiplayer());
+            int totalActors = 0;
+            for (var a : gameWorld.getAllActors()) {
+                totalActors++;
+                var p = a.getPosition();
+                boolean hasSprite = a.getComponentByType(
+                    com.polsl.poiw.engine.component.SpriteComponent.class) != null;
+                boolean hasTransform = a.getComponentByType(
+                    com.polsl.poiw.engine.component.TransformComponent.class) != null;
+                int compCount = 0;
+                StringBuilder compNames = new StringBuilder();
+                for (var comp : a.getAshleyEntity().getComponents()) {
+                    compCount++;
+                    if (compNames.length() > 0) compNames.append(", ");
+                    compNames.append(comp.getClass().getSimpleName());
+                }
+                Gdx.app.log(TAG, "  Actor #" + a.getActorId()
+                    + " class=" + a.getClass().getSimpleName()
+                    + " role=" + a.getNetRole()
+                    + " owner=" + a.getOwnerId()
+                    + " pos=(" + String.format("%.2f", p.x) + "," + String.format("%.2f", p.y) + ")"
+                    + " sprite=" + hasSprite
+                    + " transform=" + hasTransform
+                    + " comps(" + compCount + ")=[" + compNames + "]");
+            }
+            Gdx.app.log(TAG, "Total actors in world: " + totalActors);
+            if (networkClock != null) {
+                Gdx.app.log(TAG, "NetworkClock renderTime=" + networkClock.getRenderTime());
+            }
+            if (netDriver != null) {
+                var ping = new com.polsl.poiw.shared.protocol.NetworkProtocol.Ping();
+                ping.clientTimestamp = System.currentTimeMillis();
+                netDriver.sendToServer(ping, false);
+                Gdx.app.debug(TAG, "Sent debug ping to server");
+            }
+            Gdx.app.log(TAG, "=== END NETWORK DEBUG ===");
+        }
+
         // GameWorld tick (fizyka, aktorzy, systemy Ashley)
         if (gameWorld != null) {
             gameWorld.update(delta);
         }
 
         // GameMode i PlayerController tick
-        gameMode.tick(delta);
-        playerController.tick(delta);
+        if (gameMode != null) gameMode.tick(delta);
+        if (playerController != null) playerController.tick(delta);
 
         // HUD tick i act
         updateDebugHud(delta);
@@ -313,6 +552,8 @@ public class WorldContext implements Disposable {
             playerController.destroy();
             playerController = null;
         }
+        // NetDriver is owned by GameInstance — do not dispose here
+        netDriver = null;
         if (gameMode != null) {
             gameMode.endGame();
             gameMode = null;

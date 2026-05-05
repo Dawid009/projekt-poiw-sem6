@@ -11,8 +11,15 @@ application.mainClass = 'com.polsl.poiw.server.ServerLauncher'
 application.applicationName = appName
 eclipse.project.name = appName + '-server'
 
-dependencies {
+sourceSets.main.resources.srcDirs += [ rootProject.file('assets').path ]
 
+dependencies {
+    api project(':shared')
+    api project(':core')
+    api "com.badlogicgames.gdx:gdx-backend-headless:$gdxVersion"
+    api "com.badlogicgames.gdx:gdx-box2d:$gdxVersion"
+    api "com.badlogicgames.gdx:gdx-box2d-platform:$gdxVersion:natives-desktop"
+    api "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-desktop"
 }
 
 jar {

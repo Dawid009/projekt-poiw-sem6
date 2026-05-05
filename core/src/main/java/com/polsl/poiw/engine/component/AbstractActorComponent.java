@@ -2,6 +2,7 @@ package com.polsl.poiw.engine.component;
 
 import com.polsl.poiw.engine.actor.Actor;
 import com.polsl.poiw.engine.actor.ActorComponent;
+import com.polsl.poiw.engine.net.replication.ReplicationInfo;
 
 public abstract class AbstractActorComponent implements ActorComponent {
 
@@ -51,6 +52,8 @@ public abstract class AbstractActorComponent implements ActorComponent {
      * @param propertyName nazwa pola (musi pasować do @Replicated field name)
      */
     protected void markDirty(String propertyName) {
-        // Logika dirty-tracking zostanie dodana później.
+        if (!replicated) return;
+        ReplicationInfo info = ReplicationInfo.scan(this.getClass());
+        info.forceDirty(propertyName);
     }
 }

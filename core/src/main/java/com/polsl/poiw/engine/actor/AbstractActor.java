@@ -11,7 +11,7 @@ import java.util.Map;
 public abstract class AbstractActor implements Actor {
 
     // Unikalny identyfikator (generowany przez ActorIdGenerator)
-    private final int actorId;
+    private int actorId;
 
     // Wewnętrzny Ashley Entity — przechowuje te same komponenty co Actor
     private final Entity ashleyEntity;
@@ -29,6 +29,9 @@ public abstract class AbstractActor implements Actor {
 
     // ID gracza-właściciela (-1 = brak właściciela, np. wróg kontrolowany przez serwer)
     private int ownerId;
+
+    // is the actor replicated over network?
+    private boolean replicated = false;
 
     // Referencja do świata gry
     private GameWorld world;
@@ -126,6 +129,16 @@ public abstract class AbstractActor implements Actor {
     public int getActorId() { return actorId; }
 
     /**
+     * Nadpisuje actorId — używane TYLKO przez GameWorld.spawnActorWithId()
+     * przy replikacji aktorów z serwera.
+     */
+    /**
+     * overwrites the actor id - used ONLY by GameWorld.spawnActorWithId()
+     * during replication of actors from the server
+     */
+    public void overrideActorId(int newId) { this.actorId = newId; }
+
+    /**
      * Zwraca pozycję Actora w świecie (w metrach Box2D).
      * Deleguje do TransformComponent jeśli istnieje (single source of truth).
      */
@@ -163,6 +176,22 @@ public abstract class AbstractActor implements Actor {
 
     @Override
     public void setOwnerId(int ownerId) { this.ownerId = ownerId; }
+
+    @Override
+    public boolean hasAuthority() {
+        return netRole == NetRole.AUTHORITY || netRole == NetRole.NONE;
+    }
+
+    @Override
+    public boolean isLocallyControlled() {
+        return netRole == NetRole.AUTONOMOUS_PROXY || netRole == NetRole.NONE;
+    }
+
+    @Override
+    public boolean isReplicated() { return replicated; }
+
+    @Override
+    public void setReplicated(boolean replicated) { this.replicated = replicated; }
 
     @Override
     public Entity getAshleyEntity() { return ashleyEntity; }

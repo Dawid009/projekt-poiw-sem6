@@ -3,8 +3,10 @@ package com.polsl.poiw.engine.system;
 import com.badlogic.ashley.core.Entity;
 import com.badlogic.ashley.core.Family;
 import com.badlogic.ashley.systems.IteratingSystem;
+import com.polsl.poiw.engine.actor.NetRole;
 import com.polsl.poiw.engine.component.ControllerComponent;
 import com.polsl.poiw.engine.component.MovementComponent;
+import com.polsl.poiw.engine.component.TransformComponent;
 import com.polsl.poiw.input.Command;
 
 /**
@@ -21,6 +23,12 @@ public class ControllerSystem extends IteratingSystem {
 
     @Override
     protected void processEntity(Entity entity, float deltaTime) {
+        // SIMULATED_PROXY doesnt process local input
+        TransformComponent tc = TransformComponent.MAPPER.get(entity);
+        if (tc != null && tc.getOwner() != null && tc.getOwner().getNetRole() == NetRole.SIMULATED_PROXY) {
+            return;
+        }
+
         ControllerComponent controller = ControllerComponent.MAPPER.get(entity);
         if (controller.getPressedCommands().isEmpty() && controller.getReleasedCommands().isEmpty()) {
             return;

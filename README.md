@@ -32,6 +32,19 @@ Wrapper Gradle jest już dołączony, więc można uruchamiać zadania za pomoc�
 - `backend:run`: uruchamia aplikację backendu.
 - `test`: uruchamia testy jednostkowe (jeśli istnieją).
 
+### Flagi serwera (przekazywane przez `--args`):
+
+| Flaga | Domyślnie | Opis |
+|---|---|---|
+| `--tcp-port <port>` | `54555` | Port TCP |
+| `--udp-port <port>` | `54777` | Port UDP |
+| `--max-players <n>` | `4` | Maksymalna liczba graczy |
+
+Przykład uruchomienia z niestandardowymi portami:
+```sh
+./gradlew server:run --args="--tcp-port 7777 --udp-port 7778 --max-players 8"
+```
+
 Większość zadań, które nie są przypisane do konkretnego projektu, można uruchamiać z prefiksem `name:` — gdzie `name` to identyfikator projektu.
 
 Na przykład: `core:clean` usuwa folder `build` tylko z projektu `core`.
