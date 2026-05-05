@@ -1,13 +1,25 @@
 package com.polsl.poiw.gameplay.gamemode;
 
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.math.Vector2;
 import com.polsl.poiw.engine.actor.Actor;
 import com.polsl.poiw.engine.binding.BindingHandle;
+import com.polsl.poiw.engine.component.InventoryComponent;
+import com.polsl.poiw.engine.component.TransformComponent;
 import com.polsl.poiw.engine.gameframework.PlayerController;
 import com.polsl.poiw.engine.ui.EAnchor;
+import com.polsl.poiw.engine.ui.EVisibility;
+import com.polsl.poiw.engine.ui.InventoryPanelWidget;
 import com.polsl.poiw.engine.ui.ProgressBarWidget;
 import com.polsl.poiw.engine.ui.TextBlock;
+import com.polsl.poiw.engine.world.GameWorld;
+import com.polsl.poiw.engine.inventory.InventoryStack;
+import com.polsl.poiw.engine.inventory.ItemDefinition;
+import com.polsl.poiw.gameplay.actor.ItemPickupActor;
 import com.polsl.poiw.gameplay.character.PlayerCharacter;
+import com.polsl.poiw.gameplay.item.GameplayItems;
 
 /**
  * Controller gracza — tworzy HUD z wyświetlaniem HP
@@ -17,8 +29,10 @@ public class MainPlayerController extends PlayerController {
 
     private TextBlock hpText;
     private ProgressBarWidget progressBar;
+    private InventoryPanelWidget inventoryPanel;
     private BindingHandle healthBinding;
     private BindingHandle maxHealthBinding;
+    private BindingHandle inventoryBinding;
 
     /** Aktualne wartości do formatowania tekstu */
     private float currentHp = 0f;
@@ -47,6 +61,23 @@ public class MainPlayerController extends PlayerController {
         progressBar.addChild(hpText);
 
         addWidgetToViewport(progressBar);
+
+        inventoryPanel = new InventoryPanelWidget(getSkin());
+        inventoryPanel.setAnchor(EAnchor.CENTER);
+        inventoryPanel.setAlignment(EAnchor.CENTER);
+        inventoryPanel.setOffset(0f, 0f);
+        inventoryPanel.setActionListener(new InventoryPanelWidget.InventoryActionListener() {
+            @Override
+            public void onUseRequested(String itemId) {
+                useSelectedItem(itemId);
+            }
+
+            @Override
+            public void onDropRequested(String itemId) {
+                dropSelectedItem(itemId);
+            }
+        });
+        addWidgetToViewport(inventoryPanel);
     }
 
     @Override
@@ -61,6 +92,7 @@ public class MainPlayerController extends PlayerController {
                 currentMaxHp = val;
                 updateHpText();
             });
+            inventoryBinding = player.getInventoryRevision().bind(revision -> inventoryPanel.setItems(player.getInventoryItems()));
         }
     }
 
@@ -74,12 +106,27 @@ public class MainPlayerController extends PlayerController {
             maxHealthBinding.unbind();
             maxHealthBinding = null;
         }
+        if (inventoryBinding != null) {
+            inventoryBinding.unbind();
+            inventoryBinding = null;
+        }
+        if (inventoryPanel != null) {
+            inventoryPanel.setItems(java.util.List.of());
+            inventoryPanel.setVisibility(EVisibility.HIDDEN);
+        }
     }
 
     @Override
     public void destroy() {
         onUnpossess();
         super.destroy();
+    }
+
+    @Override
+    public void tick(float delta) {
+        super.tick(delta);
+        handleInventoryToggle();
+        handleDebugItemSpawn();
     }
 
     private void updateHpText() {
@@ -99,5 +146,93 @@ public class MainPlayerController extends PlayerController {
                 hpText.setColor(Color.RED);
             }
         }
+    }
+
+    private void handleInventoryToggle() {
+        if (inventoryPanel == null || Gdx.input == null) {
+            return;
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.E)) {
+            inventoryPanel.setVisibility(inventoryPanel.isVisible()
+                ? EVisibility.HIDDEN
+                : EVisibility.VISIBLE);
+        }
+    }
+
+    private void handleDebugItemSpawn() {
+        if (!(getPossessedPawn() instanceof PlayerCharacter player) || !player.hasAuthority()) {
+            return;
+        }
+
+        spawnDebugItemIfPressed(player, Input.Keys.NUM_1, 0);
+        spawnDebugItemIfPressed(player, Input.Keys.NUM_2, 1);
+        spawnDebugItemIfPressed(player, Input.Keys.NUM_3, 2);
+        spawnDebugItemIfPressed(player, Input.Keys.NUM_4, 3);
+    }
+
+    private void spawnDebugItemIfPressed(PlayerCharacter player, int keycode, int debugSlot) {
+        if (!Gdx.input.isKeyJustPressed(keycode)) {
+            return;
+        }
+
+        ItemDefinition item = GameplayItems.getDebugItem(debugSlot);
+        if (item != null) {
+            spawnItemNearPlayer(player, item, 1, 0.2f, 0.25f);
+        }
+    }
+
+    private void useSelectedItem(String itemId) {
+        if (!(getPossessedPawn() instanceof PlayerCharacter player) || !player.hasAuthority()) {
+            return;
+        }
+
+        InventoryComponent inventory = player.getInventoryComponent();
+        if (inventory != null) {
+            inventory.useItem(itemId);
+        }
+    }
+
+    private void dropSelectedItem(String itemId) {
+        if (!(getPossessedPawn() instanceof PlayerCharacter player) || !player.hasAuthority()) {
+            return;
+        }
+
+        InventoryComponent inventory = player.getInventoryComponent();
+        if (inventory == null) {
+            return;
+        }
+
+        InventoryStack stack = inventory.getStack(itemId);
+        if (stack == null) {
+            return;
+        }
+
+        if (inventory.removeItem(itemId, 1) > 0) {
+            spawnItemNearPlayer(player, stack.getDefinition(), 1, 0.35f, 0.45f);
+        }
+    }
+
+    private void spawnItemNearPlayer(PlayerCharacter player, ItemDefinition item, int quantity,
+                                     float heightOffset, float pickupGraceSeconds) {
+        GameWorld world = getWorld();
+        if (world == null) {
+            return;
+        }
+
+        TransformComponent transform = player.getComponent(TransformComponent.class);
+        Vector2 playerPosition = player.getPosition();
+        float playerWidth = transform != null ? transform.getSize().x : 1f;
+        float playerHeight = transform != null ? transform.getSize().y : 1f;
+        float itemSize = 0.5f;
+
+        Vector2 spawnPosition = new Vector2(
+            playerPosition.x + playerWidth * 0.5f - itemSize * 0.5f,
+            playerPosition.y + playerHeight + heightOffset
+        );
+
+        ItemPickupActor pickupActor = new ItemPickupActor();
+        pickupActor.configure(item, quantity, getSkin());
+        pickupActor.setPickupGrace(player.getActorId(), pickupGraceSeconds);
+        world.spawnActor(pickupActor, spawnPosition);
     }
 }

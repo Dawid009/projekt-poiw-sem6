@@ -11,6 +11,9 @@ import com.polsl.poiw.engine.binding.PropertyBinding;
 import com.polsl.poiw.engine.collision.BoxCollisionComponent;
 import com.polsl.poiw.engine.collision.CollisionProfile;
 import com.polsl.poiw.engine.component.*;
+import com.polsl.poiw.engine.inventory.InventoryStack;
+
+import java.util.List;
 
 /**
  * Postać gracza — podstawowy Actor z komponentami ruchu, grafiki, kamery i kolizji.
@@ -48,6 +51,7 @@ public class PlayerCharacter extends AbstractActor {
         addComponent(new MovementComponent(PLAYER_SPEED));
         addComponent(new ControllerComponent());
         addComponent(new HealthComponent(MAX_HEALTH, MAX_HEALTH));
+        addComponent(new InventoryComponent());
 
         float ppm = 16f;
         float collHalfW = 9f / 2f / ppm;
@@ -86,6 +90,7 @@ public class PlayerCharacter extends AbstractActor {
         addComponent(new CameraFollowComponent());
         addComponent(new ControllerComponent());
         addComponent(new HealthComponent(MAX_HEALTH, MAX_HEALTH));
+        addComponent(new InventoryComponent());
 
         // Kolizja gracza — kształt z objects.tsx: x=11,y=18,w=9,h=5 px (sprite 32x32)
         float ppm = 16f;
@@ -142,5 +147,19 @@ public class PlayerCharacter extends AbstractActor {
     public PropertyBinding<Float> getMaxHealth() {
         HealthComponent hc = getComponent(HealthComponent.class);
         return hc != null ? hc.getMaxHealthProperty() : new PropertyBinding<>(0f);
+    }
+
+    public InventoryComponent getInventoryComponent() {
+        return getComponent(InventoryComponent.class);
+    }
+
+    public PropertyBinding<Integer> getInventoryRevision() {
+        InventoryComponent inventory = getInventoryComponent();
+        return inventory != null ? inventory.getRevisionBinding() : new PropertyBinding<>(0);
+    }
+
+    public List<InventoryStack> getInventoryItems() {
+        InventoryComponent inventory = getInventoryComponent();
+        return inventory != null ? inventory.getItemsSnapshot() : List.of();
     }
 }

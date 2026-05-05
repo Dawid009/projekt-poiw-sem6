@@ -2,6 +2,7 @@ package com.polsl.poiw.engine.ui;
 
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.scenes.scene2d.ui.Button;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.ProgressBar;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
@@ -36,6 +37,10 @@ final class UiSkinStyles {
 
     static TextButton.TextButtonStyle copyTextButtonStyle(Skin skin, String styleName) {
         return new TextButton.TextButtonStyle(skin.get(styleName, TextButton.TextButtonStyle.class));
+    }
+
+    static Button.ButtonStyle copyButtonStyle(Skin skin, String styleName) {
+        return new Button.ButtonStyle(skin.get(styleName, Button.ButtonStyle.class));
     }
 
     static TextField.TextFieldStyle copyTextFieldStyle(Skin skin, String styleName) {

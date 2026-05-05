@@ -1,0 +1,322 @@
+package com.polsl.poiw.engine.ui;
+
+import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.scenes.scene2d.ui.Button;
+import com.badlogic.gdx.scenes.scene2d.ui.Cell;
+import com.badlogic.gdx.scenes.scene2d.ui.Image;
+import com.badlogic.gdx.scenes.scene2d.ui.Label;
+import com.badlogic.gdx.scenes.scene2d.ui.Skin;
+import com.badlogic.gdx.scenes.scene2d.ui.Stack;
+import com.badlogic.gdx.scenes.scene2d.ui.Table;
+import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
+import com.badlogic.gdx.scenes.scene2d.ui.Window;
+import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
+import com.badlogic.gdx.utils.Scaling;
+import com.badlogic.gdx.utils.Align;
+import com.polsl.poiw.engine.inventory.InventoryStack;
+import com.polsl.poiw.engine.inventory.ItemDefinition;
+
+import java.util.List;
+
+public class InventoryPanelWidget extends UserWidget {
+
+    private static final int GRID_COLUMNS = 8;
+    private static final int VISIBLE_ROWS = 4;
+    private static final int MIN_VISIBLE_SLOTS = GRID_COLUMNS * VISIBLE_ROWS;
+    private static final float SLOT_SIZE = 14f;
+    private static final float SLOT_PADDING = 0.5f;
+    private static final float ICON_SIZE = 8f;
+    private static final float GRID_PADDING = 1f;
+    private static final float BUTTON_WIDTH = 34f;
+    private static final float BUTTON_HEIGHT = 12f;
+    private static final float TOOLTIP_MIN_WIDTH = 56f;
+    private static final float TOOLTIP_MAX_WIDTH = 120f;
+    private static final float TOOLTIP_OFFSET_X = 8f;
+    private static final float TOOLTIP_OFFSET_Y = 10f;
+
+    public interface InventoryActionListener {
+        void onUseRequested(String itemId);
+        void onDropRequested(String itemId);
+    }
+
+    private final Skin skin;
+    private final Window window;
+    private final Table itemsTable;
+    private final Label titleLabel;
+    private final Table tooltipTable;
+    private final Label tooltipNameLabel;
+    private final Label tooltipDescLabel;
+    private final Cell<Label> tooltipDescCell;
+    private final TextButton useButton;
+    private final TextButton dropButton;
+    private final Vector2 stagePoint = new Vector2();
+
+    private List<InventoryStack> items = List.of();
+    private String selectedItemId;
+    private InventoryActionListener actionListener;
+
+    public InventoryPanelWidget(Skin skin) {
+        super();
+        this.skin = skin;
+        this.window = new Window("", skin);
+        this.window.setMovable(false);
+        this.window.defaults().pad(1f);
+        this.window.getTitleTable().clearChildren();
+
+        this.itemsTable = new Table();
+        this.itemsTable.top().left();
+
+        Label.LabelStyle titleStyle = UiSkinStyles.resolveLabelStyle(skin, "default");
+        this.titleLabel = new Label("Ekwipunek", titleStyle);
+        this.titleLabel.setColor(Color.WHITE);
+        this.titleLabel.setFontScale(0.55f);
+        this.titleLabel.setAlignment(Align.left);
+
+        Label.LabelStyle tooltipNameStyle = UiSkinStyles.resolveLabelStyle(skin, "list");
+        this.tooltipNameLabel = new Label("", tooltipNameStyle);
+        this.tooltipNameLabel.setFontScale(0.72f);
+
+        Label.LabelStyle tooltipDescStyle = UiSkinStyles.resolveLabelStyle(skin, "list");
+        this.tooltipDescLabel = new Label("", tooltipDescStyle);
+        this.tooltipDescLabel.setWrap(true);
+        this.tooltipDescLabel.setFontScale(0.58f);
+
+        this.tooltipTable = new Table();
+        this.tooltipTable.setBackground(skin.getDrawable("list"));
+        this.tooltipTable.defaults().left();
+        this.tooltipTable.add(tooltipNameLabel).left().row();
+        this.tooltipDescCell = this.tooltipTable.add(tooltipDescLabel).left();
+        this.tooltipTable.setVisible(false);
+
+        this.useButton = new TextButton("Uzyj", UiSkinStyles.copyTextButtonStyle(skin, "default"));
+        this.dropButton = new TextButton("Wyrzuc", UiSkinStyles.copyTextButtonStyle(skin, "default"));
+        this.useButton.getLabel().setFontScale(0.6f);
+        this.dropButton.getLabel().setFontScale(0.6f);
+
+        Table buttonRow = new Table();
+        buttonRow.defaults().width(BUTTON_WIDTH).height(BUTTON_HEIGHT).padTop(1f);
+        buttonRow.add(useButton).padRight(3f);
+        buttonRow.add(dropButton);
+
+        Table gridContainer = new Table();
+        gridContainer.setBackground(skin.getDrawable("list"));
+        gridContainer.add(itemsTable).pad(GRID_PADDING);
+
+        Table content = new Table();
+        content.defaults().left();
+        content.add(titleLabel).left().padLeft(1f).padTop(1f).padBottom(1f).row();
+        content.add(gridContainer).left().padBottom(1f).row();
+        content.add(buttonRow).right().padBottom(1f);
+
+        window.add(content).pad(2f);
+        window.pack();
+
+        addActor(window);
+        addActor(tooltipTable);
+        syncSize();
+        wireButtons();
+        setVisibility(EVisibility.HIDDEN);
+    }
+
+    public void setActionListener(InventoryActionListener actionListener) {
+        this.actionListener = actionListener;
+    }
+
+    public void setItems(List<InventoryStack> items) {
+        this.items = items != null ? List.copyOf(items) : List.of();
+
+        if (selectedItemId != null && getSelectedStack() == null) {
+            selectedItemId = null;
+        }
+
+        rebuildItems();
+    }
+
+    public String getSelectedItemId() {
+        return selectedItemId;
+    }
+
+    private void wireButtons() {
+        useButton.addListener(new ClickListener() {
+            @Override
+            public void clicked(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y) {
+                if (actionListener != null && selectedItemId != null) {
+                    actionListener.onUseRequested(selectedItemId);
+                }
+            }
+        });
+
+        dropButton.addListener(new ClickListener() {
+            @Override
+            public void clicked(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y) {
+                if (actionListener != null && selectedItemId != null) {
+                    actionListener.onDropRequested(selectedItemId);
+                }
+            }
+        });
+
+        updateActionButtons();
+    }
+
+    private void rebuildItems() {
+        itemsTable.clearChildren();
+
+        int slotCount = MIN_VISIBLE_SLOTS;
+        for (int index = 0; index < slotCount; index++) {
+            InventoryStack stack = index < items.size() ? items.get(index) : null;
+            itemsTable.add(createSlot(stack))
+                .size(SLOT_SIZE, SLOT_SIZE)
+                .pad(SLOT_PADDING);
+
+            if ((index + 1) % GRID_COLUMNS == 0) {
+                itemsTable.row();
+            }
+        }
+
+        itemsTable.pack();
+        updateActionButtons();
+        syncSize();
+    }
+
+    private Button createSlot(InventoryStack stack) {
+        if (stack == null) {
+            Button emptyButton = new Button(UiSkinStyles.copyButtonStyle(skin, "default"));
+            emptyButton.setDisabled(true);
+            return emptyButton;
+        }
+
+        ItemDefinition definition = stack.getDefinition();
+        Button.ButtonStyle style = UiSkinStyles.copyButtonStyle(skin, "default");
+        style.checked = style.down;
+        style.checkedOver = style.over;
+
+        Button button = new Button(style);
+        button.setChecked(definition.getItemId().equals(selectedItemId));
+
+        // Tymczasowa ikona: kolorowy prostokat zamiast finalnej tekstury itemu.
+        Image icon = new Image(skin.newDrawable("white", definition.getDisplayColor()));
+        icon.setScaling(Scaling.stretch);
+
+        Label quantity = new Label(String.valueOf(stack.getQuantity()), UiSkinStyles.resolveLabelStyle(skin, "list"));
+        quantity.setFontScale(0.6f);
+
+        Table iconLayer = new Table();
+        iconLayer.add(icon).size(ICON_SIZE, ICON_SIZE);
+
+        Table quantityLayer = new Table();
+        quantityLayer.bottom().right();
+        quantityLayer.add(quantity).pad(0f, 0f, 1f, 1f);
+
+        Stack slotStack = new Stack();
+        slotStack.add(iconLayer);
+        slotStack.add(quantityLayer);
+
+        button.add(slotStack).grow();
+
+        button.addListener(new ClickListener() {
+            @Override
+            public void clicked(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y) {
+                selectedItemId = definition.getItemId();
+                rebuildItems();
+            }
+
+            @Override
+            public void enter(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y, int pointer,
+                              com.badlogic.gdx.scenes.scene2d.Actor fromActor) {
+                if (pointer == -1) {
+                    showTooltip(definition, event.getStageX(), event.getStageY());
+                }
+                super.enter(event, x, y, pointer, fromActor);
+            }
+
+            @Override
+            public boolean mouseMoved(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y) {
+                showTooltip(definition, event.getStageX(), event.getStageY());
+                return false;
+            }
+
+            @Override
+            public void exit(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y, int pointer,
+                             com.badlogic.gdx.scenes.scene2d.Actor toActor) {
+                if (pointer == -1) {
+                    hideTooltip();
+                }
+                super.exit(event, x, y, pointer, toActor);
+            }
+        });
+
+        return button;
+    }
+
+    private void showTooltip(ItemDefinition definition, float stageX, float stageY) {
+        // To jest wlasny hover panel, zeby nie polegac na domyslnym tooltipie Scene2D.
+        tooltipNameLabel.setText(definition.getDisplayName());
+        tooltipNameLabel.setColor(definition.getQuality().getDisplayColor());
+        tooltipDescLabel.setText(definition.getDescription());
+        tooltipDescCell.width(calculateTooltipWidth(definition));
+        tooltipTable.pack();
+        tooltipTable.setVisible(true);
+        updateTooltipPosition(stageX, stageY);
+        tooltipTable.toFront();
+    }
+
+    private void hideTooltip() {
+        tooltipTable.setVisible(false);
+    }
+
+    private float calculateTooltipWidth(ItemDefinition definition) {
+        int maxLength = Math.max(
+            definition.getDisplayName() != null ? definition.getDisplayName().length() : 0,
+            definition.getDescription() != null ? definition.getDescription().length() : 0
+        );
+        return Math.min(TOOLTIP_MAX_WIDTH, Math.max(TOOLTIP_MIN_WIDTH, maxLength * 2.6f));
+    }
+
+    private void updateTooltipPosition(float stageX, float stageY) {
+        if (root.getStage() == null) {
+            return;
+        }
+
+        float stageWidth = root.getStage().getViewport().getWorldWidth();
+        float stageHeight = root.getStage().getViewport().getWorldHeight();
+
+        float tooltipStageX = Math.min(stageX + TOOLTIP_OFFSET_X, stageWidth - tooltipTable.getWidth() - 2f);
+        float tooltipStageY = Math.min(stageY - TOOLTIP_OFFSET_Y, stageHeight - tooltipTable.getHeight() - 2f);
+        tooltipStageY = Math.max(2f, tooltipStageY);
+
+        stagePoint.set(tooltipStageX, tooltipStageY);
+        root.stageToLocalCoordinates(stagePoint);
+        tooltipTable.setPosition(stagePoint.x, stagePoint.y);
+    }
+
+    private void updateActionButtons() {
+        InventoryStack selectedStack = getSelectedStack();
+        boolean canDrop = selectedStack != null;
+        boolean canUse = selectedStack != null
+            && selectedStack.getDefinition().isConsumable()
+            && selectedStack.getDefinition().getHealthRestoreAmount() > 0f;
+
+        useButton.setDisabled(!canUse);
+        dropButton.setDisabled(!canDrop);
+    }
+
+    private InventoryStack getSelectedStack() {
+        if (selectedItemId == null) {
+            return null;
+        }
+
+        for (InventoryStack stack : items) {
+            if (stack.getDefinition().getItemId().equals(selectedItemId)) {
+                return stack;
+            }
+        }
+        return null;
+    }
+
+    private void syncSize() {
+        window.pack();
+        window.setSize(window.getPrefWidth(), window.getPrefHeight());
+        setSize(window.getWidth(), window.getHeight());
+    }
+}
