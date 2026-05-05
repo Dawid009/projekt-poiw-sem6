@@ -23,7 +23,7 @@ public class TriggerActor extends AbstractActor implements OverlapListener {
     private String triggerName;
 
     /** Obrażenia zadawane graczowi na sekundę (0 = brak obrażeń) */
-    private float damagePerSecond = 1f;
+    private float damagePerSecond = 0f;
 
     /** Aktory aktualnie w strefie triggera */
     private final Set<Actor> overlappingActors = new HashSet<>();

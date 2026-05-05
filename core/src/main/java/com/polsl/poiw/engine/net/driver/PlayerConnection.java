@@ -11,6 +11,7 @@ public class PlayerConnection {
     private int playerId;
     private String playerName;
     private int lastProcessedInputSeq;
+    private int lastCorrectedInputSeq;
     private float ping;
 
     public PlayerConnection(int connectionId, int playerId, String playerName) {
@@ -18,6 +19,7 @@ public class PlayerConnection {
         this.playerId = playerId;
         this.playerName = playerName;
         this.lastProcessedInputSeq = 0;
+        this.lastCorrectedInputSeq = -1;
         this.ping = 0f;
     }
 
@@ -28,6 +30,8 @@ public class PlayerConnection {
     public void setPlayerName(String playerName) { this.playerName = playerName; }
     public int getLastProcessedInputSeq() { return lastProcessedInputSeq; }
     public void setLastProcessedInputSeq(int seq) { this.lastProcessedInputSeq = seq; }
+    public int getLastCorrectedInputSeq() { return lastCorrectedInputSeq; }
+    public void setLastCorrectedInputSeq(int seq) { this.lastCorrectedInputSeq = seq; }
     public float getPing() { return ping; }
     public void setPing(float ping) { this.ping = ping; }
 }

@@ -1,9 +1,13 @@
 package com.polsl.poiw.engine.gameframework;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.physics.box2d.Body;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.polsl.poiw.GameInstance;
 import com.polsl.poiw.engine.actor.Actor;
+import com.polsl.poiw.engine.collision.CollisionComponent;
+import com.polsl.poiw.engine.net.prediction.ClientPrediction;
 import com.polsl.poiw.engine.ui.HUD;
 import com.polsl.poiw.engine.ui.UserWidget;
 import com.polsl.poiw.engine.world.GameWorld;
@@ -40,6 +44,9 @@ public class PlayerController {
     // sequential input number for prediction/reconciliation
     private int nextInputSequence = 0;
 
+    // client-side prediction buffer (set by WorldContext in multiplayer)
+    private ClientPrediction clientPrediction;
+
     public PlayerController() {
     }
 
@@ -63,12 +70,23 @@ public class PlayerController {
     /** Aktualizacja co klatkę. Override w subklasach. */
     public void tick(float delta) {
         // in multiplayer: send current input to server every frame
-        // TODO: maybe optimize by sending only on input change or at fixed intervals?
         if (gameInstance != null && gameInstance.isClient() && possessedPawn != null) {
             var move = possessedPawn.getComponent(
                 com.polsl.poiw.engine.component.MovementComponent.class);
             if (move != null) {
-                sendInputToServer(move.getDirection().x, move.getDirection().y);
+                float dirX = move.getDirection().x;
+                float dirY = move.getDirection().y;
+                sendInputToServer(dirX, dirY);
+
+                // save predicted position for reconciliation
+                if (clientPrediction != null) {
+                    CollisionComponent coll = possessedPawn.getComponentByType(CollisionComponent.class);
+                    if (coll != null && coll.getBody() != null) {
+                        Vector2 bodyPos = coll.getBody().getPosition();
+                        // nextInputSequence was incremented in sendInputToServer, so current seq = nextInputSequence - 1
+                        clientPrediction.saveMove(nextInputSequence - 1, dirX, dirY, bodyPos.x, bodyPos.y);
+                    }
+                }
             }
         }
     }
@@ -157,6 +175,8 @@ public class PlayerController {
 
     public int getConnectionId() { return connectionId; }
     public void setConnectionId(int connectionId) { this.connectionId = connectionId; }
+
+    public void setClientPrediction(ClientPrediction prediction) { this.clientPrediction = prediction; }
 
     // ===== Networking =====
 

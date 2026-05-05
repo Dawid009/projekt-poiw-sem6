@@ -63,6 +63,9 @@ public class LevelScreen extends ScreenAdapter {
 
     @Override
     public void render(float delta) {
+        // update GameInstance (connect timeout, network messages w fazie CONNECTING)
+        game.getGameInstance().update(delta);
+
         if (activeContext != null && activeContext.isInitialized()) {
             activeContext.update(delta);
             activeContext.render();

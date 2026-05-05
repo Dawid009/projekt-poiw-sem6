@@ -3,10 +3,7 @@ package com.polsl.poiw.engine.net.replication;
 import com.badlogic.gdx.Gdx;
 import com.polsl.poiw.engine.actor.AbstractActor;
 import com.polsl.poiw.engine.actor.Actor;
-import com.polsl.poiw.engine.actor.ActorComponent;
 import com.polsl.poiw.engine.actor.NetRole;
-import com.polsl.poiw.engine.component.TransformComponent;
-import com.polsl.poiw.engine.net.prediction.EntityInterpolation;
 import com.polsl.poiw.engine.net.prediction.InterpolationSystem;
 import com.polsl.poiw.engine.world.GameWorld;
 import com.polsl.poiw.shared.protocol.NetworkProtocol;
@@ -98,28 +95,8 @@ public class ClientReplicationHandler {
         Actor actor = gameWorld.getActorById(update.actorId);
         if (actor == null) return;
 
-        // hande position updates broadcast by server (synthetic componentClass="_position")
-        if ("_position".equals(update.componentClass)) {
-            Float x = getFloat(update.properties, "posX");
-            Float y = getFloat(update.properties, "posY");
-            if (x != null && y != null) {
-                if (actor.getNetRole() == NetRole.SIMULATED_PROXY) {
-                    // feed interpolation system
-                    if (interpolationSystem != null) {
-                        interpolationSystem.addSnapshot(actor.getActorId(), serverTime, x, y);
-                        interpolationSystem.setServerTime(serverTime);
-                    } else {
-                        // fallback: directly set position
-                        actor.setPosition(x, y);
-                    }
-                } else {
-                    // AUTONOMOUS_PROXY — ignore, client has client prediction
-                    Gdx.app.debug(TAG, "Ignoring position update for actor " + actor.getActorId()
-                        + " because it's " + actor.getNetRole());
-                }
-            }
-            return;
-        }
+        // position is now handled by MovementReplicationSystem (BatchMovementSnapshot via UDP)
+        // only property replication updates arrive here
 
         // find component by class name
         var entity = actor.getAshleyEntity();

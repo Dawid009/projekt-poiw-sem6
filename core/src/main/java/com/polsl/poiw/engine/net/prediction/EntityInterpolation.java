@@ -4,35 +4,47 @@ import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector2;
 
 /**
- * entity interpolation for SIMULATED_PROXY (remote players)
- * client renders position with 100ms delay, interpolating between server snapshots
- * TODO: this is a very simple implementation, update this later
+ * entity interpolation for SIMULATED_PROXY (remote players).
+ * renders position with configurable delay behind server time,
+ * interpolating between server snapshots.
+ * supports short extrapolation when no new snapshot arrives.
  */
 public class EntityInterpolation {
 
     private static final float INTERP_DELAY = 0.1f; // 100ms
+    private static final float MAX_EXTRAPOLATION = 0.1f; // max 100ms extrapolation
+    private static final float SNAP_THRESHOLD = 5f; // 5m — teleport threshold
     private static final int BUFFER_SIZE = 20;
 
     private final PositionSnapshot[] buffer = new PositionSnapshot[BUFFER_SIZE];
     private int head = 0;
     private int count = 0;
-    private float currentTime = 0f;
 
-    // add a position snapshot from the server
-    public void addSnapshot(float serverTime, float x, float y) {
-        buffer[head] = new PositionSnapshot(serverTime, x, y);
+    /** reusable Vector2 — nie alokujemy co frame */
+    private final Vector2 resultPos = new Vector2();
+
+    // add a position + velocity snapshot from the server
+    public void addSnapshot(float serverTime, float x, float y, float velX, float velY) {
+        buffer[head] = new PositionSnapshot(serverTime, x, y, velX, velY);
         head = (head + 1) % BUFFER_SIZE;
         if (count < BUFFER_SIZE) count++;
     }
 
-    // calculate interpolated position (100ms in the past of server time)
-    public Vector2 interpolate(float currentTime) {
-        this.currentTime = currentTime;
-        float renderTime = currentTime - INTERP_DELAY;
+    // backward-compatible overload (no velocity)
+    public void addSnapshot(float serverTime, float x, float y) {
+        addSnapshot(serverTime, x, y, 0f, 0f);
+    }
+
+    /**
+     * calculates interpolated position (INTERP_DELAY behind render time).
+     * returns reusable Vector2 — do NOT store reference, copy if needed.
+     */
+    public Vector2 interpolate(float renderTime) {
+        float targetTime = renderTime - INTERP_DELAY;
 
         if (count < 2) return null;
 
-        // find two snapshots surrounding renderTime
+        // find two snapshots surrounding targetTime
         PositionSnapshot before = null;
         PositionSnapshot after = null;
 
@@ -44,28 +56,50 @@ public class EntityInterpolation {
             PositionSnapshot s1 = buffer[idx];
             PositionSnapshot s2 = buffer[nextIdx];
 
-            if (s1 != null && s2 != null && s1.time <= renderTime && s2.time >= renderTime) {
+            if (s1 != null && s2 != null && s1.time <= targetTime && s2.time >= targetTime) {
                 before = s1;
                 after = s2;
                 break;
             }
         }
 
-        if (before == null || after == null) {
-            // extrapolate from last known snapshot
-            int lastIdx = (head - 1 + BUFFER_SIZE) % BUFFER_SIZE;
-            PositionSnapshot last = buffer[lastIdx];
-            return last != null ? new Vector2(last.x, last.y) : null;
+        if (before != null && after != null) {
+            // snap threshold — if distance between before and after > SNAP_THRESHOLD, teleport
+            float dx = after.x - before.x;
+            float dy = after.y - before.y;
+            if (dx * dx + dy * dy > SNAP_THRESHOLD * SNAP_THRESHOLD) {
+                resultPos.set(after.x, after.y);
+                return resultPos;
+            }
+
+            // linear interpolation
+            float span = after.time - before.time;
+            float t = span > 0 ? MathUtils.clamp((targetTime - before.time) / span, 0f, 1f) : 0f;
+
+            resultPos.set(
+                MathUtils.lerp(before.x, after.x, t),
+                MathUtils.lerp(before.y, after.y, t)
+            );
+            return resultPos;
         }
 
-        // linear interpolation
-        float span = after.time - before.time;
-        float t = span > 0 ? MathUtils.clamp((renderTime - before.time) / span, 0f, 1f) : 0f;
+        // no bracketing snapshots — try short extrapolation from latest
+        int lastIdx = (head - 1 + BUFFER_SIZE) % BUFFER_SIZE;
+        PositionSnapshot last = buffer[lastIdx];
+        if (last == null) return null;
 
-        return new Vector2(
-            MathUtils.lerp(before.x, after.x, t),
-            MathUtils.lerp(before.y, after.y, t)
-        );
+        float timeSinceLast = targetTime - last.time;
+        if (timeSinceLast > 0 && timeSinceLast <= MAX_EXTRAPOLATION) {
+            // extrapolate using velocity
+            resultPos.set(
+                last.x + last.velX * timeSinceLast,
+                last.y + last.velY * timeSinceLast
+            );
+        } else {
+            // beyond extrapolation limit — hold last known position
+            resultPos.set(last.x, last.y);
+        }
+        return resultPos;
     }
 
     // clear buffer
@@ -77,5 +111,5 @@ public class EntityInterpolation {
 
     public int getSnapshotCount() { return count; }
 
-    private record PositionSnapshot(float time, float x, float y) {}
+    private record PositionSnapshot(float time, float x, float y, float velX, float velY) {}
 }

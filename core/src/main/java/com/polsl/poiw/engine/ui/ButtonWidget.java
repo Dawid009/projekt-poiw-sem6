@@ -124,6 +124,15 @@ public class ButtonWidget extends UserWidget {
 
     public TextButton getButton() { return button; }
 
+    /** blokuje / odblokowuje interakcję z przyciskiem */
+    public void setDisabled(boolean disabled) {
+        button.setDisabled(disabled);
+    }
+
+    public boolean isDisabled() {
+        return button.isDisabled();
+    }
+
     // ===== Internals =====
 
     private void syncSize() {

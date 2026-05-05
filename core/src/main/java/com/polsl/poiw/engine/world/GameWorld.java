@@ -133,13 +133,18 @@ public class GameWorld {
      * Aktualizuje cały świat gry — wywoływane CO KLATKĘ z WorldContext.update().
      */
     public void update(float delta) {
-        // 1. Fizyka (Box2D) — fixed timestep
+        // 1. Fizyka (Box2D) — fixed timestep, max 8 steps per frame (prevents spiral)
         physicsAccumulator += delta;
-        while (physicsAccumulator >= PHYSICS_STEP) {
+        int maxSteps = 8;
+        while (physicsAccumulator >= PHYSICS_STEP && maxSteps-- > 0) {
             capturePreviousPhysicsState();
             box2dWorld.step(PHYSICS_STEP, VELOCITY_ITERATIONS, POSITION_ITERATIONS);
             captureCurrentPhysicsState();
             physicsAccumulator -= PHYSICS_STEP;
+        }
+        // discard excess accumulated time to prevent spiral
+        if (physicsAccumulator > PHYSICS_STEP * 4) {
+            physicsAccumulator = 0f;
         }
 
         // Współczynnik interpolacji: ile czasu minęło od ostatniego pełnego kroku
