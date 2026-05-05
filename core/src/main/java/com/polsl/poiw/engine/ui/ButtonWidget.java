@@ -132,6 +132,11 @@ public class ButtonWidget extends UserWidget {
         syncSize();
     }
 
+    public void setCompactStyle(Skin skin, String styleName, String fontName, float minWidth, float minHeight) {
+        button.setStyle(UiSkinStyles.copyCompactTextButtonStyle(skin, styleName, fontName, minWidth, minHeight));
+        syncSize();
+    }
+
     public void setButtonSize(float width, float height) {
         button.setSize(width, height);
         setSize(width, height);

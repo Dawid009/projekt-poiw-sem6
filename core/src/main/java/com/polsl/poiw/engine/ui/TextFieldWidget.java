@@ -41,6 +41,11 @@ public class TextFieldWidget extends UserWidget {
         syncSize();
     }
 
+    public void setCompactStyle(Skin skin, String styleName, String fontName, float minWidth, float minHeight) {
+        textField.setStyle(UiSkinStyles.copyCompactTextFieldStyle(skin, styleName, fontName, minWidth, minHeight));
+        syncSize();
+    }
+
 
     public void setFieldSize(float width, float height) {
         textField.setSize(width, height);

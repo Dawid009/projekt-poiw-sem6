@@ -4,6 +4,7 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.math.Vector2;
+import com.polsl.poiw.GameInstance;
 import com.polsl.poiw.engine.actor.Actor;
 import com.polsl.poiw.engine.binding.BindingHandle;
 import com.polsl.poiw.engine.component.InventoryComponent;
@@ -12,7 +13,9 @@ import com.polsl.poiw.engine.gameframework.PlayerController;
 import com.polsl.poiw.engine.ui.EAnchor;
 import com.polsl.poiw.engine.ui.EVisibility;
 import com.polsl.poiw.engine.ui.InventoryPanelWidget;
+import com.polsl.poiw.engine.ui.PauseMenuWidget;
 import com.polsl.poiw.engine.ui.ProgressBarWidget;
+import com.polsl.poiw.engine.ui.SettingsPanelWidget;
 import com.polsl.poiw.engine.ui.TextBlock;
 import com.polsl.poiw.engine.world.GameWorld;
 import com.polsl.poiw.engine.inventory.InventoryStack;
@@ -30,6 +33,8 @@ public class MainPlayerController extends PlayerController {
     private TextBlock hpText;
     private ProgressBarWidget progressBar;
     private InventoryPanelWidget inventoryPanel;
+    private PauseMenuWidget pauseMenu;
+    private SettingsPanelWidget settingsPanel;
     private BindingHandle healthBinding;
     private BindingHandle maxHealthBinding;
     private BindingHandle inventoryBinding;
@@ -78,6 +83,33 @@ public class MainPlayerController extends PlayerController {
             }
         });
         addWidgetToViewport(inventoryPanel);
+
+        pauseMenu = new PauseMenuWidget(getSkin());
+        pauseMenu.setAnchor(EAnchor.CENTER);
+        pauseMenu.setAlignment(EAnchor.CENTER);
+        pauseMenu.setActionListener(new PauseMenuWidget.PauseMenuActionListener() {
+            @Override
+            public void onResumeRequested() {
+                hidePauseMenu();
+            }
+
+            @Override
+            public void onOptionsRequested() {
+                openSettingsFromPauseMenu();
+            }
+
+            @Override
+            public void onQuitRequested() {
+                quitToMainMenu();
+            }
+        });
+        addWidgetToViewport(pauseMenu);
+
+        settingsPanel = new SettingsPanelWidget(getSkin());
+        settingsPanel.setAnchor(EAnchor.CENTER);
+        settingsPanel.setAlignment(EAnchor.CENTER);
+        settingsPanel.setCloseAction(this::closeSettingsToPauseMenu);
+        addWidgetToViewport(settingsPanel);
     }
 
     @Override
@@ -114,6 +146,12 @@ public class MainPlayerController extends PlayerController {
             inventoryPanel.setItems(java.util.List.of());
             inventoryPanel.setVisibility(EVisibility.HIDDEN);
         }
+        if (pauseMenu != null) {
+            pauseMenu.setVisibility(EVisibility.HIDDEN);
+        }
+        if (settingsPanel != null) {
+            settingsPanel.setVisibility(EVisibility.HIDDEN);
+        }
     }
 
     @Override
@@ -125,6 +163,12 @@ public class MainPlayerController extends PlayerController {
     @Override
     public void tick(float delta) {
         super.tick(delta);
+        handlePauseToggle();
+
+        if (isOverlayVisible()) {
+            return;
+        }
+
         handleInventoryToggle();
         handleDebugItemSpawn();
     }
@@ -234,5 +278,69 @@ public class MainPlayerController extends PlayerController {
         pickupActor.configure(item, quantity, getSkin());
         pickupActor.setPickupGrace(player.getActorId(), pickupGraceSeconds);
         world.spawnActor(pickupActor, spawnPosition);
+    }
+
+    private void handlePauseToggle() {
+        if (Gdx.input == null || !Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+            return;
+        }
+
+        if (settingsPanel != null && settingsPanel.isVisible()) {
+            closeSettingsToPauseMenu();
+            return;
+        }
+
+        if (pauseMenu != null && pauseMenu.isVisible()) {
+            hidePauseMenu();
+            return;
+        }
+
+        showPauseMenu();
+    }
+
+    private boolean isOverlayVisible() {
+        return (pauseMenu != null && pauseMenu.isVisible())
+            || (settingsPanel != null && settingsPanel.isVisible());
+    }
+
+    private void showPauseMenu() {
+        if (inventoryPanel != null) {
+            inventoryPanel.setVisibility(EVisibility.HIDDEN);
+        }
+        if (pauseMenu != null) {
+            pauseMenu.setVisibility(EVisibility.VISIBLE);
+        }
+    }
+
+    private void hidePauseMenu() {
+        if (pauseMenu != null) {
+            pauseMenu.setVisibility(EVisibility.HIDDEN);
+        }
+    }
+
+    private void openSettingsFromPauseMenu() {
+        if (pauseMenu != null) {
+            pauseMenu.setVisibility(EVisibility.HIDDEN);
+        }
+        if (settingsPanel != null) {
+            settingsPanel.refreshFromAppliedSettings();
+            settingsPanel.setVisibility(EVisibility.VISIBLE);
+        }
+    }
+
+    private void closeSettingsToPauseMenu() {
+        if (settingsPanel != null) {
+            settingsPanel.setVisibility(EVisibility.HIDDEN);
+        }
+        if (pauseMenu != null) {
+            pauseMenu.setVisibility(EVisibility.VISIBLE);
+        }
+    }
+
+    private void quitToMainMenu() {
+        GameInstance gameInstance = getGameInstance();
+        if (gameInstance != null) {
+            gameInstance.returnToMenu("Wyjscie do menu glownego");
+        }
     }
 }
