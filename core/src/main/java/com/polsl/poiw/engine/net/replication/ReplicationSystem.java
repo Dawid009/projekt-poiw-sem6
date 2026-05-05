@@ -8,7 +8,6 @@ import com.polsl.poiw.engine.world.GameWorld;
 import com.polsl.poiw.shared.protocol.NetworkProtocol;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -49,18 +48,8 @@ public class ReplicationSystem extends EntitySystem {
         for (Actor actor : gameWorld.getAllActors()) {
             if (!actor.isReplicated()) continue;
 
-            // always broadcast the position of each replicated actor
-            var pos = actor.getPosition();
-            NetworkProtocol.ReplicationUpdate posUpdate = new NetworkProtocol.ReplicationUpdate();
-            posUpdate.actorId = actor.getActorId();
-            posUpdate.componentClass = "_position";
-            posUpdate.properties = new HashMap<>();
-            posUpdate.properties.put("posX", pos.x);
-            posUpdate.properties.put("posY", pos.y);
-            posUpdate.sequenceNumber = tickCounter;
-            updates.add(posUpdate);
-
-            // scan each actor component
+            // position is now sent via MovementReplicationSystem (UDP)
+            // scan each actor component for @Replicated property changes
             collectComponentUpdates(actor, updates);
         }
 

@@ -14,11 +14,9 @@ import com.polsl.poiw.engine.ui.UserWidget;
 import com.polsl.poiw.shared.protocol.NetworkProtocol;
 
 /**
- * Controller menu głównego — tworzy widgety Play / Multiplayer / Options / Quit
+ * Controller menu głównego — tworzy widgety Play / Multiplayer / Options / Quit.
+ * flow multiplayer: ustaw dane sesji → connectToServer → czekaj na ServerAccept → travel("game").
  */
-
-//TODO: maybe pressing Esc should return the player to the menu from the game? (currently Esc does nothing in-game)
-
 public class MenuPlayerController extends PlayerController {
 
     private static final String TAG = "MenuPlayerController";
@@ -27,6 +25,8 @@ public class MenuPlayerController extends PlayerController {
     private UserWidget multiplayerPanel;
     private TextFieldWidget ipField;
     private TextFieldWidget portField;
+    private TextBlock statusText;
+    private ButtonWidget connectButton;
 
     @Override
     protected void setupHUD() {
@@ -135,13 +135,24 @@ public class MenuPlayerController extends PlayerController {
         multiplayerPanel.addChild(portField);
 
         // Przycisk Połącz
-        ButtonWidget connectButton = new ButtonWidget("Polacz", skin);
+        connectButton = new ButtonWidget("Polacz", skin);
         connectButton.setAnchor(EAnchor.CENTER);
         connectButton.setAlignment(EAnchor.CENTER);
         connectButton.setOffset(0f, -20f);
         connectButton.setButtonSize(80f, 20f);
         connectButton.onClick(this::onConnectClicked);
         multiplayerPanel.addChild(connectButton);
+
+        // Status tekst — informuje o stanie łączenia / błędach
+        statusText = new TextBlock("", skin);
+        statusText.setAnchor(EAnchor.CENTER);
+        statusText.setAlignment(EAnchor.CENTER);
+        statusText.setOffset(0f, -6f);
+        statusText.setColor(Color.YELLOW);
+        statusText.setFontScale(0.8f);
+        statusText.setVariable(true);
+        statusText.setVisibility(EVisibility.COLLAPSED);
+        multiplayerPanel.addChild(statusText);
 
         // Przycisk Powrót
         ButtonWidget backButton = new ButtonWidget("Powrot", skin);
@@ -179,7 +190,7 @@ public class MenuPlayerController extends PlayerController {
         Gdx.app.exit();
     }
 
-    //TODO: handle connection to non-existent server
+    //  connect flow: ustaw dane sesji → connectToServer → czekaj na ServerAccept
     private void onConnectClicked() {
         String ip = ipField.getText().trim();
         String portText = portField.getText().trim();
@@ -193,11 +204,11 @@ public class MenuPlayerController extends PlayerController {
             try {
                 port = Integer.parseInt(portText);
                 if (port < 1 || port > 65535) {
-                    Gdx.app.error(TAG, "Nieprawidłowy port: " + port);
+                    showStatus("Nieprawidlowy port: " + port, Color.RED);
                     return;
                 }
             } catch (NumberFormatException e) {
-                Gdx.app.error(TAG, "Nieprawidłowy format portu: " + portText);
+                showStatus("Nieprawidlowy format portu", Color.RED);
                 return;
             }
         }
@@ -208,13 +219,39 @@ public class MenuPlayerController extends PlayerController {
             gi.setMode(GameInstance.Mode.MULTIPLAYER);
             gi.setServerHost(ip);
             gi.setServerTcpPort(port);
-            gi.travel("game");
+
+            // zablokuj przycisk na czas łączenia
+            connectButton.setDisabled(true);
+
+            // rozpocznij asynchroniczne łączenie — ServerAccept → travel("game")
+            gi.connectToServer(
+                status -> showStatus(status, Color.YELLOW),
+                error -> {
+                    showStatus(error, Color.RED);
+                    connectButton.setDisabled(false);
+                }
+            );
+        }
+    }
+
+    /**
+     * wyświetla status / błąd w panelu multiplayer
+     */
+    private void showStatus(String text, Color color) {
+        if (statusText != null) {
+            statusText.setText(text);
+            statusText.setColor(color);
+            statusText.setVisibility(EVisibility.VISIBLE);
+            statusText.updateLayout();
         }
     }
 
     private void closeMultiplayerPanel() {
         multiplayerPanel.setVisibility(EVisibility.COLLAPSED);
         menuContainer.setVisibility(EVisibility.VISIBLE);
+        // reset statusu i przycisku
+        if (statusText != null) statusText.setVisibility(EVisibility.COLLAPSED);
+        if (connectButton != null) connectButton.setDisabled(false);
     }
 }
 

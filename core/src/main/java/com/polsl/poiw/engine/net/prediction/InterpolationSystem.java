@@ -20,14 +20,20 @@ public class InterpolationSystem extends IteratingSystem {
 
     // actorId -> EntityInterpolation
     private final Map<Integer, EntityInterpolation> interpolators = new HashMap<>();
-    private float serverTime = 0f;
+    private NetworkClock networkClock;
 
     public InterpolationSystem() {
         super(Family.all(TransformComponent.class).get(), 15);
     }
 
+    public void setNetworkClock(NetworkClock clock) {
+        this.networkClock = clock;
+    }
+
     @Override
     protected void processEntity(Entity entity, float deltaTime) {
+        if (networkClock == null || !networkClock.isInitialized()) return;
+
         TransformComponent transform = TransformComponent.MAPPER.get(entity);
         Actor owner = transform.getOwner();
         if (owner == null || owner.getNetRole() != NetRole.SIMULATED_PROXY) return;
@@ -35,30 +41,29 @@ public class InterpolationSystem extends IteratingSystem {
         EntityInterpolation interp = interpolators.get(owner.getActorId());
         if (interp == null) return;
 
-        Vector2 pos = interp.interpolate(serverTime);
+        Vector2 pos = interp.interpolate(networkClock.getRenderTime());
         if (pos != null) {
-            // pos is already the sprite position (left-bottom), same as TransformComponent.position
-            transform.getPosition().set(pos.x, pos.y);
+            // snapshots contain body-center position; TransformComponent stores bottom-left
+            Vector2 size = transform.getSize();
+            transform.getPosition().set(pos.x - size.x * 0.5f, pos.y - size.y * 0.5f);
         }
     }
 
     // adds pos snapshot for an actor (called from network message handler)
     public void addSnapshot(int actorId, float serverTime, float x, float y) {
-        EntityInterpolation interp = interpolators.computeIfAbsent(actorId, id -> new EntityInterpolation());
-        interp.addSnapshot(serverTime, x, y);
+        addSnapshot(actorId, serverTime, x, y, 0f, 0f);
     }
 
-    // updates server time (called every frame or per batch update)
-    public void setServerTime(float time) {
-        this.serverTime = time;
+    // adds pos + velocity snapshot for an actor (movement replication)
+    public void addSnapshot(int actorId, float serverTime, float x, float y, float velX, float velY) {
+        EntityInterpolation interp = interpolators.computeIfAbsent(actorId, id -> new EntityInterpolation());
+        interp.addSnapshot(serverTime, x, y, velX, velY);
     }
 
     // clears interpolation data for a destroyed actor
     public void removeInterpolator(int actorId) {
         interpolators.remove(actorId);
     }
-
-    public float getServerTime() { return serverTime; }
     
     public void clear() {
         interpolators.clear();

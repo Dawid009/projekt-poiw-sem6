@@ -145,6 +145,32 @@ public final class NetworkProtocol {
     // server -> clients: zmiana mapy
     public static class ServerTravel {
         public String levelId;
+        public int travelId;
+        public boolean preserveControllers;
+    }
+
+    // client -> server: potwierdzenie załadowania nowego świata po travel
+    public static class ClientTravelAck {
+        public int travelId;
+    }
+
+    /**
+     * MOVEMENT
+     */
+
+    // pojedynczy snapshot ruchu aktora — wysyłany UDP
+    public static class MovementSnapshot {
+        public int actorId;
+        public float x, y;
+        public float velX, velY;
+        public int sequenceNumber;
+    }
+
+    // server -> clients: batch snapshotów ruchu — UDP latest-wins
+    public static class BatchMovementSnapshot {
+        public MovementSnapshot[] snapshots;
+        public float serverTime;
+        public int serverTick;
     }
 
     /**

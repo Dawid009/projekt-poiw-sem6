@@ -55,6 +55,12 @@ public final class NetworkSerializer {
 
         // travel
         kryo.register(NetworkProtocol.ServerTravel.class);
+        kryo.register(NetworkProtocol.ClientTravelAck.class);
+
+        // movement
+        kryo.register(NetworkProtocol.MovementSnapshot.class);
+        kryo.register(NetworkProtocol.MovementSnapshot[].class);
+        kryo.register(NetworkProtocol.BatchMovementSnapshot.class);
 
         // healthcheck
         kryo.register(NetworkProtocol.Ping.class);

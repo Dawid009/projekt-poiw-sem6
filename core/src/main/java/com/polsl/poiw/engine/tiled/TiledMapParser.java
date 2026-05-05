@@ -251,11 +251,20 @@ public class TiledMapParser {
         if (layer == null) return;
 
         for (MapObject obj : layer.getObjects()) {
-            if ("Player".equals(obj.getName()) && obj instanceof TiledMapTileMapObject tileObj) {
+            if (!"Player".equals(obj.getName())) continue;
+
+            if (obj instanceof TiledMapTileMapObject tileObj) {
                 float x = tileObj.getX() / PPM;
                 float y = tileObj.getY() / PPM;
                 playerStartPositions.add(new Vector2(x, y));
                 Gdx.app.debug("TiledMapParser", "Player start position from objects layer: (" + x + ", " + y + ")");
+            } else if (obj instanceof RectangleMapObject rectObj) {
+                // headless loader — tile objects stored as RectangleMapObject with gid property
+                Rectangle rect = rectObj.getRectangle();
+                float x = rect.x / PPM;
+                float y = rect.y / PPM;
+                playerStartPositions.add(new Vector2(x, y));
+                Gdx.app.debug("TiledMapParser", "Player start position (headless) from objects layer: (" + x + ", " + y + ")");
             }
         }
     }

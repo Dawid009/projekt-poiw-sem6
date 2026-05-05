@@ -14,6 +14,7 @@ import com.polsl.poiw.engine.component.*;
 
 /**
  * Postać gracza — podstawowy Actor z komponentami ruchu, grafiki, kamery i kolizji.
+ * zdrowie zarządzane przez {@link HealthComponent} — replicated, serwer autorytatywny.
  */
 public class PlayerCharacter extends AbstractActor {
 
@@ -22,12 +23,6 @@ public class PlayerCharacter extends AbstractActor {
 
     /** Maksymalne i początkowe HP */
     private static final float MAX_HEALTH = 100f;
-
-    /** Obserwowalne HP — UI binduje się do tego pola */
-    private final PropertyBinding<Float> health = new PropertyBinding<>(MAX_HEALTH);
-
-    /** Obserwowalne max HP */
-    private final PropertyBinding<Float> maxHealth = new PropertyBinding<>(MAX_HEALTH);
 
     /** Klucz regionu w atlasie */
     private static final String PLAYER_REGION = "player/idle_down";
@@ -38,13 +33,13 @@ public class PlayerCharacter extends AbstractActor {
     public PlayerCharacter() {
         // components are added in configure() or configureServer()
     }
-    
+
     /**
-     * server configuration (headless) - without sprites and camera
-     * adds TransformComponent, MovementComponent, ControllerComponent, BoxCollisionComponent
+     * server configuration (headless) — without sprites and camera.
+     * adds TransformComponent, MovementComponent, ControllerComponent, BoxCollisionComponent, HealthComponent.
      */
     public void configureServer() {
-        float sizeW = SPRITE_PX / 16f; // Main.UNIT_SCALE = 1/16
+        float sizeW = SPRITE_PX / 16f;
         float sizeH = SPRITE_PX / 16f;
 
         addComponent(new TransformComponent(
@@ -52,6 +47,7 @@ public class PlayerCharacter extends AbstractActor {
         ));
         addComponent(new MovementComponent(PLAYER_SPEED));
         addComponent(new ControllerComponent());
+        addComponent(new HealthComponent(MAX_HEALTH, MAX_HEALTH));
 
         float ppm = 16f;
         float collHalfW = 9f / 2f / ppm;
@@ -64,54 +60,37 @@ public class PlayerCharacter extends AbstractActor {
     }
 
     /**
-     * Konfiguruje gracza z podanym atlasem.
+     * Konfiguruje gracza z podanym atlasem (klient).
      * Wywoływane po stworzeniu, ale przed beginPlay().
      */
     public void configure(TextureAtlas atlas) {
-        // Znajdź region w atlasie
         TextureRegion region = atlas.findRegion(PLAYER_REGION);
         if (region == null) {
             throw new RuntimeException("Nie znaleziono regionu: " + PLAYER_REGION + " w atlasie");
         }
 
-        // Rozmiar w świecie (32px * UNIT_SCALE = 2 metry)
         float sizeW = SPRITE_PX * Main.UNIT_SCALE;
         float sizeH = SPRITE_PX * Main.UNIT_SCALE;
 
-        // TransformComponent — single source of truth dla pozycji Actora.
-        // Pozycja startowa ustawiana przez GameWorld.spawnActor() → Actor.setPosition().
         addComponent(new TransformComponent(
-            new Vector2(),
-            1,
-            new Vector2(sizeW, sizeH)
+            new Vector2(), 1, new Vector2(sizeW, sizeH)
         ));
-
-        // Sprite component odpowiada za sprite - który będzie rysowany
         addComponent(new SpriteComponent(region, Color.WHITE.cpy()));
-
-        // Movement component - opisuje aktualny ruch i jego parametry
         addComponent(new MovementComponent(PLAYER_SPEED));
-
-        // Camera follow - kamera podążajaca za aktorem
         addComponent(new CameraFollowComponent());
-
-        // Działa jako inputy z klawiatury
         addComponent(new ControllerComponent());
+        addComponent(new HealthComponent(MAX_HEALTH, MAX_HEALTH));
 
         // Kolizja gracza — kształt z objects.tsx: x=11,y=18,w=9,h=5 px (sprite 32x32)
-        // halfW = 9/2/PPM = 0.28125m, halfH = 5/2/PPM = 0.15625m
-        // offset: centrum kolizji przesunięte do stóp gracza
         float ppm = 16f;
-        float collHalfW = 9f / 2f / ppm;       // 0.28125
-        float collHalfH = 5f / 2f / ppm;       // 0.15625
-        float offsetX = (11f + 4.5f - 16f) / ppm;  // -0.03125 (prawie centrum X)
-        float offsetY = -((18f + 2.5f - 16f) / ppm); // -0.28125 (poniżej centrum — stopy)
+        float collHalfW = 9f / 2f / ppm;
+        float collHalfH = 5f / 2f / ppm;
+        float offsetX = (11f + 4.5f - 16f) / ppm;
+        float offsetY = -((18f + 2.5f - 16f) / ppm);
         addComponent(new BoxCollisionComponent(
             CollisionProfile.PLAYER, collHalfW, collHalfH, new Vector2(offsetX, offsetY)
         ));
 
-        // sortOffsetY — punkt Y-sort na stopach gracza (dolna krawędź kolizji)
-        // = sizeH/2 + offsetY - collHalfH (bo position.y to dół sprite'a)
         TransformComponent transform = getComponent(TransformComponent.class);
         if (transform != null) {
             transform.setSortOffsetY(sizeH / 2f + offsetY - collHalfH);
@@ -128,29 +107,34 @@ public class PlayerCharacter extends AbstractActor {
         super.tick(delta);
     }
 
-    // ===== System zdrowia =====
+    // ===== System zdrowia (delegacja do HealthComponent) =====
 
-    /** Zadaje obrażenia graczowi */
+    /** Zadaje obrażenia graczowi — deleguje do HealthComponent */
     public void applyDamage(float amount) {
-        if (!hasAuthority()) return; // only server can modify health
-        float newHp = MathUtils.clamp(health.get() - amount, 0f, maxHealth.get());
-        health.set(newHp);
+        HealthComponent hc = getComponent(HealthComponent.class);
+        if (hc != null) hc.applyDamage(amount);
     }
 
-    /** Leczy gracza */
+    /** Leczy gracza — deleguje do HealthComponent */
     public void heal(float amount) {
-        if (!hasAuthority()) return;
-        float newHp = MathUtils.clamp(health.get() + amount, 0f, maxHealth.get());
-        health.set(newHp);
+        HealthComponent hc = getComponent(HealthComponent.class);
+        if (hc != null) hc.heal(amount);
     }
 
     public boolean isAlive() {
-        return health.get() > 0f;
+        HealthComponent hc = getComponent(HealthComponent.class);
+        return hc != null && hc.isAlive();
     }
 
-    /** Obserwowalne HP — binduj do UI */
-    public PropertyBinding<Float> getHealth() { return health; }
+    /** Obserwowalne HP — binduj do UI (bridge do HealthComponent) */
+    public PropertyBinding<Float> getHealth() {
+        HealthComponent hc = getComponent(HealthComponent.class);
+        return hc != null ? hc.getHealthProperty() : new PropertyBinding<>(0f);
+    }
 
-    /** Obserwowalne max HP — binduj do UI */
-    public PropertyBinding<Float> getMaxHealth() { return maxHealth; }
+    /** Obserwowalne max HP — binduj do UI (bridge do HealthComponent) */
+    public PropertyBinding<Float> getMaxHealth() {
+        HealthComponent hc = getComponent(HealthComponent.class);
+        return hc != null ? hc.getMaxHealthProperty() : new PropertyBinding<>(0f);
+    }
 }

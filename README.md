@@ -36,8 +36,8 @@ Wrapper Gradle jest już dołączony, więc można uruchamiać zadania za pomoc�
 
 | Flaga | Domyślnie | Opis |
 |---|---|---|
-| `--tcp-port <port>` | `54555` | Port TCP (niezawodne połączenia) |
-| `--udp-port <port>` | `54777` | Port UDP (szybkie aktualizacje pozycji) |
+| `--tcp-port <port>` | `54555` | Port TCP |
+| `--udp-port <port>` | `54777` | Port UDP |
 | `--max-players <n>` | `4` | Maksymalna liczba graczy |
 
 Przykład uruchomienia z niestandardowymi portami:
