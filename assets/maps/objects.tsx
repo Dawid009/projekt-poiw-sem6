@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<tileset version="1.10" tiledversion="1.12.1" name="objects" tilewidth="96" tileheight="128" tilecount="46" columns="0">
+<tileset version="1.10" tiledversion="1.12.1" name="objects" tilewidth="96" tileheight="128" tilecount="45" columns="0">
  <grid orientation="orthogonal" width="1" height="1"/>
  <tile id="1" type="Object">
   <properties>
@@ -8,7 +8,7 @@
    <property name="attackSound" value="SWING"/>
    <property name="damage" type="float" value="7"/>
    <property name="damageDelay" type="float" value="0.2"/>
-   <property name="life" type="int" value="12"/>
+   <property name="life" type="int" value="100"/>
    <property name="lifeReg" type="float" value="0.25"/>
    <property name="speed" type="float" value="3.5"/>
   </properties>
@@ -79,25 +79,25 @@
    <object id="1" x="11.0625" y="20.9565" width="9.875" height="7.04348"/>
   </objectgroup>
  </tile>
- <tile id="8">
+ <tile id="8" type="Prop">
   <image source="objects/House_1_Wood_Base_Blue.png" width="96" height="128"/>
   <objectgroup draworder="index" id="2">
    <object id="1" x="15.4545" y="72.5455" width="65.4545" height="41.8182"/>
   </objectgroup>
  </tile>
- <tile id="9">
+ <tile id="9" type="Prop">
   <image source="objects/lantern.png" width="16" height="48"/>
   <objectgroup draworder="index" id="2">
    <object id="1" x="4.95503" y="40.9416" width="7.05717" height="5.05513"/>
   </objectgroup>
  </tile>
- <tile id="10">
+ <tile id="10" type="Prop">
   <image source="objects/fallen_trunk.png" width="32" height="16"/>
   <objectgroup draworder="index" id="2">
    <object id="1" x="4.85493" y="6.9281" width="22.1225" height="4.984"/>
   </objectgroup>
  </tile>
- <tile id="11">
+ <tile id="11" type="Prop">
   <image source="objects/bridge_0.png" width="48" height="48"/>
   <objectgroup draworder="index" id="2">
    <object id="1" x="9" y="30.8125" width="30.0625" height="2.0625"/>
@@ -110,7 +110,7 @@
    </object>
   </objectgroup>
  </tile>
- <tile id="12">
+ <tile id="12" type="Prop">
   <image source="objects/bridge_2.png" width="48" height="48"/>
   <objectgroup draworder="index" id="2">
    <object id="1" x="14" y="9" width="2" height="30"/>
@@ -121,7 +121,7 @@
    <object id="6" x="33.0313" y="36.1875" width="4.0625" height="4"/>
   </objectgroup>
  </tile>
- <tile id="13">
+ <tile id="13" type="Prop">
   <image source="objects/bridge_1.png" width="48" height="48"/>
   <objectgroup draworder="index" id="2">
    <object id="1" x="14.0624" y="9.0625" width="2" height="30"/>
@@ -132,29 +132,25 @@
    <object id="6" x="33.0938" y="36.25" width="4.0625" height="4"/>
   </objectgroup>
  </tile>
- <tile id="14">
-  <image source="objects/bridge_3.png" width="48" height="16"/>
-  <objectgroup draworder="index" id="2">
-   <object id="1" x="5.875" y="15.4375" width="36.1875" height="0.5"/>
-   <object id="2" x="6" y="0.0625" width="36" height="0.25"/>
-  </objectgroup>
- </tile>
- <tile id="16">
+ <tile id="16" type="Prop">
   <image source="objects/tree_trunk.png" width="32" height="32"/>
   <objectgroup draworder="index" id="2">
    <object id="1" x="13.9778" y="14.4" width="4.02222" height="2.06667"/>
   </objectgroup>
  </tile>
- <tile id="17">
+ <tile id="17" type="Object">
+  <properties>
+   <property name="bodyType" propertytype="BodyType" value="StaticBody"/>
+  </properties>
   <image source="objects/small_tree_cut.png" width="32" height="32"/>
  </tile>
- <tile id="18">
+ <tile id="18" type="Prop">
   <image source="objects/small_tree.png" width="32" height="48"/>
   <objectgroup draworder="index" id="2">
    <object id="1" x="13.8889" y="30.3778" width="4.22222" height="2.11111"/>
   </objectgroup>
  </tile>
- <tile id="20">
+ <tile id="20" type="Prop">
   <image source="objects/bridge_4.png" width="48" height="48"/>
   <objectgroup draworder="index" id="2">
    <object id="1" x="9.07813" y="30.9361" width="30.0625" height="2.0625"/>
@@ -167,7 +163,12 @@
    </object>
   </objectgroup>
  </tile>
- <tile id="21">
+ <tile id="21" type="Creature">
+  <properties>
+   <property name="damage" type="float" value="7"/>
+   <property name="damageDelay" type="float" value="7"/>
+   <property name="speed" type="float" value="2"/>
+  </properties>
   <image source="../raw/creatures/cow/cow_idle_left_0.png" width="32" height="32"/>
   <objectgroup draworder="index" id="2">
    <object id="1" x="8.875" y="20.8125" width="17.1875" height="5.125"/>
@@ -183,7 +184,13 @@
    <object id="1" x="8.90625" y="20.9375" width="17.1875" height="5.125"/>
   </objectgroup>
  </tile>
- <tile id="23">
+ <tile id="23" type="Creature">
+  <properties>
+   <property name="damage" type="float" value="4"/>
+   <property name="damageDelay" type="float" value="5"/>
+   <property name="life" type="float" value="90"/>
+   <property name="speed" type="float" value="2"/>
+  </properties>
   <image source="../raw/creatures/pig/pig_idle_left_0.png" width="32" height="32"/>
   <objectgroup draworder="index" id="2">
    <object id="1" x="8.71875" y="18.8125" width="14.25" height="4.1875"/>
@@ -199,7 +206,13 @@
    <object id="1" x="8.75" y="18.7813" width="14.25" height="4.1875"/>
   </objectgroup>
  </tile>
- <tile id="25">
+ <tile id="25" type="Creature">
+  <properties>
+   <property name="damage" type="float" value="4"/>
+   <property name="damageDelay" type="float" value="5"/>
+   <property name="life" type="float" value="90"/>
+   <property name="speed" type="float" value="2"/>
+  </properties>
   <image source="../raw/creatures/sheep/sheep_idle_left_0.png" width="32" height="32"/>
   <objectgroup draworder="index" id="2">
    <object id="1" x="8.9375" y="19.3125" width="14.1563" height="3.6875"/>
@@ -215,7 +228,13 @@
    <object id="1" x="8.85935" y="19.3125" width="14.1563" height="3.6875"/>
   </objectgroup>
  </tile>
- <tile id="27">
+ <tile id="27" type="Creature">
+  <properties>
+   <property name="damage" type="float" value="2"/>
+   <property name="damageDelay" type="float" value="0.3"/>
+   <property name="life" type="float" value="30"/>
+   <property name="speed" type="float" value="4.5"/>
+  </properties>
   <image source="../raw/creatures/chicken/chicken_idle_left_0.png" width="32" height="32"/>
   <objectgroup draworder="index" id="2">
    <object id="1" x="11.4375" y="20.375" width="8.96875" height="2.65625"/>
@@ -231,16 +250,21 @@
    <object id="1" x="11.4531" y="20.3281" width="8.96875" height="2.65625"/>
   </objectgroup>
  </tile>
- <tile id="29">
+ <tile id="29" type="Prop">
   <image source="objects/house_back.png" width="80" height="112"/>
  </tile>
- <tile id="30">
+ <tile id="30" type="Prop">
   <image source="objects/House_1_Wood_Base_Blue_Back.png" width="96" height="128"/>
  </tile>
  <tile id="31">
   <image source="../raw/items/potions/potion_red.png" width="8" height="8"/>
  </tile>
- <tile id="32">
+ <tile id="32" type="Creature">
+  <properties>
+   <property name="damage" type="float" value="12"/>
+   <property name="damageDelay" type="float" value="1"/>
+   <property name="life" type="float" value="120"/>
+  </properties>
   <image source="../raw/creatures/skeleton/skeleton_idle_right_00.png" width="32" height="32"/>
   <objectgroup draworder="index" id="2">
    <object id="1" x="12.125" y="21.125" width="7.625" height="2.625"/>
@@ -269,7 +293,13 @@
  <tile id="37">
   <image source="../raw/creatures/skeleton/skeleton_idle_right_05.png" width="32" height="32"/>
  </tile>
- <tile id="38">
+ <tile id="38" type="Creature">
+  <properties>
+   <property name="damage" type="float" value="9"/>
+   <property name="damageDelay" type="float" value="1.4"/>
+   <property name="life" type="float" value="200"/>
+   <property name="speed" type="float" value="2"/>
+  </properties>
   <image source="../raw/creatures/slime_green/slime_green_idle_00.png" width="64" height="64"/>
   <objectgroup draworder="index" id="2">
    <object id="1" x="26.25" y="34.125" width="12" height="5.375"/>

@@ -1,5 +1,5 @@
 {
-    "activeFile": "mainmap.tmx",
+    "activeFile": "objects.tsx",
     "expandedProjectPaths": [
         "."
     ],
@@ -23,11 +23,11 @@
             "expandedGroupLayers": [
                 5
             ],
-            "scale": 3,
+            "scale": 4,
             "selectedLayer": 3,
             "viewCenter": {
-                "x": 472,
-                "y": 762
+                "x": 986.875,
+                "y": 177.75
             }
         },
         "objects.tsx": {
@@ -51,12 +51,13 @@
         "decor.tsx"
     ],
     "project": "tiled.tiled-project",
+    "property.type": "float",
     "recentFiles": [
+        "mainmap.tmx",
         "decor.tsx",
         "fence_tileset.tsx",
         "tileset.tsx",
         "objects.tsx",
-        "mainmap.tmx",
         "animals.tsx"
     ],
     "resizeMap.removeObjects": false,
