@@ -43,18 +43,23 @@ public class BackendLauncher {
             ScoreHttpServer scoreServer = new ScoreHttpServer(port);
             new AuthHttpServer(scoreServer.getServer()); // rejestruje /auth/* na tym samym serwerze
             scoreServer.start();
+            SesjaManager.uruchomSprawdzanie(60); // sprawdza timeout sesji co 60s (timeout=150s)
             System.out.println("\nHTTP endpoint uruchomiony na porcie " + port + ":");
             System.out.println("  GET  http://localhost:" + port + "/scores");
             System.out.println("  GET  http://localhost:" + port + "/scores/{nazwaGracza}");
             System.out.println("  POST http://localhost:" + port + "/auth/register");
             System.out.println("  POST http://localhost:" + port + "/auth/login");
+            System.out.println("  POST http://localhost:" + port + "/auth/logout");
+            System.out.println("  POST http://localhost:" + port + "/auth/refresh  (heartbeat co 60s)");
             System.out.println("  POST http://localhost:" + port + "/auth/czas");
 
             // Przy zamknieciu backendu (Ctrl+C) zapisz czas wszystkich aktywnych sesji
             final HttpServer httpServer = scoreServer.getServer();
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-                System.out.println("\nZamykanie backendu — zapisywanie aktywnych sesji...");
-                SesjaManager.zapiszWszystkie();
+                System.out.println("\nZamykanie backendu — zapisywanie czasu aktywnych sesji...");
+                // Tylko zapisuje czas (jak auto-zapis)
+                // Sesje sa zamykane wylacznie przez /auth/logout.
+                SesjaManager.autoZapis();
                 httpServer.stop(0);
                 System.out.println("Backend zamkniety.");
             }));

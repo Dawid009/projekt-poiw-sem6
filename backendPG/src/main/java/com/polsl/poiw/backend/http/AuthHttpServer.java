@@ -18,14 +18,17 @@ import java.util.concurrent.Executors;
 // Serwer HTTP udostepniajacy endpointy rejestracji i logowania.
 // POST /auth/register  — rejestracja: login, email, haslo
 // POST /auth/login     — logowanie: login, haslo
+// POST /auth/logout    — wylogowanie: zapisuje czas sesji
 // POST /auth/czas      — zapis czasu w grze
 // GET  /auth/profil/{login} — profil gracza z czasem i statystykami
 public class AuthHttpServer {
 
     private static final String SCIEZKA_REGISTER = "/auth/register";
-    private static final String SCIEZKA_LOGIN = "/auth/login";
-    private static final String SCIEZKA_CZAS = "/auth/czas";
-    private static final String SCIEZKA_PROFIL = "/auth/profil";
+    private static final String SCIEZKA_LOGIN    = "/auth/login";
+    private static final String SCIEZKA_LOGOUT   = "/auth/logout";
+    private static final String SCIEZKA_REFRESH  = "/auth/refresh";
+    private static final String SCIEZKA_CZAS     = "/auth/czas";
+    private static final String SCIEZKA_PROFIL   = "/auth/profil";
 
     private final HttpServer server;
 
@@ -33,9 +36,11 @@ public class AuthHttpServer {
     public AuthHttpServer(int port) throws IOException {
         this.server = HttpServer.create(new InetSocketAddress(port), 0);
         this.server.createContext(SCIEZKA_REGISTER, this::handleRegister);
-        this.server.createContext(SCIEZKA_LOGIN, this::handleLogin);
-        this.server.createContext(SCIEZKA_CZAS, this::handleCzas);
-        this.server.createContext(SCIEZKA_PROFIL, this::handleProfil);
+        this.server.createContext(SCIEZKA_LOGIN,    this::handleLogin);
+        this.server.createContext(SCIEZKA_LOGOUT,   this::handleLogout);
+        this.server.createContext(SCIEZKA_REFRESH,  this::handleRefresh);
+        this.server.createContext(SCIEZKA_CZAS,     this::handleCzas);
+        this.server.createContext(SCIEZKA_PROFIL,   this::handleProfil);
         this.server.setExecutor(Executors.newFixedThreadPool(4));
     }
 
@@ -43,9 +48,11 @@ public class AuthHttpServer {
     public AuthHttpServer(HttpServer existingServer) {
         this.server = existingServer;
         this.server.createContext(SCIEZKA_REGISTER, this::handleRegister);
-        this.server.createContext(SCIEZKA_LOGIN, this::handleLogin);
-        this.server.createContext(SCIEZKA_CZAS, this::handleCzas);
-        this.server.createContext(SCIEZKA_PROFIL, this::handleProfil);
+        this.server.createContext(SCIEZKA_LOGIN,    this::handleLogin);
+        this.server.createContext(SCIEZKA_LOGOUT,   this::handleLogout);
+        this.server.createContext(SCIEZKA_REFRESH,  this::handleRefresh);
+        this.server.createContext(SCIEZKA_CZAS,     this::handleCzas);
+        this.server.createContext(SCIEZKA_PROFIL,   this::handleProfil);
     }
 
     // Uruchamia nasluchiwanie endpointow HTTP.
@@ -129,6 +136,72 @@ public class AuthHttpServer {
                            ",\"statystyki\":" + statystykiJson +
                            "}";
         writeJson(exchange, 200, odpowiedz);
+    }
+
+    // Obsluguje POST /auth/logout
+    // Body: {"id":1}
+    // Odpowiedz sukces: {"ok":true,"czasWGrze":3600}
+    // Odpowiedz blad:   {"ok":false,"blad":"..."}
+    private void handleLogout(HttpExchange exchange) throws IOException {
+        if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+            writeJson(exchange, 405, "{\"ok\":false,\"blad\":\"Dozwolona jest tylko metoda POST\"}");
+            return;
+        }
+
+        String body = readBody(exchange);
+        String idStr = parseJsonPole(body, "id");
+
+        if (idStr == null) {
+            writeJson(exchange, 400, "{\"ok\":false,\"blad\":\"Wymagane pole: id\"}");
+            return;
+        }
+
+        int id;
+        try {
+            id = Integer.parseInt(idStr);
+        } catch (NumberFormatException e) {
+            writeJson(exchange, 400, "{\"ok\":false,\"blad\":\"Pole id musi byc liczba\"}");
+            return;
+        }
+
+        // Konczy sesje i zapisuje czas do bazy od razu
+        SesjaManager.zakoncz(id);
+
+        // Pobierz nowy laczny czas z bazy
+        long nowyCzas = UzytkownikService.pobierzCzasWGrze(id);
+
+        writeJson(exchange, 200, "{\"ok\":true,\"czasWGrze\":" + nowyCzas + "}");
+    }
+
+    // Obsluguje POST /auth/refresh — heartbeat od klienta, podtrzymuje aktywna sesje.
+    // Body: {"id":1}
+    // Odpowiedz: {"ok":true}
+    // Edge case: jesli gracza nie ma w mapie aktywnych (restart serwera / krotka przerwa sieci),
+    //            automatycznie tworzy nowa sesje od teraz zamiast odrzucac request.
+    private void handleRefresh(HttpExchange exchange) throws IOException {
+        if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+            writeJson(exchange, 405, "{\"ok\":false,\"blad\":\"Dozwolona jest tylko metoda POST\"}");
+            return;
+        }
+
+        String body = readBody(exchange);
+        String idStr = parseJsonPole(body, "id");
+
+        if (idStr == null) {
+            writeJson(exchange, 400, "{\"ok\":false,\"blad\":\"Wymagane pole: id\"}");
+            return;
+        }
+
+        int id;
+        try {
+            id = Integer.parseInt(idStr);
+        } catch (NumberFormatException e) {
+            writeJson(exchange, 400, "{\"ok\":false,\"blad\":\"Pole id musi byc liczba\"}");
+            return;
+        }
+
+        SesjaManager.refresh(id);
+        writeJson(exchange, 200, "{\"ok\":true}");
     }
 
     // Obsluguje POST /auth/czas

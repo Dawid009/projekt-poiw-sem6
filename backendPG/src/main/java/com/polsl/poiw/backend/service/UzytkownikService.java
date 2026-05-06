@@ -147,6 +147,27 @@ public class UzytkownikService {
         return -1;
     }
 
+    // Pobiera laczny czas w grze gracza z bazy. Zwraca -1 jesli nie znaleziono.
+    public static long pobierzCzasWGrze(int id) {
+        String sql = "SELECT \"czasWGrze\" FROM GRACZE WHERE id = ?";
+
+        try (Connection conn = DatabaseConfig.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setInt(1, id);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getLong("czasWGrze");
+                }
+            }
+
+        } catch (SQLException e) {
+            System.err.println("Blad przy pobieraniu czasu: " + e.getMessage());
+        }
+
+        return -1;
+    }
+
     // Sprawdza czy podany email jest juz zajety w bazie.
     public static boolean emailZajety(String email) {
         String sql = "SELECT COUNT(*) FROM GRACZE WHERE email = ?";
