@@ -10,9 +10,12 @@ import com.badlogic.gdx.scenes.scene2d.ui.Window;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.polsl.poiw.GameInstance;
+import com.polsl.poiw.engine.auth.AuthService;
 import com.polsl.poiw.engine.gameframework.PlayerController;
+import com.polsl.poiw.engine.ui.AuthPanelWidget;
 import com.polsl.poiw.engine.ui.EAnchor;
 import com.polsl.poiw.engine.ui.EVisibility;
+import com.polsl.poiw.engine.ui.FullscreenBackgroundRenderer;
 import com.polsl.poiw.engine.ui.SettingsPanelWidget;
 import com.polsl.poiw.engine.ui.UiSkinStyles;
 import com.polsl.poiw.engine.ui.UserWidget;
@@ -26,6 +29,9 @@ public class MenuPlayerController extends PlayerController {
 
     private static final String TAG = "MenuPlayerController";
     private static final float CONTENT_FONT_SCALE = 0.5f;
+    private static final float ACCOUNT_FONT_SCALE = 0.5f;
+    private static final float ACCOUNT_BUTTON_WIDTH = 44f;
+    private static final float ACCOUNT_BUTTON_HEIGHT = 12f;
     private static final float MENU_BUTTON_WIDTH = 55f;
     private static final float MENU_BUTTON_HEIGHT = 12f;
     private static final float PANEL_BUTTON_WIDTH = 55f;
@@ -35,15 +41,22 @@ public class MenuPlayerController extends PlayerController {
 
     private UserWidget menuContainer;
     private UserWidget multiplayerPanel;
+    private UserWidget accountOverlay;
+    private FullscreenBackgroundRenderer backgroundRenderer;
+    private AuthPanelWidget authPanel;
     private TextField ipField;
     private TextField portField;
     private Label statusText;
+    private Label accountNameLabel;
+    private Label accountTimeLabel;
     private TextButton connectButton;
     private SettingsPanelWidget settingsPanel;
 
     @Override
     protected void setupHUD() {
         Skin skin = getSkin();
+
+        backgroundRenderer = new FullscreenBackgroundRenderer("menu_bg.png");
 
         // Menu główne
         menuContainer = new UserWidget();
@@ -99,6 +112,35 @@ public class MenuPlayerController extends PlayerController {
         menuContainer.getRoot().addActor(menuWindow);
 
         addWidgetToViewport(menuContainer);
+
+        accountOverlay = new UserWidget();
+        accountOverlay.setAnchor(EAnchor.BOTTOM_LEFT);
+        accountOverlay.setAlignment(EAnchor.BOTTOM_LEFT);
+        accountOverlay.setOffset(4f, 4f);
+
+        Table accountTable = new Table();
+        accountTable.defaults().left();
+        accountNameLabel = new Label("---", UiSkinStyles.copyScaledLabelStyle(skin, "font", ACCOUNT_FONT_SCALE));
+        accountTimeLabel = new Label("00:00:00", UiSkinStyles.copyScaledLabelStyle(skin, "font", ACCOUNT_FONT_SCALE));
+        TextButton logoutButton = new TextButton("Wyloguj",
+            UiSkinStyles.copyCompactTextButtonStyle(skin, "atlas", "font", 18f, 14f, ACCOUNT_FONT_SCALE));
+        logoutButton.getLabel().setWrap(false);
+        logoutButton.addListener(new ClickListener() {
+            @Override
+            public void clicked(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y) {
+                onLogoutClicked();
+            }
+        });
+
+        accountTable.add(accountNameLabel).padBottom(1f).row();
+        accountTable.add(accountTimeLabel).padBottom(1.5f).row();
+        accountTable.add(logoutButton).width(ACCOUNT_BUTTON_WIDTH).height(ACCOUNT_BUTTON_HEIGHT).left();
+        accountTable.pack();
+
+        accountOverlay.setSize(accountTable.getPrefWidth(), accountTable.getPrefHeight());
+        accountOverlay.getRoot().addActor(accountTable);
+        addWidgetToViewport(accountOverlay);
+        accountOverlay.setVisibility(EVisibility.COLLAPSED);
 
         // Panel Multiplayer
         multiplayerPanel = new UserWidget();
@@ -166,6 +208,51 @@ public class MenuPlayerController extends PlayerController {
         settingsPanel.setAlignment(EAnchor.CENTER);
         settingsPanel.setCloseAction(this::closeSettingsPanel);
         addWidgetToViewport(settingsPanel);
+
+        authPanel = new AuthPanelWidget(skin);
+        authPanel.setAnchor(EAnchor.CENTER);
+        authPanel.setAlignment(EAnchor.CENTER);
+        authPanel.setActionListener(new AuthPanelWidget.AuthPanelActionListener() {
+            @Override
+            public void onLoginRequested(String login, String password) {
+                MenuPlayerController.this.onLoginRequested(login, password);
+            }
+
+            @Override
+            public void onRegisterRequested(String login, String email, String password) {
+                MenuPlayerController.this.onRegisterRequested(login, email, password);
+            }
+        });
+        addWidgetToViewport(authPanel);
+
+        refreshAccountInfo();
+        if (getGameInstance().getAuthService().isAuthenticated()) {
+            showMainMenu();
+        } else {
+            showAuthPanel(null, null);
+        }
+    }
+
+    @Override
+    public void tick(float delta) {
+        super.tick(delta);
+        refreshAccountInfo();
+    }
+
+    @Override
+    public void renderBeforeHud() {
+        if (backgroundRenderer != null) {
+            backgroundRenderer.render(getHUD().getStage().getBatch());
+        }
+    }
+
+    @Override
+    public void destroy() {
+        if (backgroundRenderer != null) {
+            backgroundRenderer.dispose();
+            backgroundRenderer = null;
+        }
+        super.destroy();
     }
 
 
@@ -249,7 +336,9 @@ public class MenuPlayerController extends PlayerController {
 
     private void closeMultiplayerPanel() {
         multiplayerPanel.setVisibility(EVisibility.COLLAPSED);
-        menuContainer.setVisibility(EVisibility.VISIBLE);
+        if (getGameInstance().getAuthService().isAuthenticated()) {
+            menuContainer.setVisibility(EVisibility.VISIBLE);
+        }
         // reset statusu i przycisku
         if (statusText != null) statusText.setVisible(false);
         if (connectButton != null) connectButton.setDisabled(false);
@@ -270,7 +359,132 @@ public class MenuPlayerController extends PlayerController {
         if (settingsPanel != null) {
             settingsPanel.setVisibility(EVisibility.HIDDEN);
         }
+        if (getGameInstance().getAuthService().isAuthenticated()) {
+            menuContainer.setVisibility(EVisibility.VISIBLE);
+        } else {
+            showAuthPanel(null, null);
+        }
+    }
+
+    private void onLoginRequested(String login, String password) {
+        authPanel.setBusy(true);
+        authPanel.setStatus("Logowanie...", Color.YELLOW);
+
+        getGameInstance().getAuthService().login(login, password, new AuthService.AuthResultListener() {
+            @Override
+            public void onSuccess(AuthService.SessionSnapshot session) {
+                authPanel.setBusy(false);
+                authPanel.clearStatus();
+                authPanel.resetToLoginMode();
+                applyAuthenticatedSession(session);
+            }
+
+            @Override
+            public void onFailure(String message) {
+                authPanel.setBusy(false);
+                authPanel.setStatus(message, Color.RED);
+            }
+        });
+    }
+
+    private void onRegisterRequested(String login, String email, String password) {
+        authPanel.setBusy(true);
+        authPanel.setStatus("Rejestracja...", Color.YELLOW);
+
+        getGameInstance().getAuthService().register(login, email, password, new AuthService.AuthResultListener() {
+            @Override
+            public void onSuccess(AuthService.SessionSnapshot session) {
+                authPanel.setBusy(false);
+                authPanel.clearStatus();
+                authPanel.resetToLoginMode();
+                applyAuthenticatedSession(session);
+            }
+
+            @Override
+            public void onFailure(String message) {
+                authPanel.setBusy(false);
+                authPanel.setStatus(message, Color.RED);
+            }
+        });
+    }
+
+    private void applyAuthenticatedSession(AuthService.SessionSnapshot session) {
+        getGameInstance().setPlayerName(session.username());
+        refreshAccountInfo();
+        showMainMenu();
+    }
+
+    private void onLogoutClicked() {
+        getGameInstance().getAuthService().logout(() -> {
+            getGameInstance().setPlayerName("Player");
+            if (multiplayerPanel != null) {
+                multiplayerPanel.setVisibility(EVisibility.COLLAPSED);
+            }
+            if (settingsPanel != null) {
+                settingsPanel.setVisibility(EVisibility.HIDDEN);
+            }
+            showAuthPanel("Wylogowano.", Color.YELLOW);
+        });
+    }
+
+    private void showMainMenu() {
+        if (authPanel != null) {
+            authPanel.setVisibility(EVisibility.COLLAPSED);
+        }
+        if (accountOverlay != null) {
+            accountOverlay.setVisibility(EVisibility.VISIBLE);
+        }
+        if (multiplayerPanel != null) {
+            multiplayerPanel.setVisibility(EVisibility.COLLAPSED);
+        }
+        if (settingsPanel != null) {
+            settingsPanel.setVisibility(EVisibility.HIDDEN);
+        }
         menuContainer.setVisibility(EVisibility.VISIBLE);
+        refreshAccountInfo();
+    }
+
+    private void showAuthPanel(String statusText, Color statusColor) {
+        menuContainer.setVisibility(EVisibility.COLLAPSED);
+        if (accountOverlay != null) {
+            accountOverlay.setVisibility(EVisibility.COLLAPSED);
+        }
+        if (multiplayerPanel != null) {
+            multiplayerPanel.setVisibility(EVisibility.COLLAPSED);
+        }
+        if (settingsPanel != null) {
+            settingsPanel.setVisibility(EVisibility.HIDDEN);
+        }
+        if (authPanel != null) {
+            authPanel.setRememberedCredentials(getGameInstance().getAuthService().getRememberedCredentials());
+            authPanel.resetToLoginMode();
+            authPanel.setBusy(false);
+            if (statusText != null && !statusText.isBlank()) {
+                authPanel.setStatus(statusText, statusColor);
+            } else {
+                authPanel.clearStatus();
+            }
+            authPanel.setVisibility(EVisibility.VISIBLE);
+        }
+    }
+
+    private void refreshAccountInfo() {
+        AuthService authService = getGameInstance().getAuthService();
+        if (accountNameLabel != null) {
+            String username = authService.isAuthenticated() ? authService.getCurrentUsername() : "---";
+            accountNameLabel.setText(username);
+        }
+        if (accountTimeLabel != null) {
+            long seconds = authService.getCurrentPlaytimeSeconds();
+            accountTimeLabel.setText(formatDuration(seconds));
+        }
+    }
+
+    private String formatDuration(long totalSeconds) {
+        long hours = totalSeconds / 3600;
+        long minutes = (totalSeconds % 3600) / 60;
+        long seconds = totalSeconds % 60;
+        return String.format(java.util.Locale.ROOT, "%02d:%02d:%02d", hours, minutes, seconds);
     }
 
     private TextButton createMenuButton(Skin skin, String text, float width, float height) {

@@ -1,6 +1,7 @@
 package com.polsl.poiw;
 
 import com.badlogic.gdx.Gdx;
+import com.polsl.poiw.engine.auth.AuthService;
 import com.polsl.poiw.engine.level.LevelDefinition;
 import com.polsl.poiw.shared.protocol.NetworkProtocol;
 import com.polsl.poiw.engine.level.LevelRegistry;
@@ -25,6 +26,8 @@ import java.util.function.Consumer;
 public class GameInstance {
 
     private static final String TAG = "GameInstance";
+
+    private final AuthService authService = new AuthService();
 
     // ===== Konfiguracja sesji =====
 
@@ -201,6 +204,8 @@ public class GameInstance {
      * wywoływana z Main lub LevelScreen.
      */
     public void update(float delta) {
+        authService.tick(delta);
+
         // process network messages w fazie CONNECTING (menu jest aktywne, nie WorldContext)
         if (sessionState == SessionState.CONNECTING && netDriver != null) {
             netDriver.processMessages();
@@ -312,6 +317,7 @@ public class GameInstance {
 
     public LevelRegistry getLevelRegistry() { return levelRegistry; }
     public String getCurrentLevelId() { return currentLevelId; }
+    public AuthService getAuthService() { return authService; }
 
     /** Aktywny WorldContext (z LevelScreen) */
     public WorldContext getActiveWorldContext() {

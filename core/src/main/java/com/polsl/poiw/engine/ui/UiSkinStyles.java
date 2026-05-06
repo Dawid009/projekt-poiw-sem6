@@ -14,6 +14,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.ui.TextField;
 import com.badlogic.gdx.scenes.scene2d.ui.Window;
+import com.badlogic.gdx.scenes.scene2d.utils.BaseDrawable;
 import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
 import com.badlogic.gdx.scenes.scene2d.utils.NinePatchDrawable;
 import com.badlogic.gdx.scenes.scene2d.utils.SpriteDrawable;
@@ -160,10 +161,10 @@ public final class UiSkinStyles {
             1f
         );
 
-        style.background = resizeDrawable(style.background, backgroundWidth, resolvedBackgroundHeight);
-        style.backgroundOpen = resizeDrawable(style.backgroundOpen, backgroundWidth, resolvedBackgroundHeight);
-        style.backgroundOver = resizeDrawable(style.backgroundOver, backgroundWidth, resolvedBackgroundHeight);
-        style.backgroundDisabled = resizeDrawable(style.backgroundDisabled, backgroundWidth, resolvedBackgroundHeight);
+        style.background = addHorizontalPadding(resizeDrawable(style.background, backgroundWidth, resolvedBackgroundHeight), 4f, 4f);
+        style.backgroundOpen = addHorizontalPadding(resizeDrawable(style.backgroundOpen, backgroundWidth, resolvedBackgroundHeight), 4f, 4f);
+        style.backgroundOver = addHorizontalPadding(resizeDrawable(style.backgroundOver, backgroundWidth, resolvedBackgroundHeight), 4f, 4f);
+        style.backgroundDisabled = addHorizontalPadding(resizeDrawable(style.backgroundDisabled, backgroundWidth, resolvedBackgroundHeight), 4f, 4f);
 
         if (style.scrollStyle != null) {
             style.scrollStyle = new ScrollPane.ScrollPaneStyle(style.scrollStyle);
@@ -178,8 +179,10 @@ public final class UiSkinStyles {
         }
 
         if (style.listStyle != null) {
-            style.listStyle.selection = resizeDrawable(style.listStyle.selection, backgroundWidth, resolvedSelectionHeight);
-            style.listStyle.background = resizeDrawable(style.listStyle.background, backgroundWidth, resolvedSelectionHeight * 3f);
+            style.listStyle.selection = addHorizontalPadding(
+                resizeDrawable(style.listStyle.selection, backgroundWidth, resolvedSelectionHeight), 4f, 4f);
+            style.listStyle.background = addHorizontalPadding(
+                resizeDrawable(style.listStyle.background, backgroundWidth, resolvedSelectionHeight * 3f), 4f, 4f);
         }
 
         return style;
@@ -205,9 +208,9 @@ public final class UiSkinStyles {
         style.messageFont = resolveScaledFont(skin, fontName, style.messageFont, fontScale);
 
         float resolvedMinHeight = resolveMinHeight(style.font, minHeight, 4f);
-        style.background = resizeDrawable(style.background, minWidth, resolvedMinHeight);
-        style.focusedBackground = resizeDrawable(style.focusedBackground, minWidth, resolvedMinHeight);
-        style.disabledBackground = resizeDrawable(style.disabledBackground, minWidth, resolvedMinHeight);
+        style.background = addHorizontalPadding(resizeDrawable(style.background, minWidth, resolvedMinHeight), 4f, 4f);
+        style.focusedBackground = addHorizontalPadding(resizeDrawable(style.focusedBackground, minWidth, resolvedMinHeight), 4f, 4f);
+        style.disabledBackground = addHorizontalPadding(resizeDrawable(style.disabledBackground, minWidth, resolvedMinHeight), 4f, 4f);
         return style;
     }
 
@@ -256,6 +259,14 @@ public final class UiSkinStyles {
             return copy;
         }
 
+        return drawable;
+    }
+
+    private static Drawable addHorizontalPadding(Drawable drawable, float leftWidth, float rightWidth) {
+        if (drawable instanceof BaseDrawable baseDrawable) {
+            baseDrawable.setLeftWidth(Math.max(baseDrawable.getLeftWidth(), leftWidth));
+            baseDrawable.setRightWidth(Math.max(baseDrawable.getRightWidth(), rightWidth));
+        }
         return drawable;
     }
 

@@ -513,6 +513,9 @@ public class WorldContext implements Disposable {
      * Renderuje świat i UI. Wywoływane po update().
      */
     public void render() {
+        if (playerController != null) {
+            playerController.renderBeforeHud();
+        }
         hud.render();
     }
 

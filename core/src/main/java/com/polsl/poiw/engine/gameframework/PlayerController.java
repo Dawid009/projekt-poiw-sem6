@@ -91,6 +91,10 @@ public class PlayerController {
         }
     }
 
+    /** Renderowanie wykonywane przed HUD-em. Override w subklasach, jeśli potrzebny jest screen-space pass. */
+    public void renderBeforeHud() {
+    }
+
     /** Sprzątanie przy zamykaniu */
     public void destroy() {
         unpossess();
