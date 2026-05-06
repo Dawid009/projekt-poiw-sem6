@@ -17,11 +17,12 @@ import com.polsl.poiw.engine.component.TransformComponent;
  */
 public class CameraSystem extends IteratingSystem {
 
-    private static final float CAMERA_EPSILON = 0.001f;
+    private static final float CAMERA_SNAP_EPSILON = Main.WORLD_UNITS_PER_PIXEL * 0.5f;
+    private static final float CAMERA_SMOOTHING = 8f;
 
     private final OrthographicCamera camera;
-    private final float smoothingFactor;
     private final Vector2 targetPosition;
+    private final Vector2 smoothPosition;
     private float mapW;
     private float mapH;
 
@@ -31,8 +32,8 @@ public class CameraSystem extends IteratingSystem {
     public CameraSystem(OrthographicCamera camera) {
         super(Family.all(CameraFollowComponent.class, TransformComponent.class).get(), 99);
         this.camera = camera;
-        this.smoothingFactor = 10f;
         this.targetPosition = new Vector2();
+        this.smoothPosition = new Vector2();
     }
 
     @Override
@@ -42,22 +43,24 @@ public class CameraSystem extends IteratingSystem {
 
         if (firstFrame) {
             // Pierwsza klatka — natychmiast ustaw kamerę na graczu
-            camera.position.set(targetPosition.x, targetPosition.y, camera.position.z);
+            smoothPosition.set(targetPosition);
+            camera.position.set(snapToPixel(targetPosition.x), snapToPixel(targetPosition.y), camera.position.z);
             firstFrame = false;
         } else {
             // Płynne śledzenie niezależne od FPS.
-            float progress = 1f - (float) Math.exp(-smoothingFactor * deltaTime);
-            float smoothedX = MathUtils.lerp(camera.position.x, targetPosition.x, progress);
-            float smoothedY = MathUtils.lerp(camera.position.y, targetPosition.y, progress);
+            float progress = 1f - (float) Math.exp(-CAMERA_SMOOTHING * deltaTime);
+            float smoothedX = MathUtils.lerp(smoothPosition.x, targetPosition.x, progress);
+            float smoothedY = MathUtils.lerp(smoothPosition.y, targetPosition.y, progress);
 
-            if (Math.abs(targetPosition.x - smoothedX) < CAMERA_EPSILON) {
+            if (Math.abs(targetPosition.x - smoothedX) < CAMERA_SNAP_EPSILON) {
                 smoothedX = targetPosition.x;
             }
-            if (Math.abs(targetPosition.y - smoothedY) < CAMERA_EPSILON) {
+            if (Math.abs(targetPosition.y - smoothedY) < CAMERA_SNAP_EPSILON) {
                 smoothedY = targetPosition.y;
             }
 
-            camera.position.set(smoothedX, smoothedY, camera.position.z);
+            smoothPosition.set(smoothedX, smoothedY);
+            camera.position.set(snapToPixel(smoothedX), snapToPixel(smoothedY), camera.position.z);
         }
         camera.update();
     }
@@ -110,6 +113,10 @@ public class CameraSystem extends IteratingSystem {
         int tileH = tiledMap.getProperties().get("tileheight", 0, Integer.class);
         mapW = width * tileW * Main.UNIT_SCALE;
         mapH = height * tileH * Main.UNIT_SCALE;
+    }
+
+    private float snapToPixel(float value) {
+        return Math.round(value / Main.WORLD_UNITS_PER_PIXEL) * Main.WORLD_UNITS_PER_PIXEL;
     }
 
     public OrthographicCamera getCamera() { return camera; }
