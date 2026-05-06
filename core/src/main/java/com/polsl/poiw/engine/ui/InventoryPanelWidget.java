@@ -2,6 +2,8 @@ package com.polsl.poiw.engine.ui;
 
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.g2d.TextureAtlas;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.scenes.scene2d.ui.Button;
 import com.badlogic.gdx.scenes.scene2d.ui.Cell;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
@@ -41,6 +43,7 @@ public class InventoryPanelWidget extends UserWidget {
     }
 
     private final Skin skin;
+    private final TextureAtlas itemsAtlas;
     private final Window window;
     private final Table itemsTable;
     private final Label titleLabel;
@@ -56,9 +59,10 @@ public class InventoryPanelWidget extends UserWidget {
     private String selectedItemId;
     private InventoryActionListener actionListener;
 
-    public InventoryPanelWidget(Skin skin) {
+    public InventoryPanelWidget(Skin skin, TextureAtlas itemsAtlas) {
         super();
         this.skin = skin;
+        this.itemsAtlas = itemsAtlas;
         this.window = new Window("", skin);
         this.window.setMovable(false);
         this.window.defaults().pad(1f);
@@ -194,9 +198,7 @@ public class InventoryPanelWidget extends UserWidget {
         Button button = new Button(style);
         button.setChecked(definition.getItemId().equals(selectedItemId));
 
-        // Tymczasowa ikona: kolorowy prostokat zamiast finalnej tekstury itemu.
-        Image icon = new Image(skin.newDrawable("white", definition.getDisplayColor()));
-        icon.setScaling(Scaling.stretch);
+        Image icon = createIcon(definition);
 
         Label quantity = new Label(String.valueOf(stack.getQuantity()), UiSkinStyles.resolveLabelStyle(skin, "list"));
         quantity.setFontScale(0.6f);
@@ -247,6 +249,32 @@ public class InventoryPanelWidget extends UserWidget {
         });
 
         return button;
+    }
+
+    private Image createIcon(ItemDefinition definition) {
+        TextureRegion region = findItemRegion(definition);
+        if (region != null) {
+            Image icon = new Image(region);
+            icon.setScaling(Scaling.contain);
+            return icon;
+        }
+
+        Image icon = new Image(skin.newDrawable("white", definition.getDisplayColor()));
+        icon.setScaling(Scaling.stretch);
+        return icon;
+    }
+
+    private TextureRegion findItemRegion(ItemDefinition definition) {
+        if (itemsAtlas == null || definition == null) {
+            return null;
+        }
+
+        String regionName = definition.getTextureRegionName();
+        if (regionName == null || regionName.isBlank()) {
+            return null;
+        }
+
+        return itemsAtlas.findRegion(regionName);
     }
 
     private void showTooltip(ItemDefinition definition, float stageX, float stageY) {

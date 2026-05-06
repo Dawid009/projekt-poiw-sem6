@@ -67,7 +67,7 @@ public class MainPlayerController extends PlayerController {
 
         addWidgetToViewport(progressBar);
 
-        inventoryPanel = new InventoryPanelWidget(getSkin());
+        inventoryPanel = new InventoryPanelWidget(getSkin(), getItemsAtlas());
         inventoryPanel.setAnchor(EAnchor.CENTER);
         inventoryPanel.setAlignment(EAnchor.CENTER);
         inventoryPanel.setOffset(0f, 0f);
@@ -212,6 +212,11 @@ public class MainPlayerController extends PlayerController {
         spawnDebugItemIfPressed(player, Input.Keys.NUM_2, 1);
         spawnDebugItemIfPressed(player, Input.Keys.NUM_3, 2);
         spawnDebugItemIfPressed(player, Input.Keys.NUM_4, 3);
+        spawnDebugItemIfPressed(player, Input.Keys.NUM_5, 4);
+        spawnDebugItemIfPressed(player, Input.Keys.NUM_6, 5);
+        spawnDebugItemIfPressed(player, Input.Keys.NUM_7, 6);
+        spawnDebugItemIfPressed(player, Input.Keys.NUM_8, 7);
+        spawnDebugItemIfPressed(player, Input.Keys.NUM_9, 8);
     }
 
     private void spawnDebugItemIfPressed(PlayerCharacter player, int keycode, int debugSlot) {
@@ -275,7 +280,7 @@ public class MainPlayerController extends PlayerController {
         );
 
         ItemPickupActor pickupActor = new ItemPickupActor();
-        pickupActor.configure(item, quantity, getSkin());
+        pickupActor.configure(item, quantity, getItemsAtlas());
         pickupActor.setPickupGrace(player.getActorId(), pickupGraceSeconds);
         world.spawnActor(pickupActor, spawnPosition);
     }

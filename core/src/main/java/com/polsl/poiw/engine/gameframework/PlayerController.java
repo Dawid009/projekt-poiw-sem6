@@ -1,6 +1,7 @@
 package com.polsl.poiw.engine.gameframework;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.polsl.poiw.GameInstance;
@@ -30,6 +31,7 @@ public class PlayerController {
     private GameMode gameMode;
     private HUD hud;
     private Skin skin;
+    private TextureAtlas itemsAtlas;
 
     /** Kontrolowany aktor (possessed pawn) */
     private Actor possessedPawn;
@@ -56,12 +58,13 @@ public class PlayerController {
 
     /** Wywoływane po stworzeniu controllera */
     public void initialize(GameInstance gameInstance, GameWorld world, GameMode gameMode,
-                           HUD hud, Skin skin) {
+                           HUD hud, Skin skin, TextureAtlas itemsAtlas) {
         this.gameInstance = gameInstance;
         this.world = world;
         this.gameMode = gameMode;
         this.hud = hud;
         this.skin = skin;
+        this.itemsAtlas = itemsAtlas;
         setupHUD();
     }
 
@@ -175,6 +178,7 @@ public class PlayerController {
     public GameMode getGameMode() { return gameMode; }
     public HUD getHUD() { return hud; }
     public Skin getSkin() { return skin; }
+    public TextureAtlas getItemsAtlas() { return itemsAtlas; }
     public int getPlayerId() { return playerId; }
     public void setPlayerId(int playerId) { this.playerId = playerId; }
 

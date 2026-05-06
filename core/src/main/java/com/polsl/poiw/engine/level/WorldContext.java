@@ -106,6 +106,7 @@ public class WorldContext implements Disposable {
         Gdx.app.debug(TAG, "Inicjalizacja: " + levelDef);
 
         this.skin = game.getAssetService().get(SkinAsset.DEFAULT);
+        TextureAtlas itemsAtlas = game.getAssetService().get(AtlasAsset.ITEMS);
 
         // HUD — Stage UI z osobnym viewportem (zawsze, nawet UI_ONLY)
         Stage hudStage = new Stage(new FitViewport(320f, 180f), game.getBatch());
@@ -129,7 +130,7 @@ public class WorldContext implements Disposable {
 
         // PlayerController
         this.playerController = createInstance(levelDef.getControllerClass(), "PlayerController");
-        playerController.initialize(game.getGameInstance(), gameWorld, gameMode, hud, skin);
+        playerController.initialize(game.getGameInstance(), gameWorld, gameMode, hud, skin, itemsAtlas);
 
         initializeDebugHud();
 
