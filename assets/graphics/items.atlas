@@ -1,0 +1,139 @@
+
+items.png
+size: 64, 128
+format: RGBA8888
+filter: Nearest, Nearest
+repeat: none
+coins/coin_bronze
+  rotate: false
+  xy: 4, 28
+  size: 8, 8
+  orig: 8, 8
+  offset: 0, 0
+  index: -1
+coins/coin_gold
+  rotate: false
+  xy: 24, 48
+  size: 8, 8
+  orig: 8, 8
+  offset: 0, 0
+  index: -1
+coins/coin_silver
+  rotate: false
+  xy: 4, 16
+  size: 8, 8
+  orig: 8, 8
+  offset: 0, 0
+  index: -1
+crops/item_carrot
+  rotate: false
+  xy: 4, 100
+  size: 16, 16
+  orig: 16, 16
+  offset: 0, 0
+  index: -1
+crops/item_wheat
+  rotate: false
+  xy: 4, 40
+  size: 16, 16
+  orig: 16, 16
+  offset: 0, 0
+  index: -1
+gold/item_gold_bar
+  rotate: false
+  xy: 4, 80
+  size: 16, 16
+  orig: 16, 16
+  offset: 0, 0
+  index: -1
+gold/item_gold_cluster
+  rotate: false
+  xy: 24, 100
+  size: 16, 16
+  orig: 16, 16
+  offset: 0, 0
+  index: -1
+gold/item_gold_nuggets
+  rotate: false
+  xy: 44, 100
+  size: 16, 16
+  orig: 16, 16
+  offset: 0, 0
+  index: -1
+iron/item_iron_bar
+  rotate: false
+  xy: 4, 60
+  size: 16, 16
+  orig: 16, 16
+  offset: 0, 0
+  index: -1
+iron/item_iron_cluster
+  rotate: false
+  xy: 24, 80
+  size: 16, 16
+  orig: 16, 16
+  offset: 0, 0
+  index: -1
+iron/item_iron_nuggets
+  rotate: false
+  xy: 44, 80
+  size: 16, 16
+  orig: 16, 16
+  offset: 0, 0
+  index: -1
+misc/shard_blue
+  rotate: false
+  xy: 16, 4
+  size: 8, 8
+  orig: 8, 8
+  offset: 0, 0
+  index: -1
+potions/potion_blue
+  rotate: false
+  xy: 36, 48
+  size: 8, 8
+  orig: 8, 8
+  offset: 0, 0
+  index: -1
+potions/potion_green
+  rotate: false
+  xy: 4, 4
+  size: 8, 8
+  orig: 8, 8
+  offset: 0, 0
+  index: -1
+potions/potion_purple
+  rotate: false
+  xy: 48, 48
+  size: 8, 8
+  orig: 8, 8
+  offset: 0, 0
+  index: -1
+potions/potion_red
+  rotate: false
+  xy: 16, 28
+  size: 8, 8
+  orig: 8, 8
+  offset: 0, 0
+  index: -1
+potions/potion_yellow
+  rotate: false
+  xy: 16, 16
+  size: 8, 8
+  orig: 8, 8
+  offset: 0, 0
+  index: -1
+seeds/seeds_carrot
+  rotate: false
+  xy: 24, 60
+  size: 16, 16
+  orig: 16, 16
+  offset: 0, 0
+  index: -1
+seeds/seeds_wheat
+  rotate: false
+  xy: 44, 60
+  size: 16, 16
+  orig: 16, 16
+  offset: 0, 0
+  index: -1
