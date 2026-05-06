@@ -97,8 +97,8 @@ public class RenderSystem extends SortedIteratingSystem implements Disposable {
         batch.setColor(sprite.getColor());
         batch.draw(
             region,
-            position.x - (1f - scaling.x) * size.x * 0.5f,
-            position.y - (1f - scaling.y) * size.y * 0.5f,
+            position.x,
+            position.y,
             size.x * 0.5f, size.y * 0.5f,
             size.x, size.y,
             scaling.x, scaling.y,

@@ -33,7 +33,9 @@ import com.polsl.poiw.shared.protocol.NetworkProtocol;
 
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -46,6 +48,8 @@ public class GameServer implements ApplicationListener {
     private static final String TAG = "GameServer";
     private static final int ATTACK_INPUT_FLAG = 1 << 30;
     private static final int INPUT_SEQUENCE_MASK = ATTACK_INPUT_FLAG - 1;
+    private static final int INITIAL_REPLICATION_BATCH_SIZE = 32;
+    private static final int INITIAL_MOVEMENT_SNAPSHOT_BATCH_SIZE = 48;
 
     private GameWorld gameWorld;
     private NetDriver netDriver;
@@ -67,6 +71,7 @@ public class GameServer implements ApplicationListener {
     private int tcpPort = NetworkProtocol.DEFAULT_TCP_PORT;
     private int udpPort = NetworkProtocol.DEFAULT_UDP_PORT;
     private int maxPlayers = 4;
+    private final Set<Integer> knownReplicatedActorIds = new HashSet<>();
 
     public GameServer() {}
 
@@ -95,6 +100,7 @@ public class GameServer implements ApplicationListener {
 
         // load and parse Tiled map — collisions, triggers, spawn points
         loadServerMap();
+        syncKnownReplicatedActors();
 
         // NetDriver
         netDriver = new NetDriver(true);
@@ -164,6 +170,7 @@ public class GameServer implements ApplicationListener {
 
         // 2. update GameWorld (physics + ECS + ReplicationSystem)
         gameWorld.update(delta);
+        replicateDestroyedActors();
 
         // 3. send position corrections to each player (AFTER physics, so position is accurate)
         sendPlayerCorrections();
@@ -444,11 +451,7 @@ public class GameServer implements ApplicationListener {
 
         if (snapshots.isEmpty()) return;
 
-        var batch = new NetworkProtocol.BatchMovementSnapshot();
-        batch.snapshots = snapshots.toArray(new NetworkProtocol.MovementSnapshot[0]);
-        batch.serverTime = replicationSystem.getTickCounter() * (1f / 20f);
-        batch.serverTick = replicationSystem.getTickCounter();
-        netDriver.sendToClient(connectionId, batch, false); // UDP
+        sendMovementSnapshotsInChunks(connectionId, snapshots, INITIAL_MOVEMENT_SNAPSHOT_BATCH_SIZE);
     }
 
     private void spawnPlayerPawn(int connectionId, int playerId, String playerName) {
@@ -556,11 +559,39 @@ public class GameServer implements ApplicationListener {
             return;
         }
 
-        var batch = new NetworkProtocol.BatchReplicationUpdate();
-        batch.updates = updates.toArray(new NetworkProtocol.ReplicationUpdate[0]);
-        batch.serverTime = replicationSystem.getTickCounter() * (1f / 20f);
-        batch.serverTick = replicationSystem.getTickCounter();
-        netDriver.sendToClient(connectionId, batch, true);
+        sendReplicationUpdatesInChunks(connectionId, updates, INITIAL_REPLICATION_BATCH_SIZE);
+    }
+
+    private void sendReplicationUpdatesInChunks(int connectionId,
+                                                java.util.List<NetworkProtocol.ReplicationUpdate> updates,
+                                                int batchSize) {
+        float serverTime = replicationSystem.getTickCounter() * (1f / 20f);
+        int serverTick = replicationSystem.getTickCounter();
+
+        for (int start = 0; start < updates.size(); start += batchSize) {
+            int end = Math.min(start + batchSize, updates.size());
+            var batch = new NetworkProtocol.BatchReplicationUpdate();
+            batch.updates = updates.subList(start, end).toArray(new NetworkProtocol.ReplicationUpdate[0]);
+            batch.serverTime = serverTime;
+            batch.serverTick = serverTick;
+            netDriver.sendToClient(connectionId, batch, true);
+        }
+    }
+
+    private void sendMovementSnapshotsInChunks(int connectionId,
+                                               java.util.List<NetworkProtocol.MovementSnapshot> snapshots,
+                                               int batchSize) {
+        float serverTime = replicationSystem.getTickCounter() * (1f / 20f);
+        int serverTick = replicationSystem.getTickCounter();
+
+        for (int start = 0; start < snapshots.size(); start += batchSize) {
+            int end = Math.min(start + batchSize, snapshots.size());
+            var batch = new NetworkProtocol.BatchMovementSnapshot();
+            batch.snapshots = snapshots.subList(start, end).toArray(new NetworkProtocol.MovementSnapshot[0]);
+            batch.serverTime = serverTime;
+            batch.serverTick = serverTick;
+            netDriver.sendToClient(connectionId, batch, false);
+        }
     }
 
     private void collectFullComponentUpdates(com.polsl.poiw.engine.actor.Actor actor,
@@ -602,6 +633,41 @@ public class GameServer implements ApplicationListener {
             return trainingDummy.buildInitialReplicationProperties();
         }
 
+        if (actor instanceof com.polsl.poiw.gameplay.actor.AbstractCreatureActor creature) {
+            return creature.buildInitialReplicationProperties();
+        }
+
         return null;
+    }
+
+    private void replicateDestroyedActors() {
+        Set<Integer> currentIds = new HashSet<>();
+        for (var actor : gameWorld.getAllActors()) {
+            if (actor.isReplicated()) {
+                currentIds.add(actor.getActorId());
+            }
+        }
+
+        for (Integer knownId : new HashSet<>(knownReplicatedActorIds)) {
+            if (currentIds.contains(knownId)) {
+                continue;
+            }
+
+            var destroy = new NetworkProtocol.ActorDestroy();
+            destroy.actorId = knownId;
+            netDriver.sendToAllClients(destroy, true);
+            knownReplicatedActorIds.remove(knownId);
+        }
+
+        knownReplicatedActorIds.addAll(currentIds);
+    }
+
+    private void syncKnownReplicatedActors() {
+        knownReplicatedActorIds.clear();
+        for (var actor : gameWorld.getAllActors()) {
+            if (actor.isReplicated()) {
+                knownReplicatedActorIds.add(actor.getActorId());
+            }
+        }
     }
 }

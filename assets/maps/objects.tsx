@@ -167,7 +167,7 @@
    </object>
   </objectgroup>
  </tile>
- <tile id="21">
+ <tile id="21" type="Creature">
   <image source="../raw/creatures/cow/cow_idle_left_0.png" width="32" height="32"/>
   <objectgroup draworder="index" id="2">
    <object id="1" x="8.875" y="20.8125" width="17.1875" height="5.125"/>
@@ -183,7 +183,7 @@
    <object id="1" x="8.90625" y="20.9375" width="17.1875" height="5.125"/>
   </objectgroup>
  </tile>
- <tile id="23">
+ <tile id="23" type="Creature">
   <image source="../raw/creatures/pig/pig_idle_left_0.png" width="32" height="32"/>
   <objectgroup draworder="index" id="2">
    <object id="1" x="8.71875" y="18.8125" width="14.25" height="4.1875"/>
@@ -199,7 +199,7 @@
    <object id="1" x="8.75" y="18.7813" width="14.25" height="4.1875"/>
   </objectgroup>
  </tile>
- <tile id="25">
+ <tile id="25" type="Creature">
   <image source="../raw/creatures/sheep/sheep_idle_left_0.png" width="32" height="32"/>
   <objectgroup draworder="index" id="2">
    <object id="1" x="8.9375" y="19.3125" width="14.1563" height="3.6875"/>
@@ -215,7 +215,7 @@
    <object id="1" x="8.85935" y="19.3125" width="14.1563" height="3.6875"/>
   </objectgroup>
  </tile>
- <tile id="27">
+ <tile id="27" type="Creature">
   <image source="../raw/creatures/chicken/chicken_idle_left_0.png" width="32" height="32"/>
   <objectgroup draworder="index" id="2">
    <object id="1" x="11.4375" y="20.375" width="8.96875" height="2.65625"/>

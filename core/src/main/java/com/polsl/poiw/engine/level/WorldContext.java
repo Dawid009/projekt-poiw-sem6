@@ -167,11 +167,14 @@ public class WorldContext implements Disposable {
             try {
                 Class<?> clazz = Class.forName(actorClass);
                 var actor = (com.polsl.poiw.engine.actor.AbstractActor) clazz.getDeclaredConstructor().newInstance();
-                TextureAtlas atlas = game.getAssetService().get(AtlasAsset.OBJECTS);
+                TextureAtlas objectsAtlas = game.getAssetService().get(AtlasAsset.OBJECTS);
+                TextureAtlas creaturesAtlas = game.getAssetService().get(AtlasAsset.CREATURES);
                 if (actor instanceof com.polsl.poiw.gameplay.character.PlayerCharacter pc) {
-                    pc.configure(atlas);
+                    pc.configure(objectsAtlas);
                 } else if (actor instanceof com.polsl.poiw.gameplay.actor.TrainingDummyActor trainingDummy) {
-                    trainingDummy.configureFromReplication(atlas, initialProps);
+                    trainingDummy.configureFromReplication(objectsAtlas, initialProps);
+                } else if (actor instanceof com.polsl.poiw.gameplay.actor.AbstractCreatureActor creature) {
+                    creature.configureFromReplication(creaturesAtlas, initialProps);
                 }
                 return actor;
             } catch (Exception e) {
@@ -192,9 +195,15 @@ public class WorldContext implements Disposable {
             gi.returnToMenu("Utracono polaczenie z serwerem");
         });
 
+        playerController.setPlayerId(gi.getLocalPlayerId());
+
         // give PlayerController access to ClientPrediction for saveMove()
         if (clientPrediction != null) {
             playerController.setClientPrediction(clientPrediction);
+        }
+
+        for (Object pendingMessage : gi.drainPendingGameplayMessages()) {
+            handleNetworkMessage(pendingMessage);
         }
     }
 
@@ -202,6 +211,14 @@ public class WorldContext implements Disposable {
     // handles network messages on the client during gameplay.
     private void handleNetworkMessage(Object message) {
         var gi = game.getGameInstance();
+
+        if (gameWorld == null || replicationHandler == null || playerController == null) {
+            if (!(message instanceof com.polsl.poiw.shared.protocol.NetworkProtocol.ServerReject)) {
+                Gdx.app.debug(TAG, "Ignoring gameplay message after WorldContext teardown: "
+                    + message.getClass().getSimpleName());
+            }
+            return;
+        }
 
         if (message instanceof com.polsl.poiw.shared.protocol.NetworkProtocol.ServerAccept accept) {
             // ServerAccept already handled in GameInstance.connectToServer() —
@@ -334,6 +351,7 @@ public class WorldContext implements Disposable {
         gameWorld.addSystem(new CombatSystem());
         gameWorld.addSystem(new MovementSystem());
         gameWorld.addSystem(new PlayerAnimationSystem());
+        gameWorld.addSystem(new com.polsl.poiw.engine.system.CreatureAnimationSystem());
 
         // in multiplayer the client adds InterpolationSystem + NetworkClock + ClientPrediction
         if (game.getGameInstance().isMultiplayer()) {
@@ -359,9 +377,10 @@ public class WorldContext implements Disposable {
      */
     private void loadTiledMap() {
         AssetService assetService = game.getAssetService();
-        TextureAtlas atlas = assetService.get(AtlasAsset.OBJECTS);
+        TextureAtlas objectsAtlas = assetService.get(AtlasAsset.OBJECTS);
+        TextureAtlas creaturesAtlas = assetService.get(AtlasAsset.CREATURES);
 
-        var objectFactory = new com.polsl.poiw.gameplay.tiled.DefaultTiledObjectFactory(gameWorld, atlas);
+        var objectFactory = new com.polsl.poiw.gameplay.tiled.DefaultTiledObjectFactory(gameWorld, objectsAtlas, creaturesAtlas);
         objectFactory.setSkipReplicatedDamageableObjects(game.getGameInstance().isMultiplayer());
         this.tiledParser = new TiledMapParser(gameWorld, assetService);
         tiledParser.setObjectFactory(objectFactory);
@@ -435,6 +454,10 @@ public class WorldContext implements Disposable {
      * Aktualizacja co klatkę. Wywoływane z aktywnego ekranu.
      */
     public void update(float delta) {
+        if (!isUiAvailable()) {
+            return;
+        }
+
         delta = Math.min(delta, 1f / 30f);
 
         // update network clock
@@ -445,6 +468,10 @@ public class WorldContext implements Disposable {
         // process network messages (main thread!)
         if (netDriver != null) {
             netDriver.processMessages();
+        }
+
+        if (!isUiAvailable()) {
+            return;
         }
 
         // F3 — debug rendering (tylko w GAME world)
@@ -506,9 +533,21 @@ public class WorldContext implements Disposable {
             gameWorld.update(delta);
         }
 
+        if (!isUiAvailable()) {
+            return;
+        }
+
         // GameMode i PlayerController tick
         if (gameMode != null) gameMode.tick(delta);
+        if (!isUiAvailable()) {
+            return;
+        }
+
         if (playerController != null) playerController.tick(delta);
+
+        if (!isUiAvailable()) {
+            return;
+        }
 
         // HUD tick i act
         updateDebugHud(delta);
@@ -533,9 +572,18 @@ public class WorldContext implements Disposable {
      * Renderuje świat i UI. Wywoływane po update().
      */
     public void render() {
+        if (!isUiAvailable()) {
+            return;
+        }
+
         if (playerController != null) {
             playerController.renderBeforeHud();
         }
+
+        if (!isUiAvailable()) {
+            return;
+        }
+
         hud.render();
     }
 
@@ -546,7 +594,10 @@ public class WorldContext implements Disposable {
         if (levelDef.isGameWorld()) {
             game.getViewport().update(width, height, true);
         }
-        hud.resize(width, height);
+
+        if (hud != null) {
+            hud.resize(width, height);
+        }
     }
 
     // ===== Dostęp =====
@@ -605,5 +656,9 @@ public class WorldContext implements Disposable {
         } catch (Exception e) {
             throw new RuntimeException("Nie można stworzyć " + label + ": " + clazz.getName(), e);
         }
+    }
+
+    private boolean isUiAvailable() {
+        return initialized && hud != null;
     }
 }

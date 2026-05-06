@@ -9,6 +9,9 @@ import com.polsl.poiw.engine.level.LevelScreen;
 import com.polsl.poiw.engine.level.WorldContext;
 import com.polsl.poiw.engine.net.driver.NetDriver;
 
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Consumer;
 
 /**
@@ -70,6 +73,12 @@ public class GameInstance {
     /** callback na błąd / odrzucenie / timeout */
     private Consumer<String> connectErrorCallback;
 
+    /** gameplay messages received after ServerAccept but before WorldContext installs gameplay handlers */
+    private final ArrayDeque<Object> pendingGameplayMessages = new ArrayDeque<>();
+
+    /** target map received in ServerAccept; deferred until connect-phase queue has been drained */
+    private String pendingConnectLevelId;
+
     // ===== System poziomów =====
 
     private final LevelRegistry levelRegistry = new LevelRegistry();
@@ -127,6 +136,8 @@ public class GameInstance {
             netDriver.dispose();
         }
         netDriver = new NetDriver(false);
+        pendingGameplayMessages.clear();
+        pendingConnectLevelId = null;
 
         // obsługa wiadomości w fazie CONNECTING (ServerAccept/Reject)
         netDriver.setMessageHandler((connectionId, message) -> handleConnectPhaseMessage(message));
@@ -158,6 +169,11 @@ public class GameInstance {
      * obsługuje wiadomości w fazie CONNECTING — tylko ServerAccept / ServerReject
      */
     private void handleConnectPhaseMessage(Object message) {
+        if (sessionState == SessionState.CONNECTED) {
+            pendingGameplayMessages.add(message);
+            return;
+        }
+
         if (sessionState != SessionState.CONNECTING) return;
 
         Gdx.app.debug(TAG, "Connect phase message received: " + message.getClass().getSimpleName());
@@ -167,12 +183,10 @@ public class GameInstance {
             serverTime = accept.serverTime;
             sessionState = SessionState.CONNECTED;
             connectStartTimeMs = 0;
+            pendingConnectLevelId = (accept.mapId != null && !accept.mapId.isBlank()) ? accept.mapId : "game";
             Gdx.app.log(TAG, "Serwer zaakceptował połączenie, playerId=" + accept.assignedPlayerId);
 
             if (connectStatusCallback != null) connectStatusCallback.accept("Połączono! Ładowanie...");
-
-            // travel do poziomu gry
-            travel("game");
 
         } else if (message instanceof NetworkProtocol.ServerReject reject) {
             abortConnect("Serwer odrzucił: " + reject.reason);
@@ -192,6 +206,9 @@ public class GameInstance {
             netDriver = null;
         }
 
+        pendingGameplayMessages.clear();
+        pendingConnectLevelId = null;
+
         if (connectErrorCallback != null) {
             connectErrorCallback.accept(reason);
         }
@@ -209,6 +226,13 @@ public class GameInstance {
         // process network messages w fazie CONNECTING (menu jest aktywne, nie WorldContext)
         if (sessionState == SessionState.CONNECTING && netDriver != null) {
             netDriver.processMessages();
+
+            if (sessionState == SessionState.CONNECTED && pendingConnectLevelId != null) {
+                String levelId = pendingConnectLevelId;
+                pendingConnectLevelId = null;
+                travel(levelId);
+                return;
+            }
 
             // re-check: processMessages() may have changed state via handleConnectPhaseMessage
             if (sessionState != SessionState.CONNECTING) return;
@@ -306,6 +330,8 @@ public class GameInstance {
             netDriver.dispose();
             netDriver = null;
         }
+        pendingGameplayMessages.clear();
+        pendingConnectLevelId = null;
         mode = Mode.SINGLE_PLAYER;
         localPlayerId = -1;
         connectStatusCallback = null;
@@ -346,6 +372,13 @@ public class GameInstance {
     // ===== Networking accessors =====
 
     public NetDriver getNetDriver() { return netDriver; }
+    public List<Object> drainPendingGameplayMessages() {
+        List<Object> messages = new ArrayList<>(pendingGameplayMessages.size());
+        while (!pendingGameplayMessages.isEmpty()) {
+            messages.add(pendingGameplayMessages.removeFirst());
+        }
+        return messages;
+    }
     public void setNetDriver(NetDriver netDriver) { this.netDriver = netDriver; }
     public boolean isServer() { return isServer; }
     public void setServer(boolean server) { this.isServer = server; }

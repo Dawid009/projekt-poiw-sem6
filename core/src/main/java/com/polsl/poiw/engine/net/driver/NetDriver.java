@@ -21,6 +21,8 @@ import java.util.function.Consumer;
 public class NetDriver {
 
     private static final String TAG = "NetDriver";
+    private static final int WRITE_BUFFER_SIZE = 256 * 1024;
+    private static final int OBJECT_BUFFER_SIZE = 64 * 1024;
 
     private final boolean isServer;
     private Server kryoServer;
@@ -46,6 +48,8 @@ public class NetDriver {
     // disconnection handler (connectionId)
     private Consumer<Integer> disconnectHandler;
 
+    private boolean disposed;
+
     /**
      * -------------------
      */
@@ -63,7 +67,7 @@ public class NetDriver {
     public void startServer(int tcpPort, int udpPort) throws IOException {
         if (!isServer) throw new IllegalStateException("NetDriver nie jest w trybie serwera");
 
-        kryoServer = new Server(16384, 8192);
+        kryoServer = new Server(WRITE_BUFFER_SIZE, OBJECT_BUFFER_SIZE);
         NetworkSerializer.registerAll(kryoServer.getKryo());
 
         kryoServer.addListener(new Listener() {
@@ -124,7 +128,7 @@ public class NetDriver {
     public boolean connectToServer(String host, int tcpPort, int udpPort) {
         if (isServer) throw new IllegalStateException("NetDriver nie jest w trybie klienta");
 
-        kryoClient = new Client(16384, 8192);
+        kryoClient = new Client(WRITE_BUFFER_SIZE, OBJECT_BUFFER_SIZE);
         NetworkSerializer.registerAll(kryoClient.getKryo());
 
         kryoClient.addListener(new Listener() {
@@ -171,21 +175,41 @@ public class NetDriver {
     // parse and handle all incoming messages and connection events (to be called on the main thread)
     // must be called every frame from the main game loop
     public void processMessages() {
+        if (disposed) {
+            return;
+        }
+
         // parse connection events
         ConnectionEvent event;
         while ((event = connectionEvents.poll()) != null) {
+            if (disposed) {
+                return;
+            }
+
             if (event.connected) {
                 if (connectHandler != null) connectHandler.accept(event.connectionId);
             } else {
                 if (disconnectHandler != null) disconnectHandler.accept(event.connectionId);
+            }
+
+            if (disposed) {
+                return;
             }
         }
 
         // paerse incoming messages
         ReceivedMessage msg;
         while ((msg = incomingMessages.poll()) != null) {
+            if (disposed) {
+                return;
+            }
+
             if (messageHandler != null) {
                 messageHandler.accept(msg.connectionId, msg.message);
+            }
+
+            if (disposed) {
+                return;
             }
         }
     }
@@ -198,13 +222,22 @@ public class NetDriver {
 
     // clears all connections and frees resources
     public void dispose() {
+        disposed = true;
+        incomingMessages.clear();
+        connectionEvents.clear();
+        messageHandler = null;
+        connectHandler = null;
+        disconnectHandler = null;
+
         if (kryoServer != null) {
             kryoServer.stop();
             kryoServer.close();
+            kryoServer = null;
         }
         if (kryoClient != null) {
             kryoClient.stop();
             kryoClient.close();
+            kryoClient = null;
         }
     }
 

@@ -16,6 +16,8 @@ import com.badlogic.gdx.math.Vector2;
 import com.polsl.poiw.engine.actor.Actor;
 import com.polsl.poiw.engine.tiled.TiledObjectFactory;
 import com.polsl.poiw.engine.world.GameWorld;
+import com.polsl.poiw.gameplay.actor.AbstractCreatureActor;
+import com.polsl.poiw.gameplay.actor.CreatureKind;
 import com.polsl.poiw.gameplay.actor.PropActor;
 import com.polsl.poiw.gameplay.actor.TrainingDummyActor;
 import com.polsl.poiw.gameplay.actor.TriggerActor;
@@ -52,13 +54,15 @@ public class DefaultTiledObjectFactory implements TiledObjectFactory {
     private static final String TAG = "TiledObjectFactory";
 
     private final GameWorld gameWorld;
-    private final TextureAtlas atlas;
+    private final TextureAtlas objectsAtlas;
+    private final TextureAtlas creaturesAtlas;
     private TiledMapTileLayer waterLayer;
     private boolean skipReplicatedDamageableObjects;
 
-    public DefaultTiledObjectFactory(GameWorld gameWorld, TextureAtlas atlas) {
+    public DefaultTiledObjectFactory(GameWorld gameWorld, TextureAtlas objectsAtlas, TextureAtlas creaturesAtlas) {
         this.gameWorld = gameWorld;
-        this.atlas = atlas;
+        this.objectsAtlas = objectsAtlas;
+        this.creaturesAtlas = creaturesAtlas;
     }
 
     /**
@@ -155,10 +159,11 @@ public class DefaultTiledObjectFactory implements TiledObjectFactory {
         // Odczytaj collision shape z tile objectgroup (jeśli istnieje)
         CollisionData collData = extractCollisionFromTile(tile, sizeW, sizeH);
         boolean trainingDummyTile = isTrainingDummyTile(tile, tileType);
+        CreatureKind creatureKind = getCreatureKind(tile, tileType);
 
         // Sprawdź czy obiekt stoi na wodzie — jeśli tak, pomijamy kolizję
         // (woda i tak blokuje gracza, dekoracja na wodzie nie powinna mieć hitboxa)
-        if (!trainingDummyTile && collData != null && isOnWater(worldX, worldY)) {
+        if (!trainingDummyTile && creatureKind == null && collData != null && isOnWater(worldX, worldY)) {
             collData = null;
         }
 
@@ -174,6 +179,31 @@ public class DefaultTiledObjectFactory implements TiledObjectFactory {
         // zOrder z tile property "z" (np. trap ma z=0 → rysuje się pod graczem)
         int zOrder = tile.getProperties().get("z", 1, Integer.class);
 
+        if (creatureKind != null) {
+            if (skipReplicatedDamageableObjects) {
+                Gdx.app.debug(TAG, "Skipping local creature spawn in multiplayer: " + creatureKind);
+                return null;
+            }
+
+            AbstractCreatureActor creature = creatureKind.createActor();
+            creature.configure(
+                creaturesAtlas,
+                sizeW,
+                sizeH,
+                collData != null ? collData.halfW : 0f,
+                collData != null ? collData.halfH : 0f,
+                collData != null ? new Vector2(collData.offsetX, collData.offsetY) : Vector2.Zero,
+                sortOffsetY,
+                zOrder,
+                AbstractCreatureActor.DEFAULT_MAX_HEALTH,
+                AbstractCreatureActor.DEFAULT_MAX_HEALTH
+            );
+
+            gameWorld.spawnActor(creature, new Vector2(worldX, worldY));
+            Gdx.app.debug(TAG, "Creature '" + creatureKind + "' at (" + worldX + ", " + worldY + ")");
+            return creature;
+        }
+
         if (trainingDummyTile) {
             if (skipReplicatedDamageableObjects) {
                 Gdx.app.debug(TAG, "Skipping local training dummy spawn in multiplayer");
@@ -183,7 +213,7 @@ public class DefaultTiledObjectFactory implements TiledObjectFactory {
             Integer life = tile.getProperties().get("life", Integer.class);
             TrainingDummyActor trainingDummy = new TrainingDummyActor();
             trainingDummy.configure(
-                atlas,
+                objectsAtlas,
                 sizeW,
                 sizeH,
                 collData != null ? collData.halfW : 0f,
@@ -318,6 +348,14 @@ public class DefaultTiledObjectFactory implements TiledObjectFactory {
         String bodyType = tile.getProperties().get("bodyType", String.class);
         Integer life = tile.getProperties().get("life", Integer.class);
         return bodyType != null && bodyType.equals("StaticBody") && life != null;
+    }
+
+    private CreatureKind getCreatureKind(TiledMapTile tile, String tileType) {
+        if (!"Creature".equals(tileType) || tile == null) {
+            return null;
+        }
+
+        return CreatureKind.fromGlobalTileId(tile.getId());
     }
 
     /** Dane kolizji — halfW, halfH, offset od centrum body */

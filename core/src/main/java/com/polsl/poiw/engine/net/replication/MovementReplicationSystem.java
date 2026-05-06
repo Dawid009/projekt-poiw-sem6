@@ -19,6 +19,8 @@ import java.util.List;
  */
 public class MovementReplicationSystem extends EntitySystem {
 
+    private static final int MAX_SNAPSHOTS_PER_BATCH = 48;
+
     private final NetDriver netDriver;
     private final GameWorld gameWorld;
     private float replicationRate = 1f / 20f; // 20 Hz
@@ -76,13 +78,16 @@ public class MovementReplicationSystem extends EntitySystem {
 
         if (snapshots.isEmpty()) return;
 
-        var batch = new NetworkProtocol.BatchMovementSnapshot();
-        batch.snapshots = snapshots.toArray(new NetworkProtocol.MovementSnapshot[0]);
-        batch.serverTime = tickCounter * replicationRate;
-        batch.serverTick = tickCounter;
+        for (int start = 0; start < snapshots.size(); start += MAX_SNAPSHOTS_PER_BATCH) {
+            int end = Math.min(start + MAX_SNAPSHOTS_PER_BATCH, snapshots.size());
+            var batch = new NetworkProtocol.BatchMovementSnapshot();
+            batch.snapshots = snapshots.subList(start, end).toArray(new NetworkProtocol.MovementSnapshot[0]);
+            batch.serverTime = tickCounter * replicationRate;
+            batch.serverTick = tickCounter;
 
-        // UDP — unreliable, latest-wins
-        netDriver.sendToAllClients(batch, false);
+            // UDP — unreliable, latest-wins
+            netDriver.sendToAllClients(batch, false);
+        }
     }
 
     public void setReplicationRate(float hz) {

@@ -14,6 +14,8 @@ import com.badlogic.gdx.math.Vector2;
 import com.polsl.poiw.engine.actor.Actor;
 import com.polsl.poiw.engine.tiled.TiledObjectFactory;
 import com.polsl.poiw.engine.world.GameWorld;
+import com.polsl.poiw.gameplay.actor.AbstractCreatureActor;
+import com.polsl.poiw.gameplay.actor.CreatureKind;
 import com.polsl.poiw.gameplay.actor.TrainingDummyActor;
 import com.polsl.poiw.gameplay.actor.TriggerActor;
 import com.polsl.poiw.engine.collision.BoxCollisionComponent;
@@ -131,8 +133,9 @@ public class ServerTiledObjectFactory implements TiledObjectFactory {
         }
 
         boolean trainingDummyTile = isTrainingDummyTile(tileData, objName);
+        CreatureKind creatureKind = getCreatureKind(gid, tileData.type());
 
-        if (!trainingDummyTile && isOnWater(worldX, worldY)) {
+        if (!trainingDummyTile && creatureKind == null && isOnWater(worldX, worldY)) {
             return null; // skip water objects
         }
 
@@ -150,6 +153,26 @@ public class ServerTiledObjectFactory implements TiledObjectFactory {
         float maxHealth = getFloatProperty(tileData.properties(), "life", 100f);
 
         if (halfW <= 0 || halfH <= 0) return null;
+
+        if (creatureKind != null) {
+            AbstractCreatureActor creature = creatureKind.createActor();
+            creature.configureServer(
+                sizeW,
+                sizeH,
+                halfW,
+                halfH,
+                new Vector2(offsetX, offsetY),
+                sortOffsetY,
+                zOrder,
+                AbstractCreatureActor.DEFAULT_MAX_HEALTH,
+                AbstractCreatureActor.DEFAULT_MAX_HEALTH
+            );
+            creature.setReplicated(true);
+
+            gameWorld.spawnActor(creature, new Vector2(worldX, worldY));
+            Gdx.app.debug(TAG, "Creature '" + creatureKind + "' at (" + worldX + ", " + worldY + ") [replicated gid=" + gid + "]");
+            return creature;
+        }
 
         if (trainingDummyTile) {
             TrainingDummyActor trainingDummy = new TrainingDummyActor();
@@ -300,6 +323,14 @@ public class ServerTiledObjectFactory implements TiledObjectFactory {
         return bodyType instanceof String body && "StaticBody".equals(body)
             && tileData.properties().containsKey("life")
             && !"Player".equals(objName);
+    }
+
+    private CreatureKind getCreatureKind(int gid, String tileType) {
+        if (!"Creature".equals(tileType)) {
+            return null;
+        }
+
+        return CreatureKind.fromGlobalTileId(gid);
     }
 
     private int getIntProperty(java.util.Map<String, Object> properties, String key, int defaultValue) {
