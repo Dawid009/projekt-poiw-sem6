@@ -31,6 +31,11 @@ public class ScoreHttpServer {
         server.start();
     }
 
+    // Zwraca instancje serwera HTTP — umozliwia rejestracje dodatkowych kontekstow
+    public HttpServer getServer() {
+        return server;
+    }
+
     // Obsluguje GET /scores (wszystkie wyniki) oraz /scores/{nazwaGracza}
     private void handleGetScoresByPlayer(HttpExchange exchange) throws IOException {
         if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {

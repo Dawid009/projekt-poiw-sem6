@@ -99,8 +99,9 @@ www-test/
 /html/nbproject/private/
 /teavm/nbproject/private/
 
-## Database passy:
+## Database:
 backendPG/src/main/resources/db.properties
+/database/
 
 /ios/nbproject/private/
 /ios-moe/nbproject/private/

@@ -4,6 +4,8 @@ import com.polsl.poiw.backend.config.DatabaseConfig;
 import com.polsl.poiw.backend.http.AuthHttpServer;
 import com.polsl.poiw.backend.http.ScoreHttpServer;
 import com.polsl.poiw.backend.service.PunktyService;
+import com.polsl.poiw.backend.service.SesjaManager;
+import com.sun.net.httpserver.HttpServer;
 
 import java.io.IOException;
 
@@ -18,14 +20,14 @@ public class BackendLauncher {
         System.out.println("\nZapisywanie wynikow\n");
 
         // 2. Zapisywanie wyników
-        PunktyService.addScore("Gracz1", 1500);
+        /*PunktyService.addScore("Gracz1", 1500);
         PunktyService.addScore("Gracz2", 2300);
         PunktyService.addScore("Gracz1", 1800);
-        PunktyService.addScore("Gracz3", 900);
+        PunktyService.addScore("Gracz3", 900);*/
 
         // 3. Wyświetlenie wszystkich wyników posortowanych
-        System.out.println("\nWszystkie wyniki (posortowane od najlepszego)");
-        PunktyService.getAllScoresSorted().forEach(System.out::println);
+        /*System.out.println("\nWszystkie wyniki (posortowane od najlepszego)");
+        PunktyService.getAllScoresSorted().forEach(System.out::println);*/
 
         // 4. Wyświetlenie TOP 2
         System.out.println("\nTOP 2 wyniki");
@@ -35,28 +37,29 @@ public class BackendLauncher {
         System.out.println("\nStatystyki");
         System.out.println("\nCalkowita liczba wynikow: " + PunktyService.getScoreCount());
 
-        // 6. Serwer wynikow (port 8080)
+        // 6. Serwer HTTP (port 8080) 
         try {
             int port = 8080;
             ScoreHttpServer scoreServer = new ScoreHttpServer(port);
+            new AuthHttpServer(scoreServer.getServer()); // rejestruje /auth/* na tym samym serwerze
             scoreServer.start();
-            System.out.println("\nHTTP endpoint uruchomiony: GET /scores oraz GET /scores/{nazwaGracza}");
-            System.out.println("Przyklad (wszystkie): http://localhost:" + port + "/scores");
-            System.out.println("Przyklad (gracz): http://localhost:" + port + "/scores/Gracz1");
-        } catch (IOException e) {
-            System.err.println("Nie udalo sie uruchomic serwera wynikow: " + e.getMessage());
-        }
+            System.out.println("\nHTTP endpoint uruchomiony na porcie " + port + ":");
+            System.out.println("  GET  http://localhost:" + port + "/scores");
+            System.out.println("  GET  http://localhost:" + port + "/scores/{nazwaGracza}");
+            System.out.println("  POST http://localhost:" + port + "/auth/register");
+            System.out.println("  POST http://localhost:" + port + "/auth/login");
+            System.out.println("  POST http://localhost:" + port + "/auth/czas");
 
-        // 7. Serwer autoryzacji (port 8081)
-        try {
-            int authPort = 8081;
-            AuthHttpServer authServer = new AuthHttpServer(authPort);
-            authServer.start();
-            System.out.println("\nHTTP endpoint autoryzacji uruchomiony:");
-            System.out.println("  POST http://localhost:" + authPort + "/auth/register");
-            System.out.println("  POST http://localhost:" + authPort + "/auth/login");
+            // Przy zamknieciu backendu (Ctrl+C) zapisz czas wszystkich aktywnych sesji
+            final HttpServer httpServer = scoreServer.getServer();
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                System.out.println("\nZamykanie backendu — zapisywanie aktywnych sesji...");
+                SesjaManager.zapiszWszystkie();
+                httpServer.stop(0);
+                System.out.println("Backend zamkniety.");
+            }));
         } catch (IOException e) {
-            System.err.println("Nie udalo sie uruchomic serwera autoryzacji: " + e.getMessage());
+            System.err.println("Nie udalo sie uruchomic serwera HTTP: " + e.getMessage());
         }
     }
 }

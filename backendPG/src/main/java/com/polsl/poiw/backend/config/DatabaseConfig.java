@@ -53,14 +53,30 @@ public class DatabaseConfig {
                                  "nazwa VARCHAR(100) NOT NULL, " +
                                  "sol VARCHAR(64) NOT NULL, " +
                                  "haslo VARCHAR(64) NOT NULL, " +
+                                 "\"czasWGrze\" BIGINT DEFAULT 0, " +
                                  "\"dataRejestracji\" TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
                                  ");";
+
+        // Migracja: dodaj kolumne jesli tabela juz istnieje bez niej
+        String migrujCzasWGrzeSQL = "ALTER TABLE GRACZE ADD COLUMN IF NOT EXISTS \"czasWGrze\" BIGINT DEFAULT 0;";
+
+        // Migracja: unikalna nazwa gracza (login) — warunek dla logowania po loginie
+        String migrujUnikatNazwySQL = "DO $$ BEGIN " +
+            "IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'gracze_nazwa_unique') THEN " +
+            "ALTER TABLE GRACZE ADD CONSTRAINT gracze_nazwa_unique UNIQUE (nazwa); " +
+            "END IF; END $$;";
 
         try (Connection conn = getConnection();
              Statement stmt = conn.createStatement()) {
 
             stmt.execute(createPunktySQL);
             stmt.execute(createGraczeSQL);
+            stmt.execute(migrujCzasWGrzeSQL);
+            try {
+                stmt.execute(migrujUnikatNazwySQL);
+            } catch (SQLException eMigr) {
+                System.err.println("Migracja unique nazwy: " + eMigr.getMessage());
+            }
             System.out.println("Baza danych utworzona albo zaaktualizowana");
 
         } catch (SQLException e) {

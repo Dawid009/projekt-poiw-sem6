@@ -32,6 +32,10 @@ public class UzytkownikService {
             System.err.println("Rejestracja nieudana: email juz zajety - " + email);
             return -1;
         }
+        if (nazwaZajeta(nazwa)) {
+            System.err.println("Rejestracja nieudana: login juz zajety - " + nazwa);
+            return -2;
+        }
 
         String sol = PasswordHasher.generujSol();
         String skrotypowane = PasswordHasher.hashujHaslo(haslo, sol);
@@ -62,19 +66,19 @@ public class UzytkownikService {
         return -1;
     }
 
-    // Loguje gracza na podstawie emaila i hasla.
+    // Loguje gracza na podstawie loginu (nazwy) i hasla.
     // Zwraca obiekt Gracz jesli dane sa poprawne, lub null przy blednych danych.
-    public static Gracz zaloguj(String email, String haslo) {
-        if (email == null || haslo == null) {
+    public static Gracz zaloguj(String login, String haslo) {
+        if (login == null || haslo == null) {
             return null;
         }
 
-        String sql = "SELECT id, email, nazwa, sol, haslo, \"dataRejestracji\" FROM GRACZE WHERE email = ?";
+        String sql = "SELECT id, email, nazwa, sol, haslo, \"czasWGrze\", \"dataRejestracji\" FROM GRACZE WHERE nazwa = ?";
 
         try (Connection conn = DatabaseConfig.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
-            pstmt.setString(1, email.trim().toLowerCase());
+            pstmt.setString(1, login.trim());
 
             try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) {
@@ -86,9 +90,10 @@ public class UzytkownikService {
                             rs.getInt("id"),
                             rs.getString("email"),
                             rs.getString("nazwa"),
-                            rs.getTimestamp("dataRejestracji").toString()
+                            rs.getTimestamp("dataRejestracji").toString(),
+                            rs.getLong("czasWGrze")
                         );
-                        System.out.println("Zalogowano gracza: " + gracz.getNazwa() + " (ID: " + gracz.getId() + ")");
+                        System.out.println("Zalogowano gracza: " + gracz.getNazwa() + " (ID: " + gracz.getId() + ", czas w grze: " + gracz.getCzasWGrze() + "s)");
                         return gracz;
                     }
                 }
@@ -98,8 +103,48 @@ public class UzytkownikService {
             System.err.println("Blad przy logowaniu gracza: " + e.getMessage());
         }
 
-        System.out.println("Nieudana proba logowania dla emaila: " + email);
+        System.out.println("Nieudana proba logowania dla loginu: " + login);
         return null;
+    }
+
+    // Dodaje sekundy do laczonego czasu w grze dla danego gracza.
+    // Operacja atomowa — bezpieczna przy rownoczesnych sesjach.
+    // Zwraca nowy laczny czas w sekundach lub -1 przy bledzie.
+    public static long dodajCzasWGrze(int id, long sekundy) {
+        if (sekundy <= 0) {
+            return -1;
+        }
+
+        String sqlUpdate = "UPDATE GRACZE SET \"czasWGrze\" = \"czasWGrze\" + ? WHERE id = ?";
+        String sqlSelect = "SELECT \"czasWGrze\" FROM GRACZE WHERE id = ?";
+
+        try (Connection conn = DatabaseConfig.getConnection()) {
+            try (PreparedStatement pstmt = conn.prepareStatement(sqlUpdate)) {
+                pstmt.setLong(1, sekundy);
+                pstmt.setInt(2, id);
+                int zaktualizowane = pstmt.executeUpdate();
+                if (zaktualizowane == 0) {
+                    System.err.println("Blad przy zapisie czasu: nie znaleziono gracza ID " + id);
+                    return -1;
+                }
+            }
+
+            try (PreparedStatement pstmt = conn.prepareStatement(sqlSelect)) {
+                pstmt.setInt(1, id);
+                try (ResultSet rs = pstmt.executeQuery()) {
+                    if (rs.next()) {
+                        long nowyczas = rs.getLong("czasWGrze");
+                        System.out.println("Czas w grze zaktualizowany: gracz ID " + id + " -> " + nowyczas + "s (+" + sekundy + "s)");
+                        return nowyczas;
+                    }
+                }
+            }
+
+        } catch (SQLException e) {
+            System.err.println("Blad przy aktualizacji czasu w grze: " + e.getMessage());
+        }
+
+        return -1;
     }
 
     // Sprawdza czy podany email jest juz zajety w bazie.
@@ -119,6 +164,58 @@ public class UzytkownikService {
 
         } catch (SQLException e) {
             System.err.println("Blad przy sprawdzaniu emaila: " + e.getMessage());
+        }
+
+        return false;
+    }
+
+    // Wyszukuje gracza po nazwie (loginie). Zwraca Gracz lub null jesli nie znaleziono.
+    public static Gracz znajdzPoNazwie(String nazwa) {
+        if (nazwa == null || nazwa.isBlank()) return null;
+
+        String sql = "SELECT id, email, nazwa, \"czasWGrze\", \"dataRejestracji\" FROM GRACZE WHERE nazwa = ?";
+
+        try (Connection conn = DatabaseConfig.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, nazwa.trim());
+
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return new Gracz(
+                        rs.getInt("id"),
+                        rs.getString("email"),
+                        rs.getString("nazwa"),
+                        rs.getTimestamp("dataRejestracji").toString(),
+                        rs.getLong("czasWGrze")
+                    );
+                }
+            }
+
+        } catch (SQLException e) {
+            System.err.println("Blad przy wyszukiwaniu gracza po nazwie: " + e.getMessage());
+        }
+
+        return null;
+    }
+
+    // Sprawdza czy podana nazwa gracza (login) jest juz zajeta w bazie.
+    public static boolean nazwaZajeta(String nazwa) {
+        String sql = "SELECT COUNT(*) FROM GRACZE WHERE nazwa = ?";
+
+        try (Connection conn = DatabaseConfig.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, nazwa.trim());
+
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1) > 0;
+                }
+            }
+
+        } catch (SQLException e) {
+            System.err.println("Blad przy sprawdzaniu nazwy gracza: " + e.getMessage());
         }
 
         return false;
