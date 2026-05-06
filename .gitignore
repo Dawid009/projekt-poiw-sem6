@@ -12,7 +12,7 @@ gradle-app.setting
 /ios-moe/build/
 /headless/build/
 /server/build/
-/backend/build/
+/backendPG/build/
 /shared/build/
 
 ## Java:
@@ -77,7 +77,7 @@ www-test/
 /ios-moe/bin/
 /headless/bin/
 /server/bin/
-/backend/bin/
+/backendPG/bin/
 /shared/bin/
 *.tmp
 *.bak
@@ -98,6 +98,11 @@ www-test/
 /lwjgl3/nbproject/private/
 /html/nbproject/private/
 /teavm/nbproject/private/
+
+## Database:
+backendPG/src/main/resources/db.properties
+/database/
+
 /ios/nbproject/private/
 /ios-moe/nbproject/private/
 /headless/nbproject/private/
