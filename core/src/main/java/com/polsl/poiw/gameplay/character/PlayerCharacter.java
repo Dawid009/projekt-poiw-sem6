@@ -3,7 +3,6 @@ package com.polsl.poiw.gameplay.character;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
-import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector2;
 import com.polsl.poiw.Main;
 import com.polsl.poiw.engine.actor.AbstractActor;
@@ -50,7 +49,9 @@ public class PlayerCharacter extends AbstractActor {
         ));
         addComponent(new MovementComponent(PLAYER_SPEED));
         addComponent(new ControllerComponent());
+        addComponent(CombatComponent.createPlayerMelee());
         addComponent(new HealthComponent(MAX_HEALTH, MAX_HEALTH));
+        addComponent(new DamageReactionComponent());
         addComponent(new InventoryComponent());
 
         float ppm = 16f;
@@ -89,7 +90,9 @@ public class PlayerCharacter extends AbstractActor {
         addComponent(new MovementComponent(PLAYER_SPEED));
         addComponent(new CameraFollowComponent());
         addComponent(new ControllerComponent());
+        addComponent(CombatComponent.createPlayerMelee());
         addComponent(new HealthComponent(MAX_HEALTH, MAX_HEALTH));
+        addComponent(new DamageReactionComponent());
         addComponent(new InventoryComponent());
 
         // Kolizja gracza — kształt z objects.tsx: x=11,y=18,w=9,h=5 px (sprite 32x32)

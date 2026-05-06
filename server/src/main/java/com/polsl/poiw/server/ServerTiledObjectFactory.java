@@ -14,7 +14,7 @@ import com.badlogic.gdx.math.Vector2;
 import com.polsl.poiw.engine.actor.Actor;
 import com.polsl.poiw.engine.tiled.TiledObjectFactory;
 import com.polsl.poiw.engine.world.GameWorld;
-import com.polsl.poiw.gameplay.actor.PropActor;
+import com.polsl.poiw.gameplay.actor.TrainingDummyActor;
 import com.polsl.poiw.gameplay.actor.TriggerActor;
 import com.polsl.poiw.engine.collision.BoxCollisionComponent;
 import com.polsl.poiw.engine.collision.CollisionProfile;
@@ -130,7 +130,9 @@ public class ServerTiledObjectFactory implements TiledObjectFactory {
             return null; // no collision shape → skip
         }
 
-        if (isOnWater(worldX, worldY)) {
+        boolean trainingDummyTile = isTrainingDummyTile(tileData, objName);
+
+        if (!trainingDummyTile && isOnWater(worldX, worldY)) {
             return null; // skip water objects
         }
 
@@ -143,8 +145,31 @@ public class ServerTiledObjectFactory implements TiledObjectFactory {
         float offsetY = (collCenterYpx - spriteCenterYpx) / PPM;
         float halfW = tileData.collW() / 2f / PPM;
         float halfH = tileData.collH() / 2f / PPM;
+        float sortOffsetY = sizeH / 2f + offsetY - halfH;
+        int zOrder = getIntProperty(tileData.properties(), "z", 1);
+        float maxHealth = getFloatProperty(tileData.properties(), "life", 100f);
 
         if (halfW <= 0 || halfH <= 0) return null;
+
+        if (trainingDummyTile) {
+            TrainingDummyActor trainingDummy = new TrainingDummyActor();
+            trainingDummy.configureServer(
+                sizeW,
+                sizeH,
+                halfW,
+                halfH,
+                new Vector2(offsetX, offsetY),
+                sortOffsetY,
+                zOrder,
+                maxHealth
+            );
+            trainingDummy.setReplicated(true);
+
+            gameWorld.spawnActor(trainingDummy, new Vector2(worldX, worldY));
+            Gdx.app.debug(TAG, "Training dummy '" + (objName != null ? objName : type)
+                + "' at (" + worldX + ", " + worldY + ") [replicated gid=" + gid + "]");
+            return trainingDummy;
+        }
 
         ServerPropActor prop = new ServerPropActor();
         prop.configure(sizeW, sizeH, halfW, halfH, new Vector2(offsetX, offsetY));
@@ -265,6 +290,33 @@ public class ServerTiledObjectFactory implements TiledObjectFactory {
     }
 
     private record CollisionData(float halfW, float halfH, float offsetX, float offsetY) {}
+
+    private boolean isTrainingDummyTile(HeadlessTmxLoader.TileData tileData, String objName) {
+        if (!"Object".equals(tileData.type())) {
+            return false;
+        }
+
+        Object bodyType = tileData.properties().get("bodyType");
+        return bodyType instanceof String body && "StaticBody".equals(body)
+            && tileData.properties().containsKey("life")
+            && !"Player".equals(objName);
+    }
+
+    private int getIntProperty(java.util.Map<String, Object> properties, String key, int defaultValue) {
+        Object value = properties.get(key);
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        return defaultValue;
+    }
+
+    private float getFloatProperty(java.util.Map<String, Object> properties, String key, float defaultValue) {
+        Object value = properties.get(key);
+        if (value instanceof Number number) {
+            return number.floatValue();
+        }
+        return defaultValue;
+    }
 
     /**
      * headless prop actor — transform + collision, bez sprite.

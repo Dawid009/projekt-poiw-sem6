@@ -9,9 +9,6 @@ import com.badlogic.gdx.maps.objects.RectangleMapObject;
 import com.badlogic.gdx.maps.tiled.TiledMap;
 import com.badlogic.gdx.maps.tiled.TiledMapTileLayer;
 import com.badlogic.gdx.maps.tiled.TiledMapTileSet;
-import com.badlogic.gdx.maps.tiled.TiledMapTileSets;
-import com.badlogic.gdx.maps.tiled.objects.TiledMapTileMapObject;
-import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.utils.XmlReader;
 import com.badlogic.gdx.utils.Array;
 
@@ -25,6 +22,10 @@ import java.util.Map;
 public class HeadlessTmxLoader {
 
     private static final String TAG = "HeadlessTmxLoader";
+    private static final long FLAG_FLIP_HORIZONTALLY = 0x80000000L;
+    private static final long FLAG_FLIP_VERTICALLY = 0x40000000L;
+    private static final long FLAG_FLIP_DIAGONALLY = 0x20000000L;
+    private static final long MASK_CLEAR_TILE_FLAGS = 0x1FFFFFFFL;
 
     /**
      * per-tile data parsed from TSX — collision shapes, tile type, image dimensions.
@@ -32,7 +33,7 @@ public class HeadlessTmxLoader {
      */
     public record TileData(String type, float imageW, float imageH,
                            float collX, float collY, float collW, float collH,
-                           boolean hasCollision) {}
+                           boolean hasCollision, Map<String, Object> properties) {}
 
     private final Map<Integer, TileData> tileDataMap = new HashMap<>();
 
@@ -118,6 +119,11 @@ public class HeadlessTmxLoader {
                 int globalId = firstGid + tileId;
 
                 String tileType = tileEl.getAttribute("type", "");
+                Map<String, Object> tileProperties = new HashMap<>();
+                XmlReader.Element tilePropsEl = tileEl.getChildByName("properties");
+                if (tilePropsEl != null) {
+                    parsePropertiesElement(tilePropsEl, tileProperties);
+                }
 
                 // image dimensions
                 float imgW = 32f, imgH = 32f;
@@ -192,7 +198,7 @@ public class HeadlessTmxLoader {
                 }
 
                 tileDataMap.put(globalId, new TileData(tileType, imgW, imgH,
-                    collX, collY, collW, collH, hasCollision));
+                    collX, collY, collW, collH, hasCollision, Map.copyOf(tileProperties)));
             }
 
             map.getTileSets().addTileSet(tileSet);
@@ -237,7 +243,8 @@ public class HeadlessTmxLoader {
         float y = objEl.getFloatAttribute("y", 0);
         float width = objEl.getFloatAttribute("width", 0);
         float height = objEl.getFloatAttribute("height", 0);
-        int gid = objEl.getIntAttribute("gid", 0);
+        long rawGid = parseRawGid(objEl);
+        int gid = clearTileFlags(rawGid);
         String name = objEl.getAttribute("name", "");
         String type = objEl.getAttribute("type", objEl.getAttribute("class", ""));
 
@@ -258,6 +265,10 @@ public class HeadlessTmxLoader {
             RectangleMapObject rectObj = new RectangleMapObject(x, y, width, height);
             mapObject = rectObj;
             mapObject.getProperties().put("gid", gid);
+            mapObject.getProperties().put("rawGid", rawGid);
+            mapObject.getProperties().put("flipHorizontally", hasTileFlag(rawGid, FLAG_FLIP_HORIZONTALLY));
+            mapObject.getProperties().put("flipVertically", hasTileFlag(rawGid, FLAG_FLIP_VERTICALLY));
+            mapObject.getProperties().put("flipDiagonally", hasTileFlag(rawGid, FLAG_FLIP_DIAGONALLY));
         } else {
             // rectangle object
             RectangleMapObject rectObj = new RectangleMapObject(x, y, width, height);
@@ -291,20 +302,56 @@ public class HeadlessTmxLoader {
         return mapObject;
     }
 
+    private long parseRawGid(XmlReader.Element objEl) {
+        String gidValue = objEl.getAttribute("gid", null);
+        if (gidValue == null || gidValue.isBlank()) {
+            return 0L;
+        }
+
+        return Long.parseLong(gidValue);
+    }
+
+    private int clearTileFlags(long rawGid) {
+        return (int) (rawGid & MASK_CLEAR_TILE_FLAGS);
+    }
+
+    private boolean hasTileFlag(long rawGid, long flag) {
+        return (rawGid & flag) != 0L;
+    }
+
     private void parseLayerProperties(XmlReader.Element element, MapProperties props) {
         XmlReader.Element propsEl = element.getChildByName("properties");
         if (propsEl == null) return;
 
+        parsePropertiesElement(propsEl, props);
+    }
+
+    private void parsePropertiesElement(XmlReader.Element propsEl, MapProperties target) {
         for (XmlReader.Element propEl : propsEl.getChildrenByName("property")) {
             String name = propEl.getAttribute("name", "");
             String type = propEl.getAttribute("type", "string");
             String value = propEl.getAttribute("value", propEl.getText() != null ? propEl.getText() : "");
 
             switch (type) {
-                case "int" -> props.put(name, Integer.parseInt(value));
-                case "float" -> props.put(name, Float.parseFloat(value));
-                case "bool" -> props.put(name, Boolean.parseBoolean(value));
-                default -> props.put(name, value);
+                case "int" -> target.put(name, Integer.parseInt(value));
+                case "float" -> target.put(name, Float.parseFloat(value));
+                case "bool" -> target.put(name, Boolean.parseBoolean(value));
+                default -> target.put(name, value);
+            }
+        }
+    }
+
+    private void parsePropertiesElement(XmlReader.Element propsEl, Map<String, Object> target) {
+        for (XmlReader.Element propEl : propsEl.getChildrenByName("property")) {
+            String name = propEl.getAttribute("name", "");
+            String type = propEl.getAttribute("type", "string");
+            String value = propEl.getAttribute("value", propEl.getText() != null ? propEl.getText() : "");
+
+            switch (type) {
+                case "int" -> target.put(name, Integer.parseInt(value));
+                case "float" -> target.put(name, Float.parseFloat(value));
+                case "bool" -> target.put(name, Boolean.parseBoolean(value));
+                default -> target.put(name, value);
             }
         }
     }

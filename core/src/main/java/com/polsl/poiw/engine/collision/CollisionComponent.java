@@ -26,6 +26,9 @@ public abstract class CollisionComponent extends AbstractActorComponent {
     /** Czy kolizja jest aktywna (false = wyłączona, np. po śmierci) */
     private boolean enabled = true;
 
+    /** Opcjonalne wymuszenie typu body niezależnie od CollisionProfile. */
+    private BodyDef.BodyType bodyTypeOverride;
+
     /** Poprzednia i aktualna pozycja body — do interpolacji renderingu między krokami fizyki */
     private final Vector2 previousBodyPosition = new Vector2();
     private final Vector2 currentBodyPosition = new Vector2();
@@ -58,16 +61,7 @@ public abstract class CollisionComponent extends AbstractActorComponent {
      */
     public void createBody(World box2dWorld) {
         BodyDef bodyDef = new BodyDef();
-
-        // Typ body zależy od profilu:
-        // ENVIRONMENT / TRIGGER → STATIC (nie poruszają się)
-        // Reszta → DYNAMIC (gracz, wróg, pocisk — poruszają się)
-        if (profile.getObjectType() == CollisionChannel.ENVIRONMENT
-            || profile.getObjectType() == CollisionChannel.TRIGGER) {
-            bodyDef.type = BodyDef.BodyType.StaticBody;
-        } else {
-            bodyDef.type = BodyDef.BodyType.DynamicBody;
-        }
+        bodyDef.type = resolveBodyType();
 
         // Body position = centrum sprite'a
         // Actor.position = lewy-dolny róg sprite'a (konwencja LibGDX)
@@ -144,6 +138,12 @@ public abstract class CollisionComponent extends AbstractActorComponent {
     public Body getBody() { return body; }
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
+    public void setBodyTypeOverride(BodyDef.BodyType bodyTypeOverride) {
+        this.bodyTypeOverride = bodyTypeOverride;
+        if (body != null && bodyTypeOverride != null) {
+            body.setType(bodyTypeOverride);
+        }
+    }
 
     /** Wywoływane tuż przed krokiem fizyki. */
     public void capturePreviousBodyPosition() {
@@ -162,5 +162,18 @@ public abstract class CollisionComponent extends AbstractActorComponent {
     /** Zwraca interpolowaną pozycję body dla aktualnej klatki renderingu. */
     public Vector2 getInterpolatedBodyPosition(float alpha, Vector2 out) {
         return out.set(previousBodyPosition).lerp(currentBodyPosition, alpha);
+    }
+
+    private BodyDef.BodyType resolveBodyType() {
+        if (bodyTypeOverride != null) {
+            return bodyTypeOverride;
+        }
+
+        if (profile.getObjectType() == CollisionChannel.ENVIRONMENT
+            || profile.getObjectType() == CollisionChannel.TRIGGER) {
+            return BodyDef.BodyType.StaticBody;
+        }
+
+        return BodyDef.BodyType.DynamicBody;
     }
 }

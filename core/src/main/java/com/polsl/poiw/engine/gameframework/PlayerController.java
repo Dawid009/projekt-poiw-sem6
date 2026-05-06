@@ -2,11 +2,11 @@ package com.polsl.poiw.engine.gameframework;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.math.Vector2;
-import com.badlogic.gdx.physics.box2d.Body;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.polsl.poiw.GameInstance;
 import com.polsl.poiw.engine.actor.Actor;
 import com.polsl.poiw.engine.collision.CollisionComponent;
+import com.polsl.poiw.engine.component.ControllerComponent;
 import com.polsl.poiw.engine.net.prediction.ClientPrediction;
 import com.polsl.poiw.engine.ui.HUD;
 import com.polsl.poiw.engine.ui.UserWidget;
@@ -22,6 +22,8 @@ import java.util.List;
 public class PlayerController {
 
     private static final String TAG = "PlayerController";
+    private static final int ATTACK_INPUT_FLAG = 1 << 30;
+    private static final int INPUT_SEQUENCE_MASK = ATTACK_INPUT_FLAG - 1;
 
     private GameInstance gameInstance;
     private GameWorld world;
@@ -76,15 +78,15 @@ public class PlayerController {
             if (move != null) {
                 float dirX = move.getDirection().x;
                 float dirY = move.getDirection().y;
-                sendInputToServer(dirX, dirY);
+                boolean attackPressed = consumeLocalAttackPressed();
+                int sequenceNumber = sendInputToServer(dirX, dirY, attackPressed);
 
                 // save predicted position for reconciliation
-                if (clientPrediction != null) {
+                if (clientPrediction != null && sequenceNumber >= 0) {
                     CollisionComponent coll = possessedPawn.getComponentByType(CollisionComponent.class);
                     if (coll != null && coll.getBody() != null) {
                         Vector2 bodyPos = coll.getBody().getPosition();
-                        // nextInputSequence was incremented in sendInputToServer, so current seq = nextInputSequence - 1
-                        clientPrediction.saveMove(nextInputSequence - 1, dirX, dirY, bodyPos.x, bodyPos.y);
+                        clientPrediction.saveMove(sequenceNumber, dirX, dirY, bodyPos.x, bodyPos.y);
                     }
                 }
             }
@@ -121,7 +123,6 @@ public class PlayerController {
     public void unpossess() {
         if (possessedPawn != null) {
             Gdx.app.debug(TAG, "Unpossess: Actor #" + possessedPawn.getActorId());
-            Actor old = possessedPawn;
             possessedPawn = null;
             onUnpossess();
         }
@@ -196,17 +197,30 @@ public class PlayerController {
     }
 
     // sends current input to server on the client
-    public void sendInputToServer(float dirX, float dirY) {
-        if (gameInstance == null || !gameInstance.isClient()) return;
+    public int sendInputToServer(float dirX, float dirY, boolean attackPressed) {
+        if (gameInstance == null || !gameInstance.isClient()) return -1;
         var netDriver = gameInstance.getNetDriver();
-        if (netDriver == null) return;
+        if (netDriver == null) return -1;
+
+        int sequenceNumber = nextInputSequence;
+        nextInputSequence = (nextInputSequence + 1) & INPUT_SEQUENCE_MASK;
 
         var msg = new NetworkProtocol.ClientInputUpdate();
         msg.playerId = playerId;
         msg.dirX = dirX;
         msg.dirY = dirY;
-        msg.sequenceNumber = nextInputSequence++;
+        msg.sequenceNumber = attackPressed ? sequenceNumber | ATTACK_INPUT_FLAG : sequenceNumber;
         msg.timestamp = gameInstance.getServerTime();
-        netDriver.sendToServer(msg, false); // UDP
+        netDriver.sendToServer(msg, attackPressed);
+        return sequenceNumber;
+    }
+
+    private boolean consumeLocalAttackPressed() {
+        if (possessedPawn == null) {
+            return false;
+        }
+
+        ControllerComponent controller = possessedPawn.getComponent(ControllerComponent.class);
+        return controller != null && controller.consumeAttackInputTrigger();
     }
 }

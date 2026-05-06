@@ -18,6 +18,7 @@ import com.polsl.poiw.engine.gameframework.PlayerController;
 import com.polsl.poiw.engine.render.CameraSystem;
 import com.polsl.poiw.engine.render.DebugRenderSystem;
 import com.polsl.poiw.engine.render.RenderSystem;
+import com.polsl.poiw.engine.system.CombatSystem;
 import com.polsl.poiw.engine.system.ControllerSystem;
 import com.polsl.poiw.engine.system.MovementSystem;
 import com.polsl.poiw.engine.system.PlayerAnimationSystem;
@@ -166,9 +167,11 @@ public class WorldContext implements Disposable {
             try {
                 Class<?> clazz = Class.forName(actorClass);
                 var actor = (com.polsl.poiw.engine.actor.AbstractActor) clazz.getDeclaredConstructor().newInstance();
+                TextureAtlas atlas = game.getAssetService().get(AtlasAsset.OBJECTS);
                 if (actor instanceof com.polsl.poiw.gameplay.character.PlayerCharacter pc) {
-                    TextureAtlas atlas = game.getAssetService().get(AtlasAsset.OBJECTS);
                     pc.configure(atlas);
+                } else if (actor instanceof com.polsl.poiw.gameplay.actor.TrainingDummyActor trainingDummy) {
+                    trainingDummy.configureFromReplication(atlas, initialProps);
                 }
                 return actor;
             } catch (Exception e) {
@@ -259,10 +262,10 @@ public class WorldContext implements Disposable {
                     interpolationSystem.addSnapshot(correction.actorId, correction.serverTime,
                         correction.x, correction.y, correction.velX, correction.velY);
                 }
+                updateSimulatedProxyMovement(actor, correction.velX, correction.velY);
             }
 
         } else if (message instanceof com.polsl.poiw.shared.protocol.NetworkProtocol.Pong pong) {
-            float ping = (System.currentTimeMillis() - pong.clientTimestamp) / 1000f;
             gi.setServerTime(pong.serverTimestamp / 1000f);
 
         } else if (message instanceof com.polsl.poiw.shared.protocol.NetworkProtocol.ServerTravel travel) {
@@ -294,6 +297,7 @@ public class WorldContext implements Disposable {
                     interpolationSystem.addSnapshot(snapshot.actorId, batch.serverTime,
                         snapshot.x, snapshot.y, snapshot.velX, snapshot.velY);
                 }
+                updateSimulatedProxyMovement(actor, snapshot.velX, snapshot.velY);
             }
             // AUTONOMOUS_PROXY — skip; reconciliation is handled by ServerPositionCorrection
         }
@@ -327,6 +331,7 @@ public class WorldContext implements Disposable {
     private void addGameSystems() {
         gameWorld.addSystem(new CollisionSystem(gameWorld.getBox2dWorld()));
         gameWorld.addSystem(new ControllerSystem());
+        gameWorld.addSystem(new CombatSystem());
         gameWorld.addSystem(new MovementSystem());
         gameWorld.addSystem(new PlayerAnimationSystem());
 
@@ -357,6 +362,7 @@ public class WorldContext implements Disposable {
         TextureAtlas atlas = assetService.get(AtlasAsset.OBJECTS);
 
         var objectFactory = new com.polsl.poiw.gameplay.tiled.DefaultTiledObjectFactory(gameWorld, atlas);
+        objectFactory.setSkipReplicatedDamageableObjects(game.getGameInstance().isMultiplayer());
         this.tiledParser = new TiledMapParser(gameWorld, assetService);
         tiledParser.setObjectFactory(objectFactory);
 
@@ -366,6 +372,20 @@ public class WorldContext implements Disposable {
 
         renderSystem.setMap(map);
         cameraSystem.setMap(map);
+    }
+
+    private void updateSimulatedProxyMovement(com.polsl.poiw.engine.actor.Actor actor, float velX, float velY) {
+        var movement = actor.getComponent(com.polsl.poiw.engine.component.MovementComponent.class);
+        if (movement == null) {
+            return;
+        }
+
+        if (Math.abs(velX) <= 0.001f && Math.abs(velY) <= 0.001f) {
+            movement.getDirection().setZero();
+            return;
+        }
+
+        movement.getDirection().set(velX, velY).nor();
     }
 
     /**

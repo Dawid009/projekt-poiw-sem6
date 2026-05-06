@@ -17,6 +17,7 @@ import com.polsl.poiw.engine.actor.Actor;
 import com.polsl.poiw.engine.tiled.TiledObjectFactory;
 import com.polsl.poiw.engine.world.GameWorld;
 import com.polsl.poiw.gameplay.actor.PropActor;
+import com.polsl.poiw.gameplay.actor.TrainingDummyActor;
 import com.polsl.poiw.gameplay.actor.TriggerActor;
 
 import com.badlogic.gdx.maps.tiled.TiledMap;
@@ -53,6 +54,7 @@ public class DefaultTiledObjectFactory implements TiledObjectFactory {
     private final GameWorld gameWorld;
     private final TextureAtlas atlas;
     private TiledMapTileLayer waterLayer;
+    private boolean skipReplicatedDamageableObjects;
 
     public DefaultTiledObjectFactory(GameWorld gameWorld, TextureAtlas atlas) {
         this.gameWorld = gameWorld;
@@ -67,6 +69,10 @@ public class DefaultTiledObjectFactory implements TiledObjectFactory {
         if (layer instanceof TiledMapTileLayer tl) {
             this.waterLayer = tl;
         }
+    }
+
+    public void setSkipReplicatedDamageableObjects(boolean skipReplicatedDamageableObjects) {
+        this.skipReplicatedDamageableObjects = skipReplicatedDamageableObjects;
     }
 
     @Override
@@ -148,10 +154,11 @@ public class DefaultTiledObjectFactory implements TiledObjectFactory {
 
         // Odczytaj collision shape z tile objectgroup (jeśli istnieje)
         CollisionData collData = extractCollisionFromTile(tile, sizeW, sizeH);
+        boolean trainingDummyTile = isTrainingDummyTile(tile, tileType);
 
         // Sprawdź czy obiekt stoi na wodzie — jeśli tak, pomijamy kolizję
         // (woda i tak blokuje gracza, dekoracja na wodzie nie powinna mieć hitboxa)
-        if (collData != null && isOnWater(worldX, worldY)) {
+        if (!trainingDummyTile && collData != null && isOnWater(worldX, worldY)) {
             collData = null;
         }
 
@@ -166,6 +173,31 @@ public class DefaultTiledObjectFactory implements TiledObjectFactory {
 
         // zOrder z tile property "z" (np. trap ma z=0 → rysuje się pod graczem)
         int zOrder = tile.getProperties().get("z", 1, Integer.class);
+
+        if (trainingDummyTile) {
+            if (skipReplicatedDamageableObjects) {
+                Gdx.app.debug(TAG, "Skipping local training dummy spawn in multiplayer");
+                return null;
+            }
+
+            Integer life = tile.getProperties().get("life", Integer.class);
+            TrainingDummyActor trainingDummy = new TrainingDummyActor();
+            trainingDummy.configure(
+                atlas,
+                sizeW,
+                sizeH,
+                collData != null ? collData.halfW : 0f,
+                collData != null ? collData.halfH : 0f,
+                collData != null ? new Vector2(collData.offsetX, collData.offsetY) : Vector2.Zero,
+                sortOffsetY,
+                zOrder,
+                life != null ? life.floatValue() : 100f
+            );
+
+            gameWorld.spawnActor(trainingDummy, new Vector2(worldX, worldY));
+            Gdx.app.debug(TAG, "Training dummy at (" + worldX + ", " + worldY + ") [combat target]");
+            return trainingDummy;
+        }
 
         // Twórz PropActor
         PropActor prop = new PropActor();
@@ -276,6 +308,16 @@ public class DefaultTiledObjectFactory implements TiledObjectFactory {
             offsetXpx / PPM,
             offsetYpx / PPM
         );
+    }
+
+    private boolean isTrainingDummyTile(TiledMapTile tile, String tileType) {
+        if (!"Object".equals(tileType)) {
+            return false;
+        }
+
+        String bodyType = tile.getProperties().get("bodyType", String.class);
+        Integer life = tile.getProperties().get("life", Integer.class);
+        return bodyType != null && bodyType.equals("StaticBody") && life != null;
     }
 
     /** Dane kolizji — halfW, halfH, offset od centrum body */
