@@ -27,7 +27,7 @@ public class AuthService {
     }
 
     public void tick(float delta) {
-        if (activeSession == null) {
+        if (activeSession == null || activeSession.offline) {
             return;
         }
 
@@ -52,6 +52,10 @@ public class AuthService {
         return activeSession != null ? activeSession.username : "";
     }
 
+    public boolean isOfflineSession() {
+        return activeSession != null && activeSession.offline;
+    }
+
     public String getCurrentEmail() {
         return activeSession != null ? activeSession.email : "";
     }
@@ -66,6 +70,14 @@ public class AuthService {
 
     public RememberedCredentials getRememberedCredentials() {
         return new RememberedCredentials(rememberedLogin, rememberedPassword, rememberedEmail);
+    }
+
+    public SessionSnapshot startOfflineSession() {
+        activeSession = new ActiveSession(-1, "", "offline", 0L, true);
+        refreshTimer = 0f;
+        playtimeAccumulator = 0f;
+        refreshInFlight = false;
+        return snapshot();
     }
 
     public void login(String login, String password, AuthResultListener listener) {
@@ -98,7 +110,7 @@ public class AuthService {
                     return;
                 }
 
-                activeSession = new ActiveSession(userId, resolvedEmail, username, playtime);
+                activeSession = new ActiveSession(userId, resolvedEmail, username, playtime, false);
                 refreshTimer = 0f;
                 playtimeAccumulator = 0f;
                 rememberSuccessfulLogin(username, normalizedPassword, resolvedEmail);
@@ -149,18 +161,21 @@ public class AuthService {
 
     public void logout(Runnable onComplete) {
         ActiveSession sessionToClose = activeSession;
+        boolean offlineSession = sessionToClose != null && sessionToClose.offline;
 
         activeSession = null;
         refreshTimer = 0f;
         playtimeAccumulator = 0f;
         refreshInFlight = false;
-        clearRememberedCredentials();
+        if (!offlineSession) {
+            clearRememberedCredentials();
+        }
 
         if (onComplete != null) {
             onComplete.run();
         }
 
-        if (sessionToClose == null) {
+        if (sessionToClose == null || offlineSession) {
             return;
         }
 
@@ -450,12 +465,14 @@ public class AuthService {
         private final String email;
         private final String username;
         private long playtimeSeconds;
+        private final boolean offline;
 
-        private ActiveSession(int userId, String email, String username, long playtimeSeconds) {
+        private ActiveSession(int userId, String email, String username, long playtimeSeconds, boolean offline) {
             this.userId = userId;
             this.email = email;
             this.username = username;
             this.playtimeSeconds = playtimeSeconds;
+            this.offline = offline;
         }
     }
 }

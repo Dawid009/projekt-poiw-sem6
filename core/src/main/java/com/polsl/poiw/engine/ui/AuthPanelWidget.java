@@ -68,8 +68,8 @@ public class AuthPanelWidget extends UserWidget {
 
         Table content = new Table();
         content.defaults().left().padBottom(ROW_SPACING);
-        content.add(loginLabel).padRight(4f);
-        content.add(loginField).width(FIELD_WIDTH).height(FIELD_HEIGHT).left().row();
+        content.add(loginLabel).padRight(4f).padTop(10f);
+        content.add(loginField).width(FIELD_WIDTH).height(FIELD_HEIGHT).padTop(10f).left().row();
         content.add(passwordLabel).padRight(4f);
         content.add(passwordField).width(FIELD_WIDTH).height(FIELD_HEIGHT).left().row();
 

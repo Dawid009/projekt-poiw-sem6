@@ -7,6 +7,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.ui.TextField;
 import com.badlogic.gdx.scenes.scene2d.ui.Window;
+import com.badlogic.gdx.scenes.scene2d.ui.Cell;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.polsl.poiw.GameInstance;
@@ -42,6 +43,7 @@ public class MenuPlayerController extends PlayerController {
     private UserWidget menuContainer;
     private UserWidget multiplayerPanel;
     private UserWidget accountOverlay;
+    private UserWidget offlineOverlay;
     private FullscreenBackgroundRenderer backgroundRenderer;
     private AuthPanelWidget authPanel;
     private TextField ipField;
@@ -49,6 +51,8 @@ public class MenuPlayerController extends PlayerController {
     private Label statusText;
     private Label accountNameLabel;
     private Label accountTimeLabel;
+    private Cell<Label> accountTimeCell;
+    private Table accountTable;
     private TextButton connectButton;
     private SettingsPanelWidget settingsPanel;
 
@@ -118,7 +122,7 @@ public class MenuPlayerController extends PlayerController {
         accountOverlay.setAlignment(EAnchor.BOTTOM_LEFT);
         accountOverlay.setOffset(4f, 4f);
 
-        Table accountTable = new Table();
+        accountTable = new Table();
         accountTable.defaults().left();
         accountNameLabel = new Label("---", UiSkinStyles.copyScaledLabelStyle(skin, "font", ACCOUNT_FONT_SCALE));
         accountTimeLabel = new Label("00:00:00", UiSkinStyles.copyScaledLabelStyle(skin, "font", ACCOUNT_FONT_SCALE));
@@ -133,7 +137,8 @@ public class MenuPlayerController extends PlayerController {
         });
 
         accountTable.add(accountNameLabel).padBottom(1f).row();
-        accountTable.add(accountTimeLabel).padBottom(1.5f).row();
+    accountTimeCell = accountTable.add(accountTimeLabel).padBottom(1.5f);
+    accountTable.row();
         accountTable.add(logoutButton).width(ACCOUNT_BUTTON_WIDTH).height(ACCOUNT_BUTTON_HEIGHT).left();
         accountTable.pack();
 
@@ -141,6 +146,28 @@ public class MenuPlayerController extends PlayerController {
         accountOverlay.getRoot().addActor(accountTable);
         addWidgetToViewport(accountOverlay);
         accountOverlay.setVisibility(EVisibility.COLLAPSED);
+
+        offlineOverlay = new UserWidget();
+        offlineOverlay.setAnchor(EAnchor.BOTTOM_RIGHT);
+        offlineOverlay.setAlignment(EAnchor.BOTTOM_RIGHT);
+        offlineOverlay.setOffset(-4f, 4f);
+
+        TextButton offlineButton = createMenuButton(skin, "OFFLINE", MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT);
+        offlineButton.addListener(new ClickListener() {
+            @Override
+            public void clicked(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y) {
+                onOfflineClicked();
+            }
+        });
+
+        Table offlineTable = new Table();
+        offlineTable.add(offlineButton).width(MENU_BUTTON_WIDTH).height(MENU_BUTTON_HEIGHT);
+        offlineTable.pack();
+
+        offlineOverlay.setSize(offlineTable.getPrefWidth(), offlineTable.getPrefHeight());
+        offlineOverlay.getRoot().addActor(offlineTable);
+        addWidgetToViewport(offlineOverlay);
+        offlineOverlay.setVisibility(EVisibility.COLLAPSED);
 
         // Panel Multiplayer
         multiplayerPanel = new UserWidget();
@@ -265,8 +292,20 @@ public class MenuPlayerController extends PlayerController {
         }
     }
 
+    private void onOfflineClicked() {
+        GameInstance gameInstance = getGameInstance();
+        AuthService.SessionSnapshot session = gameInstance.getAuthService().startOfflineSession();
+        gameInstance.setMode(GameInstance.Mode.SINGLE_PLAYER);
+        gameInstance.setPlayerName(session.username());
+        refreshAccountInfo();
+        showMainMenu();
+    }
+
     private void openMultiplayerPanel() {
         menuContainer.setVisibility(EVisibility.COLLAPSED);
+        if (offlineOverlay != null) {
+            offlineOverlay.setVisibility(EVisibility.COLLAPSED);
+        }
         multiplayerPanel.setVisibility(EVisibility.VISIBLE);
     }
 
@@ -431,6 +470,9 @@ public class MenuPlayerController extends PlayerController {
         if (authPanel != null) {
             authPanel.setVisibility(EVisibility.COLLAPSED);
         }
+        if (offlineOverlay != null) {
+            offlineOverlay.setVisibility(EVisibility.COLLAPSED);
+        }
         if (accountOverlay != null) {
             accountOverlay.setVisibility(EVisibility.VISIBLE);
         }
@@ -448,6 +490,9 @@ public class MenuPlayerController extends PlayerController {
         menuContainer.setVisibility(EVisibility.COLLAPSED);
         if (accountOverlay != null) {
             accountOverlay.setVisibility(EVisibility.COLLAPSED);
+        }
+        if (offlineOverlay != null) {
+            offlineOverlay.setVisibility(EVisibility.VISIBLE);
         }
         if (multiplayerPanel != null) {
             multiplayerPanel.setVisibility(EVisibility.COLLAPSED);
@@ -475,8 +520,22 @@ public class MenuPlayerController extends PlayerController {
             accountNameLabel.setText(username);
         }
         if (accountTimeLabel != null) {
-            long seconds = authService.getCurrentPlaytimeSeconds();
-            accountTimeLabel.setText(formatDuration(seconds));
+            boolean showPlaytime = authService.isAuthenticated() && !authService.isOfflineSession();
+            accountTimeLabel.setVisible(showPlaytime);
+            if (showPlaytime) {
+                long seconds = authService.getCurrentPlaytimeSeconds();
+                accountTimeLabel.setText(formatDuration(seconds));
+            } else {
+                accountTimeLabel.setText("");
+            }
+            if (accountTimeCell != null) {
+                accountTimeCell.height(showPlaytime ? accountTimeLabel.getPrefHeight() : 0f);
+                accountTimeCell.padBottom(showPlaytime ? 1.5f : 0f);
+            }
+            if (accountTable != null && accountOverlay != null) {
+                accountTable.pack();
+                accountOverlay.setSize(accountTable.getPrefWidth(), accountTable.getPrefHeight());
+            }
         }
     }
 
