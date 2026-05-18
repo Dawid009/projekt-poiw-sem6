@@ -137,6 +137,36 @@
    </object>
   </objectgroup>
  </tile>
+ <tile id="60" type="Ground">
+  <properties>
+   <property name="ground_type" propertytype="GroundType" value="grass"/>
+  </properties>
+ </tile>
+ <tile id="61" type="Ground">
+  <properties>
+   <property name="ground_type" propertytype="GroundType" value="grass"/>
+  </properties>
+ </tile>
+ <tile id="62" type="Ground">
+  <properties>
+   <property name="ground_type" propertytype="GroundType" value="grass"/>
+  </properties>
+ </tile>
+ <tile id="63" type="Ground">
+  <properties>
+   <property name="ground_type" propertytype="GroundType" value="water"/>
+  </properties>
+ </tile>
+ <tile id="64" type="Ground">
+  <properties>
+   <property name="ground_type" propertytype="GroundType" value="water"/>
+  </properties>
+ </tile>
+ <tile id="65" type="Ground">
+  <properties>
+   <property name="ground_type" propertytype="GroundType" value="water"/>
+  </properties>
+ </tile>
  <tile id="75">
   <objectgroup draworder="index" id="2">
    <object id="1" x="11.8696" y="15.7826">
@@ -170,11 +200,13 @@
    </object>
   </objectgroup>
  </tile>
+ <tile id="85" type="Ground"/>
  <tile id="87">
   <objectgroup draworder="index" id="2">
    <object id="1" x="9" y="0" width="3.04348" height="16"/>
   </objectgroup>
  </tile>
+ <tile id="88" type="Ground"/>
  <tile id="89">
   <objectgroup draworder="index" id="2">
    <object id="1" x="3.86956" y="0" width="3.04348" height="16"/>
@@ -212,6 +244,29 @@
     <polygon points="0,0 -4.04348,3.78261 -4.08696,6.82609 -2.13043,6.78261 2.91304,1.73913 2.91304,-0.0869565"/>
    </object>
   </objectgroup>
+ </tile>
+ <tile id="132" type="Ground"/>
+ <tile id="133" type="Ground"/>
+ <tile id="134" type="Ground"/>
+ <tile id="144" type="Farmland"/>
+ <tile id="145" type="Farmland"/>
+ <tile id="146" type="Farmland"/>
+ <tile id="147" type="Ground"/>
+ <tile id="156" type="Farmland"/>
+ <tile id="157" type="Farmland"/>
+ <tile id="158" type="Farmland"/>
+ <tile id="168" type="Farmland"/>
+ <tile id="169" type="Farmland"/>
+ <tile id="170" type="Farmland"/>
+ <tile id="180" type="Ground">
+  <properties>
+   <property name="ground_type" propertytype="GroundType" value="water"/>
+  </properties>
+ </tile>
+ <tile id="181" type="Ground">
+  <properties>
+   <property name="ground_type" propertytype="GroundType" value="grass"/>
+  </properties>
  </tile>
  <wangsets>
   <wangset name="Unnamed Set" type="corner" tile="-1">

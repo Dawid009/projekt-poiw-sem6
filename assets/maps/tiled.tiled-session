@@ -1,5 +1,5 @@
 {
-    "activeFile": "objects.tsx",
+    "activeFile": "mainmap.tmx",
     "expandedProjectPaths": [
         "."
     ],
@@ -21,13 +21,15 @@
         },
         "mainmap.tmx": {
             "expandedGroupLayers": [
+                12,
+                15,
                 5
             ],
-            "scale": 4,
-            "selectedLayer": 3,
+            "scale": 2,
+            "selectedLayer": 4,
             "viewCenter": {
-                "x": 986.875,
-                "y": 177.75
+                "x": 482.5,
+                "y": 817.75
             }
         },
         "objects.tsx": {
@@ -41,8 +43,8 @@
             "scaleInEditor": 1
         }
     },
-    "frame.defaultDuration": 300,
-    "last.imagePath": "G:/studia/Poiw (sem6)/Projekt/assets/raw/items/misc",
+    "frame.defaultDuration": 250,
+    "last.imagePath": "G:/studia/Poiw (sem6)/Projekt/assets/raw/objects/misc",
     "openFiles": [
         "mainmap.tmx",
         "objects.tsx",
@@ -51,13 +53,13 @@
         "decor.tsx"
     ],
     "project": "tiled.tiled-project",
-    "property.type": "float",
+    "property.type": "bool",
     "recentFiles": [
-        "mainmap.tmx",
         "decor.tsx",
         "fence_tileset.tsx",
         "tileset.tsx",
         "objects.tsx",
+        "mainmap.tmx",
         "animals.tsx"
     ],
     "resizeMap.removeObjects": false,

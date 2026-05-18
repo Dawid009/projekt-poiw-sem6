@@ -11,7 +11,27 @@
    <object id="1" x="6.82609" y="11.8261" width="2.3913" height="2.26087"/>
   </objectgroup>
  </tile>
- <tile id="14">
+ <tile id="10" type="Crop"/>
+ <tile id="11" type="Crop">
+  <properties>
+   <property name="growth_stage" type="int" value="1"/>
+  </properties>
+ </tile>
+ <tile id="12" type="Crop">
+  <properties>
+   <property name="crop_type" propertytype="CropType" value="wheat"/>
+  </properties>
+ </tile>
+ <tile id="13" type="Crop">
+  <properties>
+   <property name="crop_type" propertytype="CropType" value="wheat"/>
+   <property name="growth_stage" type="int" value="1"/>
+  </properties>
+ </tile>
+ <tile id="14" type="Prop">
+  <properties>
+   <property name="bodyType" propertytype="BodyType" value="StaticBody"/>
+  </properties>
   <objectgroup draworder="index" id="2">
    <object id="1" x="2" y="12.3478">
     <polygon points="0,0 6.95652,1.04348 11.913,-0.913043 9.95652,-4.3913 2.04348,-4.47826"/>
@@ -25,42 +45,76 @@
    </object>
   </objectgroup>
  </tile>
- <tile id="21">
+ <tile id="17" type="Crop">
+  <properties>
+   <property name="growth_stage" type="int" value="2"/>
+  </properties>
+ </tile>
+ <tile id="18" type="Crop">
+  <properties>
+   <property name="growth_stage" type="int" value="3"/>
+  </properties>
+ </tile>
+ <tile id="19" type="Crop">
+  <properties>
+   <property name="crop_type" propertytype="CropType" value="wheat"/>
+   <property name="growth_stage" type="int" value="2"/>
+  </properties>
+ </tile>
+ <tile id="20" type="Crop">
+  <properties>
+   <property name="crop_type" propertytype="CropType" value="wheat"/>
+   <property name="growth_stage" type="int" value="3"/>
+  </properties>
+ </tile>
+ <tile id="21" type="Ore">
   <objectgroup draworder="index" id="2">
    <object id="1" x="1.95652" y="8.43478" width="12.1304" height="6"/>
   </objectgroup>
  </tile>
- <tile id="22">
+ <tile id="22" type="Ore">
   <objectgroup draworder="index" id="2">
    <object id="1" x="3.84784" y="7.52174" width="9.7391" height="6"/>
   </objectgroup>
  </tile>
- <tile id="23">
+ <tile id="23" type="Ore">
   <objectgroup draworder="index" id="2">
    <object id="1" x="2.84784" y="7.95652" width="9.7391" height="5.47826"/>
   </objectgroup>
  </tile>
- <tile id="24">
+ <tile id="24" type="Ore">
   <objectgroup draworder="index" id="2">
    <object id="1" x="3.02176" y="8.52174" width="10.8695" height="5.13043"/>
   </objectgroup>
  </tile>
- <tile id="35">
+ <tile id="35" type="Ore">
+  <properties>
+   <property name="ore_type" propertytype="OreType" value="gold"/>
+  </properties>
   <objectgroup draworder="index" id="2">
    <object id="1" x="1.89132" y="8.47826" width="12.1304" height="6"/>
   </objectgroup>
  </tile>
- <tile id="36">
+ <tile id="36" type="Ore">
+  <properties>
+   <property name="ore_type" propertytype="OreType" value="gold"/>
+  </properties>
   <objectgroup draworder="index" id="2">
    <object id="1" x="3.91306" y="7.3913" width="9.7391" height="6"/>
   </objectgroup>
  </tile>
- <tile id="37">
+ <tile id="37" type="Ore">
+  <properties>
+   <property name="ore_type" propertytype="OreType" value="gold"/>
+  </properties>
   <objectgroup draworder="index" id="2">
    <object id="1" x="2.91306" y="8.04348" width="9.7391" height="5.47826"/>
   </objectgroup>
  </tile>
- <tile id="38">
+ <tile id="38" type="Ore">
+  <properties>
+   <property name="ore_type" propertytype="OreType" value="gold"/>
+  </properties>
   <objectgroup draworder="index" id="2">
    <object id="1" x="3.00003" y="8.34783" width="10.8695" height="5.13043"/>
   </objectgroup>

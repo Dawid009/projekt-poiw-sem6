@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<tileset version="1.10" tiledversion="1.12.1" name="objects" tilewidth="96" tileheight="128" tilecount="45" columns="0">
+<tileset version="1.10" tiledversion="1.12.1" name="objects" tilewidth="96" tileheight="128" tilecount="58" columns="0">
  <grid orientation="orthogonal" width="1" height="1"/>
  <tile id="1" type="Object">
   <properties>
@@ -45,6 +45,18 @@
    <object id="1" x="9.625" y="66.5" width="60.875" height="40"/>
   </objectgroup>
  </tile>
+ <tile id="29" type="Prop">
+  <image source="objects/house_back.png" width="80" height="112"/>
+ </tile>
+ <tile id="8" type="Prop">
+  <image source="objects/House_1_Wood_Base_Blue.png" width="96" height="128"/>
+  <objectgroup draworder="index" id="2">
+   <object id="1" x="15.4545" y="72.5455" width="65.4545" height="41.8182"/>
+  </objectgroup>
+ </tile>
+ <tile id="30" type="Prop">
+  <image source="objects/House_1_Wood_Base_Blue_Back.png" width="96" height="128"/>
+ </tile>
  <tile id="4" type="Prop">
   <image source="objects/chest.png" width="16" height="16"/>
   <objectgroup draworder="index" id="2">
@@ -57,6 +69,24 @@
    <object id="1" x="13" y="54.1696">
     <polygon points="0,0 6,0.830357 11,0.830357 16,-0.830357 16,-1.66071 14,-4.15179 13,-10.7946 3,-10.7946 3,-4.98214 2,-4.15179 1,-2.49107 0,-0.830357"/>
    </object>
+  </objectgroup>
+ </tile>
+ <tile id="18" type="Prop">
+  <image source="objects/small_tree.png" width="32" height="48"/>
+  <objectgroup draworder="index" id="2">
+   <object id="1" x="13.8889" y="30.3778" width="4.22222" height="2.11111"/>
+  </objectgroup>
+ </tile>
+ <tile id="17" type="Object">
+  <properties>
+   <property name="bodyType" propertytype="BodyType" value="StaticBody"/>
+  </properties>
+  <image source="objects/small_tree_cut.png" width="32" height="32"/>
+ </tile>
+ <tile id="16" type="Prop">
+  <image source="objects/tree_trunk.png" width="32" height="32"/>
+  <objectgroup draworder="index" id="2">
+   <object id="1" x="13.9778" y="14.4" width="4.02222" height="2.06667"/>
   </objectgroup>
  </tile>
  <tile id="6" type="Object">
@@ -79,12 +109,6 @@
    <object id="1" x="11.0625" y="20.9565" width="9.875" height="7.04348"/>
   </objectgroup>
  </tile>
- <tile id="8" type="Prop">
-  <image source="objects/House_1_Wood_Base_Blue.png" width="96" height="128"/>
-  <objectgroup draworder="index" id="2">
-   <object id="1" x="15.4545" y="72.5455" width="65.4545" height="41.8182"/>
-  </objectgroup>
- </tile>
  <tile id="9" type="Prop">
   <image source="objects/lantern.png" width="16" height="48"/>
   <objectgroup draworder="index" id="2">
@@ -93,9 +117,6 @@
  </tile>
  <tile id="10" type="Prop">
   <image source="objects/fallen_trunk.png" width="32" height="16"/>
-  <objectgroup draworder="index" id="2">
-   <object id="1" x="4.85493" y="6.9281" width="22.1225" height="4.984"/>
-  </objectgroup>
  </tile>
  <tile id="11" type="Prop">
   <image source="objects/bridge_0.png" width="48" height="48"/>
@@ -130,24 +151,6 @@
    <object id="4" x="33.0313" y="12" width="4.0625" height="4"/>
    <object id="5" x="10.8437" y="36.3125" width="4.0625" height="4"/>
    <object id="6" x="33.0938" y="36.25" width="4.0625" height="4"/>
-  </objectgroup>
- </tile>
- <tile id="16" type="Prop">
-  <image source="objects/tree_trunk.png" width="32" height="32"/>
-  <objectgroup draworder="index" id="2">
-   <object id="1" x="13.9778" y="14.4" width="4.02222" height="2.06667"/>
-  </objectgroup>
- </tile>
- <tile id="17" type="Object">
-  <properties>
-   <property name="bodyType" propertytype="BodyType" value="StaticBody"/>
-  </properties>
-  <image source="objects/small_tree_cut.png" width="32" height="32"/>
- </tile>
- <tile id="18" type="Prop">
-  <image source="objects/small_tree.png" width="32" height="48"/>
-  <objectgroup draworder="index" id="2">
-   <object id="1" x="13.8889" y="30.3778" width="4.22222" height="2.11111"/>
   </objectgroup>
  </tile>
  <tile id="20" type="Prop">
@@ -186,6 +189,7 @@
  </tile>
  <tile id="23" type="Creature">
   <properties>
+   <property name="creature_type" propertytype="CreatureType" value="pig"/>
    <property name="damage" type="float" value="4"/>
    <property name="damageDelay" type="float" value="5"/>
    <property name="life" type="float" value="90"/>
@@ -208,6 +212,7 @@
  </tile>
  <tile id="25" type="Creature">
   <properties>
+   <property name="creature_type" propertytype="CreatureType" value="sheep"/>
    <property name="damage" type="float" value="4"/>
    <property name="damageDelay" type="float" value="5"/>
    <property name="life" type="float" value="90"/>
@@ -230,6 +235,7 @@
  </tile>
  <tile id="27" type="Creature">
   <properties>
+   <property name="creature_type" propertytype="CreatureType" value="chicken"/>
    <property name="damage" type="float" value="2"/>
    <property name="damageDelay" type="float" value="0.3"/>
    <property name="life" type="float" value="30"/>
@@ -250,19 +256,12 @@
    <object id="1" x="11.4531" y="20.3281" width="8.96875" height="2.65625"/>
   </objectgroup>
  </tile>
- <tile id="29" type="Prop">
-  <image source="objects/house_back.png" width="80" height="112"/>
- </tile>
- <tile id="30" type="Prop">
-  <image source="objects/House_1_Wood_Base_Blue_Back.png" width="96" height="128"/>
- </tile>
- <tile id="31">
-  <image source="../raw/items/potions/potion_red.png" width="8" height="8"/>
- </tile>
  <tile id="32" type="Creature">
   <properties>
+   <property name="creature_type" propertytype="CreatureType" value="skeleton"/>
    <property name="damage" type="float" value="12"/>
    <property name="damageDelay" type="float" value="1"/>
+   <property name="hostile" type="bool" value="true"/>
    <property name="life" type="float" value="120"/>
   </properties>
   <image source="../raw/creatures/skeleton/skeleton_idle_right_00.png" width="32" height="32"/>
@@ -295,8 +294,10 @@
  </tile>
  <tile id="38" type="Creature">
   <properties>
+   <property name="creature_type" propertytype="CreatureType" value="slime"/>
    <property name="damage" type="float" value="9"/>
    <property name="damageDelay" type="float" value="1.4"/>
+   <property name="hostile" type="bool" value="true"/>
    <property name="life" type="float" value="200"/>
    <property name="speed" type="float" value="2"/>
   </properties>
@@ -319,6 +320,9 @@
  </tile>
  <tile id="41">
   <image source="../raw/creatures/slime_green/slime_green_idle_03.png" width="64" height="64"/>
+ </tile>
+ <tile id="31">
+  <image source="../raw/items/potions/potion_red.png" width="8" height="8"/>
  </tile>
  <tile id="42">
   <image source="../raw/items/potions/potion_blue.png" width="8" height="8"/>
@@ -343,5 +347,49 @@
  </tile>
  <tile id="54">
   <image source="../raw/items/coins/coin_bronze.png" width="8" height="8"/>
+ </tile>
+ <tile id="55">
+  <image source="../raw/items/food/chicken_cooked.png" width="16" height="16"/>
+ </tile>
+ <tile id="56">
+  <image source="../raw/items/food/chicken_raw.png" width="16" height="16"/>
+ </tile>
+ <tile id="57">
+  <image source="../raw/items/food/steak_cooked.png" width="16" height="16"/>
+ </tile>
+ <tile id="58">
+  <image source="../raw/items/food/steak_raw.png" width="16" height="16"/>
+ </tile>
+ <tile id="59">
+  <image source="../raw/items/tools/axe.png" width="16" height="16"/>
+ </tile>
+ <tile id="60">
+  <image source="../raw/items/tools/hoe.png" width="16" height="16"/>
+ </tile>
+ <tile id="61">
+  <image source="../raw/items/tools/pickaxe.png" width="16" height="16"/>
+ </tile>
+ <tile id="69">
+  <image source="../raw/items/tools/sword.png" width="16" height="16"/>
+ </tile>
+ <tile id="62">
+  <image source="../raw/items/tools/watering_can.png" width="16" height="16"/>
+ </tile>
+ <tile id="63">
+  <image source="../raw/objects/misc/campfire_0.png" width="16" height="16"/>
+  <animation>
+   <frame tileid="63" duration="250"/>
+   <frame tileid="64" duration="250"/>
+   <frame tileid="65" duration="250"/>
+  </animation>
+ </tile>
+ <tile id="64">
+  <image source="../raw/objects/misc/campfire_1.png" width="16" height="16"/>
+ </tile>
+ <tile id="65">
+  <image source="../raw/objects/misc/campfire_2.png" width="16" height="16"/>
+ </tile>
+ <tile id="70">
+  <image source="../raw/objects/misc/wet_dirt.png" width="16" height="16"/>
  </tile>
 </tileset>

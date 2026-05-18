@@ -1,138 +1,201 @@
 
 items.png
-size: 64, 128
+size: 512, 32
 format: RGBA8888
 filter: Nearest, Nearest
 repeat: none
 coins/coin_bronze
   rotate: false
-  xy: 4, 28
+  xy: 384, 12
   size: 8, 8
   orig: 8, 8
   offset: 0, 0
   index: -1
 coins/coin_gold
   rotate: false
-  xy: 24, 48
+  xy: 396, 12
   size: 8, 8
   orig: 8, 8
   offset: 0, 0
   index: -1
 coins/coin_silver
   rotate: false
-  xy: 4, 16
+  xy: 408, 12
   size: 8, 8
   orig: 8, 8
   offset: 0, 0
   index: -1
-crops/item_carrot
+food/carrot
   rotate: false
-  xy: 4, 100
+  xy: 24, 4
   size: 16, 16
   orig: 16, 16
   offset: 0, 0
   index: -1
-crops/item_wheat
+food/chicken_cooked
   rotate: false
-  xy: 4, 40
+  xy: 44, 4
+  size: 16, 16
+  orig: 16, 16
+  offset: 0, 0
+  index: -1
+food/chicken_raw
+  rotate: false
+  xy: 64, 4
+  size: 16, 16
+  orig: 16, 16
+  offset: 0, 0
+  index: -1
+food/steak_cooked
+  rotate: false
+  xy: 284, 4
+  size: 16, 16
+  orig: 16, 16
+  offset: 0, 0
+  index: -1
+food/steak_raw
+  rotate: false
+  xy: 304, 4
+  size: 16, 16
+  orig: 16, 16
+  offset: 0, 0
+  index: -1
+food/wheat
+  rotate: false
+  xy: 364, 4
   size: 16, 16
   orig: 16, 16
   offset: 0, 0
   index: -1
 gold/item_gold_bar
   rotate: false
-  xy: 4, 80
+  xy: 104, 4
   size: 16, 16
   orig: 16, 16
   offset: 0, 0
   index: -1
 gold/item_gold_cluster
   rotate: false
-  xy: 24, 100
+  xy: 124, 4
   size: 16, 16
   orig: 16, 16
   offset: 0, 0
   index: -1
 gold/item_gold_nuggets
   rotate: false
-  xy: 44, 100
+  xy: 144, 4
   size: 16, 16
   orig: 16, 16
   offset: 0, 0
   index: -1
 iron/item_iron_bar
   rotate: false
-  xy: 4, 60
+  xy: 164, 4
   size: 16, 16
   orig: 16, 16
   offset: 0, 0
   index: -1
 iron/item_iron_cluster
   rotate: false
-  xy: 24, 80
+  xy: 184, 4
   size: 16, 16
   orig: 16, 16
   offset: 0, 0
   index: -1
 iron/item_iron_nuggets
   rotate: false
-  xy: 44, 80
+  xy: 204, 4
   size: 16, 16
   orig: 16, 16
   offset: 0, 0
   index: -1
 misc/shard_blue
   rotate: false
-  xy: 16, 4
+  xy: 480, 12
   size: 8, 8
   orig: 8, 8
   offset: 0, 0
   index: -1
 potions/potion_blue
   rotate: false
-  xy: 36, 48
+  xy: 420, 12
   size: 8, 8
   orig: 8, 8
   offset: 0, 0
   index: -1
 potions/potion_green
   rotate: false
-  xy: 4, 4
+  xy: 432, 12
   size: 8, 8
   orig: 8, 8
   offset: 0, 0
   index: -1
 potions/potion_purple
   rotate: false
-  xy: 48, 48
+  xy: 444, 12
   size: 8, 8
   orig: 8, 8
   offset: 0, 0
   index: -1
 potions/potion_red
   rotate: false
-  xy: 16, 28
+  xy: 456, 12
   size: 8, 8
   orig: 8, 8
   offset: 0, 0
   index: -1
 potions/potion_yellow
   rotate: false
-  xy: 16, 16
+  xy: 468, 12
   size: 8, 8
   orig: 8, 8
   offset: 0, 0
   index: -1
 seeds/seeds_carrot
   rotate: false
-  xy: 24, 60
+  xy: 244, 4
   size: 16, 16
   orig: 16, 16
   offset: 0, 0
   index: -1
 seeds/seeds_wheat
   rotate: false
-  xy: 44, 60
+  xy: 264, 4
+  size: 16, 16
+  orig: 16, 16
+  offset: 0, 0
+  index: -1
+tools/axe
+  rotate: false
+  xy: 4, 4
+  size: 16, 16
+  orig: 16, 16
+  offset: 0, 0
+  index: -1
+tools/hoe
+  rotate: false
+  xy: 84, 4
+  size: 16, 16
+  orig: 16, 16
+  offset: 0, 0
+  index: -1
+tools/pickaxe
+  rotate: false
+  xy: 224, 4
+  size: 16, 16
+  orig: 16, 16
+  offset: 0, 0
+  index: -1
+tools/sword
+  rotate: false
+  xy: 324, 4
+  size: 16, 16
+  orig: 16, 16
+  offset: 0, 0
+  index: -1
+tools/watering_can
+  rotate: false
+  xy: 344, 4
   size: 16, 16
   orig: 16, 16
   offset: 0, 0
