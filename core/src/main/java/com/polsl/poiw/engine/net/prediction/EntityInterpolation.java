@@ -40,6 +40,10 @@ public class EntityInterpolation {
      * returns reusable Vector2 — do NOT store reference, copy if needed.
      */
     public Vector2 interpolate(float renderTime) {
+        return interpolate(renderTime, true);
+    }
+
+    public Vector2 interpolate(float renderTime, boolean allowExtrapolation) {
         float targetTime = renderTime - INTERP_DELAY;
 
         if (count < 2) return null;
@@ -89,7 +93,7 @@ public class EntityInterpolation {
         if (last == null) return null;
 
         float timeSinceLast = targetTime - last.time;
-        if (timeSinceLast > 0 && timeSinceLast <= MAX_EXTRAPOLATION) {
+        if (allowExtrapolation && timeSinceLast > 0 && timeSinceLast <= MAX_EXTRAPOLATION) {
             // extrapolate using velocity
             resultPos.set(
                 last.x + last.velX * timeSinceLast,

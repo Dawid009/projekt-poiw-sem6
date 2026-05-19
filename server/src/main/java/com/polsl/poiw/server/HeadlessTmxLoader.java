@@ -18,9 +18,11 @@ import com.badlogic.gdx.utils.Array;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Base64;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.ArrayList;
 import java.util.zip.InflaterInputStream;
 
 /**
@@ -34,6 +36,8 @@ public class HeadlessTmxLoader {
     private static final long FLAG_FLIP_VERTICALLY = 0x40000000L;
     private static final long FLAG_FLIP_DIAGONALLY = 0x20000000L;
     private static final long MASK_CLEAR_TILE_FLAGS = 0x1FFFFFFFL;
+
+    private record CollisionRect(float x, float y, float width, float height) {}
 
     /**
      * per-tile data parsed from TSX — collision shapes, tile type, image dimensions.
@@ -114,6 +118,8 @@ public class HeadlessTmxLoader {
 
             String tsName = tsRoot.getAttribute("name", "tileset");
             int tileCount = tsRoot.getIntAttribute("tilecount", 0);
+            float tilesetTileWidth = tsRoot.getFloatAttribute("tilewidth", 32f);
+            float tilesetTileHeight = tsRoot.getFloatAttribute("tileheight", 32f);
 
             TiledMapTileSet tileSet = new TiledMapTileSet();
             tileSet.setName(tsName);
@@ -134,16 +140,22 @@ public class HeadlessTmxLoader {
                 }
 
                 // image dimensions
-                float imgW = 32f, imgH = 32f;
+                // Atlas-backed tiles in TSX often do not have per-tile <image>, so default to
+                // the tileset's nominal tile size instead of 32x32. Otherwise server-side size
+                // and collision Y-flip drift away from the client for decor/crop/ore tiles.
+                float imgW = tilesetTileWidth;
+                float imgH = tilesetTileHeight;
                 XmlReader.Element imageEl = tileEl.getChildByName("image");
                 if (imageEl != null) {
                     imgW = imageEl.getFloatAttribute("width", 32f);
                     imgH = imageEl.getFloatAttribute("height", 32f);
                 }
 
-                // collision shape from objectgroup (first non-sensor object)
+                // collision shape from objectgroup (first non-sensor object for gameplay,
+                // all non-sensor shapes are still added to tile objects for static map collision)
                 float collX = 0, collY = 0, collW = 0, collH = 0;
                 boolean hasCollision = false;
+                List<CollisionRect> collisionRects = new ArrayList<>();
                 XmlReader.Element objGroup = tileEl.getChildByName("objectgroup");
                 if (objGroup != null) {
                     for (int j = 0; j < objGroup.getChildCount(); j++) {
@@ -165,14 +177,14 @@ public class HeadlessTmxLoader {
                         }
 
                         // use bounding box (works for rect, ellipse, polygon)
-                        collX = objEl.getFloatAttribute("x", 0);
-                        collY = objEl.getFloatAttribute("y", 0);
-                        collW = objEl.getFloatAttribute("width", 0);
-                        collH = objEl.getFloatAttribute("height", 0);
+                        float shapeX = objEl.getFloatAttribute("x", 0);
+                        float shapeY = objEl.getFloatAttribute("y", 0);
+                        float shapeW = objEl.getFloatAttribute("width", 0);
+                        float shapeH = objEl.getFloatAttribute("height", 0);
 
                         // polygon → compute bounding box
                         XmlReader.Element polyEl = objEl.getChildByName("polygon");
-                        if (polyEl != null && collW == 0 && collH == 0) {
+                        if (polyEl != null && shapeW == 0 && shapeH == 0) {
                             String points = polyEl.getAttribute("points", "");
                             float minX = Float.MAX_VALUE, minY = Float.MAX_VALUE;
                             float maxX = -Float.MAX_VALUE, maxY = -Float.MAX_VALUE;
@@ -186,23 +198,27 @@ public class HeadlessTmxLoader {
                                 maxX = Math.max(maxX, px);
                                 maxY = Math.max(maxY, py);
                             }
-                            collX += minX;
-                            collY += minY;
-                            collW = maxX - minX;
-                            collH = maxY - minY;
+                            shapeX += minX;
+                            shapeY += minY;
+                            shapeW = maxX - minX;
+                            shapeH = maxY - minY;
                         }
 
-                        // ellipse → use x,y,w,h directly (already set)
-                        hasCollision = collW > 0 && collH > 0;
-                        if (hasCollision) break; // use first non-sensor shape
-                    }
-                }
+                        if (shapeW <= 0f || shapeH <= 0f) {
+                            continue;
+                        }
 
-                // TSX collision shapes are in Tiled Y-down space (origin=top-left of tile).
-                // LibGDX client flips them to Y-up automatically. Server must do the same:
-                //   collY_yup = imageH - collY_ydown - collH
-                if (hasCollision) {
-                    collY = imgH - collY - collH;
+                        float flippedY = imgH - shapeY - shapeH;
+                        collisionRects.add(new CollisionRect(shapeX, flippedY, shapeW, shapeH));
+
+                        if (!hasCollision) {
+                            collX = shapeX;
+                            collY = flippedY;
+                            collW = shapeW;
+                            collH = shapeH;
+                            hasCollision = true;
+                        }
+                    }
                 }
 
                 tileDataMap.put(globalId, new TileData(tileType, imgW, imgH,
@@ -216,8 +232,8 @@ public class HeadlessTmxLoader {
                 for (Map.Entry<String, Object> entry : tileProperties.entrySet()) {
                     tile.getProperties().put(entry.getKey(), entry.getValue());
                 }
-                if (hasCollision) {
-                    tile.getObjects().add(new RectangleMapObject(collX, collY, collW, collH));
+                for (CollisionRect rect : collisionRects) {
+                    tile.getObjects().add(new RectangleMapObject(rect.x(), rect.y(), rect.width(), rect.height()));
                 }
                 tileSet.putTile(globalId, tile);
             }

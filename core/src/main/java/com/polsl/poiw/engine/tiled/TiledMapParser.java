@@ -388,13 +388,7 @@ public class TiledMapParser {
         if (!hasBlockingCollision(tile)) {
             return false;
         }
-
-        if (LAYER_HOUSES.equals(layerName)) {
-            return true;
-        }
-
-        String bodyType = tile.getProperties().get("bodyType", String.class);
-        return "StaticBody".equals(bodyType);
+        return isStaticBackgroundObjectLayer(layerName);
     }
 
     private boolean hasBlockingCollision(TiledMapTile tile) {

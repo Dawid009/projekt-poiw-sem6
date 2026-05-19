@@ -4,6 +4,7 @@ import com.badlogic.ashley.core.ComponentMapper;
 import com.badlogic.gdx.graphics.g2d.Animation;
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.Array;
 
@@ -12,7 +13,7 @@ public class CreatureAnimationComponent extends AbstractActorComponent {
         ComponentMapper.getFor(CreatureAnimationComponent.class);
 
     private static final float WALK_FRAME_DURATION = 0.20f;
-    private static final float MOVE_EPSILON = 0.001f;
+    private static final float MOVE_EPSILON = 0.06f;
     private static final float DAMAGE_FLASH_DURATION = 0.12f;
 
     private final TextureRegion idleLeft;
@@ -81,11 +82,12 @@ public class CreatureAnimationComponent extends AbstractActorComponent {
             return facingRight;
         }
 
-        if (Math.abs(direction.x) > Math.abs(direction.y)) {
-            return direction.x > 0f;
+        float horizontal = direction.x;
+        if (Math.abs(horizontal) <= MOVE_EPSILON) {
+            return facingRight;
         }
 
-        return direction.y > 0f;
+        return horizontal > 0f;
     }
 
     private Animation<TextureRegion> createLoopAnimation(Array<TextureAtlas.AtlasRegion> frames, float frameDuration) {

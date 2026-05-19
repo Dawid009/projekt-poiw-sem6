@@ -40,9 +40,6 @@ public class ClientPrediction {
                           int lastProcessedSeq, Body body) {
         if (body == null) return;
 
-        // discard all moves up to and including lastProcessedSeq
-        discardMovesUpTo(lastProcessedSeq);
-
         // find predicted position for lastProcessedSeq
         int idx = findMoveIndex(lastProcessedSeq);
         if (idx >= 0) {
@@ -53,6 +50,7 @@ public class ClientPrediction {
 
             if (distSq < RECONCILIATION_THRESHOLD * RECONCILIATION_THRESHOLD) {
                 // prediction accurate — no correction needed
+                discardMovesUpTo(lastProcessedSeq);
                 return;
             }
         }
@@ -60,6 +58,7 @@ public class ClientPrediction {
         // snap to server position and velocity
         body.setTransform(serverX, serverY, 0);
         body.setLinearVelocity(serverVelX, serverVelY);
+        discardMovesUpTo(lastProcessedSeq);
     }
 
     private void discardMovesUpTo(int seq) {

@@ -1,18 +1,32 @@
 package com.polsl.poiw.engine.component;
 
+import com.polsl.poiw.engine.net.RepNotify;
+import com.polsl.poiw.engine.net.Replicated;
 import com.polsl.poiw.engine.binding.PropertyBinding;
 import com.polsl.poiw.engine.inventory.InventoryStack;
 import com.polsl.poiw.engine.inventory.ItemDefinition;
+import com.polsl.poiw.gameplay.item.GameplayItems;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class InventoryComponent extends AbstractActorComponent {
+    private static final String STACK_SEPARATOR = ";";
+    private static final String VALUE_SEPARATOR = ":";
 
     private final List<InventoryRecord> stacks = new ArrayList<>();
     // Revision sluzy tylko do odswiezania UI po zmianie zawartosci.
     private final transient PropertyBinding<Integer> revisionBinding = new PropertyBinding<>(0);
     private int revision = 0;
+
+    @Replicated
+    @RepNotify("onReplicatedStacksChanged")
+    private String replicatedStacks = "";
+
+    public InventoryComponent() {
+        setReplicated(true);
+    }
 
     public int addItem(ItemDefinition definition, int quantity) {
         if (definition == null || quantity <= 0) {
@@ -48,6 +62,7 @@ public class InventoryComponent extends AbstractActorComponent {
 
         int added = quantity - remaining;
         if (added > 0) {
+            syncReplicatedStacks();
             broadcastChange();
         }
         return added;
@@ -81,6 +96,7 @@ public class InventoryComponent extends AbstractActorComponent {
         }
 
         if (removed > 0) {
+            syncReplicatedStacks();
             broadcastChange();
         }
         return removed;
@@ -144,6 +160,79 @@ public class InventoryComponent extends AbstractActorComponent {
 
     private void broadcastChange() {
         revisionBinding.set(++revision);
+    }
+
+    private void syncReplicatedStacks() {
+        String serialized = serializeStacks();
+        if (Objects.equals(replicatedStacks, serialized)) {
+            return;
+        }
+
+        replicatedStacks = serialized;
+        markDirty("replicatedStacks");
+    }
+
+    @SuppressWarnings("unused")
+    private void onReplicatedStacksChanged() {
+        deserializeStacks(replicatedStacks);
+        broadcastChange();
+    }
+
+    private String serializeStacks() {
+        if (stacks.isEmpty()) {
+            return "";
+        }
+
+        StringBuilder builder = new StringBuilder();
+        for (InventoryRecord record : stacks) {
+            if (record.definition == null || record.quantity <= 0) {
+                continue;
+            }
+            if (builder.length() > 0) {
+                builder.append(STACK_SEPARATOR);
+            }
+            builder.append(record.definition.getItemId())
+                .append(VALUE_SEPARATOR)
+                .append(record.quantity);
+        }
+        return builder.toString();
+    }
+
+    private void deserializeStacks(String serialized) {
+        stacks.clear();
+        if (serialized == null || serialized.isBlank()) {
+            return;
+        }
+
+        String[] rawStacks = serialized.split(STACK_SEPARATOR);
+        for (String rawStack : rawStacks) {
+            if (rawStack == null || rawStack.isBlank()) {
+                continue;
+            }
+
+            String[] parts = rawStack.split(VALUE_SEPARATOR, 2);
+            if (parts.length != 2) {
+                continue;
+            }
+
+            ItemDefinition definition = GameplayItems.findById(parts[0]);
+            if (definition == null) {
+                continue;
+            }
+
+            int quantity;
+            try {
+                quantity = Integer.parseInt(parts[1]);
+            } catch (NumberFormatException exception) {
+                continue;
+            }
+
+            if (quantity <= 0) {
+                continue;
+            }
+
+            stacks.add(new InventoryRecord(definition, quantity));
+        }
     }
 
     private InventoryRecord findFirstRecord(String itemId) {

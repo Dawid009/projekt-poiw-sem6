@@ -15,6 +15,8 @@ import com.polsl.poiw.gameplay.actor.AttackHitboxActor;
  * i spawnuje krótko żyjący hitbox przed postacią.
  */
 public class CombatSystem extends IteratingSystem {
+    private static final float HORIZONTAL_ATTACK_REACH_OFFSET = 0.22f;
+    private static final float VERTICAL_ATTACK_REACH_OFFSET = 0.35f;
     private static final Vector2 TMP_SPAWN = new Vector2();
     private static final Vector2 TMP_KNOCKBACK = new Vector2();
 
@@ -71,12 +73,14 @@ public class CombatSystem extends IteratingSystem {
         float hitboxHeight = combat.getHitboxHeight();
         float centerX = transform.getPosition().x + transform.getSize().x * 0.5f;
         float centerY = transform.getPosition().y + transform.getSize().y * 0.5f;
+        float horizontalReach = Math.max(0f, combat.getAttackReach() - HORIZONTAL_ATTACK_REACH_OFFSET);
+        float verticalReach = Math.max(0f, combat.getAttackReach() - VERTICAL_ATTACK_REACH_OFFSET);
 
         switch (combat.getFacingDirection()) {
-            case DOWN -> centerY -= combat.getAttackReach();
-            case UP -> centerY += combat.getAttackReach();
-            case LEFT -> centerX -= combat.getAttackReach();
-            case RIGHT -> centerX += combat.getAttackReach();
+            case DOWN -> centerY -= verticalReach;
+            case UP -> centerY += verticalReach;
+            case LEFT -> centerX -= horizontalReach;
+            case RIGHT -> centerX += horizontalReach;
         }
 
         AttackHitboxActor hitbox = new AttackHitboxActor();

@@ -46,18 +46,21 @@ public class MovementSystem extends IteratingSystem {
         TMP_KNOCKBACK.setZero();
         boolean knockbackActive = false;
         float knockbackLift = 0f;
+        boolean simulatedProxy = actor != null && actor.getNetRole() == NetRole.SIMULATED_PROXY;
         if (knockback != null) {
             knockback.tick(deltaTime);
             if (knockback.isActive()) {
                 TMP_KNOCKBACK.set(knockback.getVelocity());
                 knockbackActive = true;
             }
-            knockbackLift = knockback.getLiftOffsetY();
+            if (!simulatedProxy) {
+                knockbackLift = knockback.getLiftOffsetY();
+            }
         }
         transform.setRenderOffset(0f, knockbackLift);
 
         // SIMULATED_PROXY - position managed by InterpolationSystem, do not modify
-        if (actor != null && actor.getNetRole() == NetRole.SIMULATED_PROXY) {
+        if (simulatedProxy) {
             return;
         }
 

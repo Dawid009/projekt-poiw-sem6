@@ -241,6 +241,13 @@ public abstract class AbstractCreatureActor extends AbstractActor {
             return;
         }
 
+        KnockbackComponent knockback = getComponent(KnockbackComponent.class);
+        if (knockback != null && knockback.isActive()) {
+            movement.getDirection().setZero();
+            movementAttemptTimer = 0f;
+            return;
+        }
+
         Vector2 currentPosition = getNavigationPosition();
         if (!homeInitialized) {
             homePosition.set(currentPosition);

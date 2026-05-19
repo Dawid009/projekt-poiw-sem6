@@ -59,6 +59,7 @@ import com.polsl.poiw.gameplay.actor.TiledVisualActor;
 public class WorldContext implements Disposable {
 
     private static final String TAG = "WorldContext";
+    private static final float SIMULATED_PROXY_MOVE_EPSILON = 0.06f;
 
     private final Main game;
     private final LevelDefinition levelDef;
@@ -420,7 +421,8 @@ public class WorldContext implements Disposable {
             return;
         }
 
-        if (Math.abs(velX) <= 0.001f && Math.abs(velY) <= 0.001f) {
+        if (Math.abs(velX) <= SIMULATED_PROXY_MOVE_EPSILON
+            && Math.abs(velY) <= SIMULATED_PROXY_MOVE_EPSILON) {
             movement.getDirection().setZero();
             return;
         }

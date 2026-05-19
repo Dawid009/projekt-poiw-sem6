@@ -11,9 +11,13 @@ import com.polsl.poiw.engine.asset.MapAsset;
 import com.polsl.poiw.engine.collision.CollisionComponent;
 import com.polsl.poiw.engine.component.CombatComponent;
 import com.polsl.poiw.engine.collision.CollisionSystem;
+import com.polsl.poiw.engine.component.InventoryComponent;
+import com.polsl.poiw.engine.component.TransformComponent;
 import com.polsl.poiw.engine.gameframework.GameMode;
 import com.polsl.poiw.engine.gameframework.PlayerController;
 import com.polsl.poiw.engine.gameframework.PlayerState;
+import com.polsl.poiw.engine.inventory.InventoryStack;
+import com.polsl.poiw.engine.inventory.ItemDefinition;
 import com.polsl.poiw.engine.net.replication.ReplicationInfo;
 import com.polsl.poiw.engine.tiled.TiledMapParser;
 import com.polsl.poiw.gameplay.actor.ItemPickupActor;
@@ -172,7 +176,7 @@ public class GameServer implements ApplicationListener {
 
         // 2. update GameWorld (physics + ECS + ReplicationSystem)
         gameWorld.update(delta);
-        replicateDestroyedActors();
+        replicateActorLifecycleChanges();
 
         // 3. send position corrections to each player (AFTER physics, so position is accurate)
         sendPlayerCorrections();
@@ -233,6 +237,8 @@ public class GameServer implements ApplicationListener {
             handleClientConnect(connectionId, connect);
         } else if (message instanceof NetworkProtocol.ClientInputUpdate input) {
             handleClientInput(connectionId, input);
+        } else if (message instanceof NetworkProtocol.ClientInventoryAction inventoryAction) {
+            handleClientInventoryAction(connectionId, inventoryAction);
         } else if (message instanceof NetworkProtocol.Ping ping) {
             handlePing(connectionId, ping);
         } else if (message instanceof NetworkProtocol.ClientDisconnect) {
@@ -344,6 +350,47 @@ public class GameServer implements ApplicationListener {
         netDriver.sendToClient(connectionId, pong, false);
     }
 
+    private void handleClientInventoryAction(int connectionId, NetworkProtocol.ClientInventoryAction request) {
+        if (request == null || request.action == null || request.itemId == null || request.itemId.isBlank()) {
+            return;
+        }
+
+        PlayerController controller = playerControllers.get(connectionId);
+        if (controller == null) {
+            return;
+        }
+
+        if (request.playerId > 0 && request.playerId != controller.getPlayerId()) {
+            Gdx.app.debug(TAG, "Ignoring inventory action with mismatched playerId from conn=" + connectionId);
+            return;
+        }
+
+        if (!(controller.getPossessedPawn() instanceof PlayerCharacter player)) {
+            return;
+        }
+
+        InventoryComponent inventory = player.getInventoryComponent();
+        if (inventory == null) {
+            return;
+        }
+
+        switch (request.action) {
+            case USE -> inventory.useItem(request.itemId);
+            case DROP -> dropInventoryItem(player, inventory, request.itemId);
+        }
+    }
+
+    private void dropInventoryItem(PlayerCharacter player, InventoryComponent inventory, String itemId) {
+        InventoryStack stack = inventory.getStack(itemId);
+        if (stack == null) {
+            return;
+        }
+
+        if (inventory.removeItem(itemId, 1) > 0) {
+            spawnItemNearPlayer(player, stack.getDefinition(), 1, 0.35f, 0.45f);
+        }
+    }
+
     /**
      * sends authoritative position correction to each connected player.
      * called AFTER physics step in render() so body positions reflect processed inputs.
@@ -385,6 +432,33 @@ public class GameServer implements ApplicationListener {
             correction.serverTime = serverTime;
             netDriver.sendToClient(connId, correction, false); // UDP
         }
+    }
+
+    private void spawnItemNearPlayer(PlayerCharacter player,
+                                     ItemDefinition item,
+                                     int quantity,
+                                     float heightOffset,
+                                     float pickupGraceSeconds) {
+        if (gameWorld == null || player == null || item == null || quantity <= 0) {
+            return;
+        }
+
+        TransformComponent transform = player.getComponent(TransformComponent.class);
+        Vector2 playerPosition = player.getPosition();
+        float playerWidth = transform != null ? transform.getSize().x : 1f;
+        float playerHeight = transform != null ? transform.getSize().y : 1f;
+        float itemSize = 0.5f;
+
+        Vector2 spawnPosition = new Vector2(
+            playerPosition.x + playerWidth * 0.5f - itemSize * 0.5f,
+            playerPosition.y + playerHeight + heightOffset
+        );
+
+        ItemPickupActor pickupActor = new ItemPickupActor();
+        pickupActor.configureServer(item, quantity);
+        pickupActor.setReplicated(true);
+        pickupActor.setPickupGrace(player.getActorId(), pickupGraceSeconds);
+        gameWorld.spawnActor(pickupActor, spawnPosition);
     }
 
     /**
@@ -507,6 +581,7 @@ public class GameServer implements ApplicationListener {
         spawn.ownerId = playerId;
         spawn.initialProperties = buildInitialSpawnProperties(pawn);
         netDriver.sendToAllClients(spawn, true);
+        knownReplicatedActorIds.add(pawn.getActorId());
 
         Gdx.app.log(TAG, "Spawned pawn for player " + playerName
             + " at (" + spawnPos.x + ", " + spawnPos.y + ")");
@@ -654,13 +729,33 @@ public class GameServer implements ApplicationListener {
         return null;
     }
 
-    private void replicateDestroyedActors() {
-        Set<Integer> currentIds = new HashSet<>();
+    private void replicateActorLifecycleChanges() {
+        Map<Integer, com.polsl.poiw.engine.actor.Actor> currentActors = new HashMap<>();
         for (var actor : gameWorld.getAllActors()) {
             if (actor.isReplicated()) {
-                currentIds.add(actor.getActorId());
+                currentActors.put(actor.getActorId(), actor);
             }
         }
+
+        for (var entry : currentActors.entrySet()) {
+            if (knownReplicatedActorIds.contains(entry.getKey())) {
+                continue;
+            }
+
+            var actor = entry.getValue();
+            var spawn = new NetworkProtocol.ActorSpawn();
+            spawn.actorId = actor.getActorId();
+            spawn.actorClass = actor.getClass().getName();
+
+            var pos = actor.getPosition();
+            spawn.x = pos.x;
+            spawn.y = pos.y;
+            spawn.ownerId = actor.getOwnerId();
+            spawn.initialProperties = buildInitialSpawnProperties(actor);
+            netDriver.sendToAllClients(spawn, true);
+        }
+
+        Set<Integer> currentIds = new HashSet<>(currentActors.keySet());
 
         for (Integer knownId : new HashSet<>(knownReplicatedActorIds)) {
             if (currentIds.contains(knownId)) {

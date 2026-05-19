@@ -23,6 +23,7 @@ import com.polsl.poiw.engine.inventory.ItemDefinition;
 import com.polsl.poiw.gameplay.actor.ItemPickupActor;
 import com.polsl.poiw.gameplay.character.PlayerCharacter;
 import com.polsl.poiw.gameplay.item.GameplayItems;
+import com.polsl.poiw.shared.protocol.NetworkProtocol;
 
 /**
  * Controller gracza — tworzy HUD z wyświetlaniem HP
@@ -231,7 +232,12 @@ public class MainPlayerController extends PlayerController {
     }
 
     private void useSelectedItem(String itemId) {
-        if (!(getPossessedPawn() instanceof PlayerCharacter player) || !player.hasAuthority()) {
+        if (!(getPossessedPawn() instanceof PlayerCharacter player)) {
+            return;
+        }
+
+        if (!player.hasAuthority()) {
+            requestInventoryAction(itemId, NetworkProtocol.InventoryActionType.USE);
             return;
         }
 
@@ -242,7 +248,12 @@ public class MainPlayerController extends PlayerController {
     }
 
     private void dropSelectedItem(String itemId) {
-        if (!(getPossessedPawn() instanceof PlayerCharacter player) || !player.hasAuthority()) {
+        if (!(getPossessedPawn() instanceof PlayerCharacter player)) {
+            return;
+        }
+
+        if (!player.hasAuthority()) {
+            requestInventoryAction(itemId, NetworkProtocol.InventoryActionType.DROP);
             return;
         }
 
@@ -259,6 +270,23 @@ public class MainPlayerController extends PlayerController {
         if (inventory.removeItem(itemId, 1) > 0) {
             spawnItemNearPlayer(player, stack.getDefinition(), 1, 0.35f, 0.45f);
         }
+    }
+
+    private void requestInventoryAction(String itemId, NetworkProtocol.InventoryActionType actionType) {
+        if (itemId == null || itemId.isBlank() || actionType == null) {
+            return;
+        }
+
+        GameInstance gameInstance = getGameInstance();
+        if (gameInstance == null || !gameInstance.isClient() || gameInstance.getNetDriver() == null) {
+            return;
+        }
+
+        NetworkProtocol.ClientInventoryAction request = new NetworkProtocol.ClientInventoryAction();
+        request.playerId = getPlayerId();
+        request.itemId = itemId;
+        request.action = actionType;
+        gameInstance.getNetDriver().sendToServer(request, true);
     }
 
     private void spawnItemNearPlayer(PlayerCharacter player, ItemDefinition item, int quantity,

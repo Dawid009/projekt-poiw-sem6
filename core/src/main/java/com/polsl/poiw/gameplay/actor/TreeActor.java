@@ -82,8 +82,11 @@ public class TreeActor extends AbstractTiledTargetActor {
 
 	@Override
 	protected void onBeforeDestroy() {
+		float stumpSortOffsetY = stumpCollHalfH > 0f
+			? stumpHeight * 0.5f + stumpCollOffset.y - stumpCollHalfH
+			: stumpHeight * 0.72f;
 		spawnVisualDecoration(stumpTileGid, stumpWidth, stumpHeight,
-			stumpCollHalfW, stumpCollHalfH, stumpCollOffset);
+			stumpSortOffsetY, -1, stumpCollHalfW, stumpCollHalfH, stumpCollOffset);
 		spawnItemDrops(GameplayItems.WOOD_LOG, treeKind.getMinLogs(), treeKind.getMaxLogs());
 	}
 

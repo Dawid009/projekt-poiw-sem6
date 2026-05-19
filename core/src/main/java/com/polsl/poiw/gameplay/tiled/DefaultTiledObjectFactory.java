@@ -260,6 +260,8 @@ public class DefaultTiledObjectFactory implements TiledObjectFactory {
 
             float maxHealth = getFloatProperty(tile, "life", mineableKind.getMaxHealth());
             MineableActor mineable = new MineableActor();
+            mineable.setMineableKind(mineableKind);
+            mineable.setDropCountRange(1, 1);
             mineable.configure(
                 currentMap,
                 tile.getId(),

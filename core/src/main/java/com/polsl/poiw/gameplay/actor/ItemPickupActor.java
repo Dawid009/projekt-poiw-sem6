@@ -6,6 +6,7 @@ import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.polsl.poiw.Main;
@@ -17,6 +18,7 @@ import com.polsl.poiw.engine.collision.CollisionProfile;
 import com.polsl.poiw.engine.collision.CollisionResult;
 import com.polsl.poiw.engine.collision.OverlapListener;
 import com.polsl.poiw.engine.component.InventoryComponent;
+import com.polsl.poiw.engine.component.PickupCollectAnimationComponent;
 import com.polsl.poiw.engine.component.SpriteComponent;
 import com.polsl.poiw.engine.component.TransformComponent;
 import com.polsl.poiw.engine.inventory.ItemDefinition;
@@ -34,6 +36,8 @@ public class ItemPickupActor extends AbstractActor implements OverlapListener {
     private static final float BOB_SPEED = 2.2f;
     private static final float POP_DURATION_BASE = 0.22f;
     private static final float POP_HEIGHT_BASE = 0.18f;
+    private static final float COLLECT_DURATION = 0.16f;
+    private static final float COLLECT_END_SCALE = 0.35f;
     public static final String PROP_ITEM_ID = "itemId";
     public static final String PROP_QUANTITY = "quantity";
 
@@ -48,6 +52,10 @@ public class ItemPickupActor extends AbstractActor implements OverlapListener {
     private float popTime;
     private float popDuration;
     private float popHeight;
+    private boolean collectAnimating;
+    private float collectTime;
+    private final Vector2 collectStart = new Vector2();
+    private final Vector2 collectTarget = new Vector2();
 
     public void configure(ItemDefinition itemDefinition, int quantity) {
         configure(itemDefinition, quantity, (TextureAtlas) null);
@@ -110,6 +118,7 @@ public class ItemPickupActor extends AbstractActor implements OverlapListener {
         );
         collision.addOverlapListener(this);
         addComponent(collision);
+        addComponent(new PickupCollectAnimationComponent());
 
         if (!createSprite) {
             return;
@@ -159,6 +168,17 @@ public class ItemPickupActor extends AbstractActor implements OverlapListener {
             initializeVisualMotion();
         }
 
+        PickupCollectAnimationComponent collectAnimation = getComponent(PickupCollectAnimationComponent.class);
+        if (collectAnimation != null && (collectAnimation.consumeStartTrigger()
+            || (collectAnimation.isCollecting() && !collectAnimating))) {
+            beginCollectionAnimation(transform, collectAnimation);
+        }
+
+        if (collectAnimating && collectAnimation != null && collectAnimation.isCollecting()) {
+            updateCollectionAnimation(delta, transform, collectAnimation);
+            return;
+        }
+
         float popOffsetY = 0f;
         if (popTime < popDuration) {
             popTime = Math.min(popDuration, popTime + delta);
@@ -168,6 +188,7 @@ public class ItemPickupActor extends AbstractActor implements OverlapListener {
             bobTime += delta * BOB_SPEED;
         }
 
+        transform.getScaling().set(1f, 1f);
         float bobOffsetY = popTime >= popDuration ? (float) Math.sin(bobTime) * BOB_AMPLITUDE : 0f;
         transform.setRenderOffset(0f, popOffsetY + bobOffsetY);
     }
@@ -199,7 +220,18 @@ public class ItemPickupActor extends AbstractActor implements OverlapListener {
             + itemDefinition.getDisplayName() + " x" + added);
 
         if (quantity <= 0 && getWorld() != null) {
-            getWorld().destroyActor(this);
+            PickupCollectAnimationComponent collectAnimation = getComponent(PickupCollectAnimationComponent.class);
+            TransformComponent itemTransform = getComponent(TransformComponent.class);
+            TransformComponent playerTransform = player.getComponent(TransformComponent.class);
+            if (collectAnimation != null && itemTransform != null && playerTransform != null) {
+                float targetX = playerTransform.getPosition().x + playerTransform.getSize().x * 0.5f
+                    - itemTransform.getSize().x * 0.5f;
+                float targetY = playerTransform.getPosition().y + playerTransform.getSize().y * 0.5f
+                    - itemTransform.getSize().y * 0.5f;
+                collectAnimation.startCollection(targetX, targetY, COLLECT_DURATION);
+            } else {
+                getWorld().destroyActor(this);
+            }
         }
     }
 
@@ -254,6 +286,56 @@ public class ItemPickupActor extends AbstractActor implements OverlapListener {
         popDuration = POP_DURATION_BASE + ((getActorId() >> 1) & 3) * 0.02f;
         popHeight = POP_HEIGHT_BASE + ((getActorId() >> 3) & 3) * 0.03f;
         popTime = 0f;
+        collectAnimating = false;
+        collectTime = 0f;
+    }
+
+    private void beginCollectionAnimation(TransformComponent transform,
+                                          PickupCollectAnimationComponent collectAnimation) {
+        collectAnimating = true;
+        collectTime = 0f;
+        collectStart.set(transform.getPosition());
+        collectTarget.set(collectAnimation.getTargetX(), collectAnimation.getTargetY());
+        transform.setRenderOffset(0f, 0f);
+
+        BoxCollisionComponent collision = getComponent(BoxCollisionComponent.class);
+        if (collision != null) {
+            collision.setEnabled(false);
+            collision.setSensorOverride(true);
+            if (collision.getBody() != null) {
+                collision.getBody().setLinearVelocity(0f, 0f);
+            }
+        }
+    }
+
+    private void updateCollectionAnimation(float delta,
+                                           TransformComponent transform,
+                                           PickupCollectAnimationComponent collectAnimation) {
+        float duration = Math.max(0.01f, collectAnimation.getDurationSeconds());
+        collectTime = Math.min(duration, collectTime + delta);
+
+        float progress = collectTime / duration;
+        float posX = MathUtils.lerp(collectStart.x, collectTarget.x, progress);
+        float posY = MathUtils.lerp(collectStart.y, collectTarget.y, progress);
+        float scale = MathUtils.lerp(1f, COLLECT_END_SCALE, progress);
+
+        transform.getPosition().set(posX, posY);
+        transform.getScaling().set(scale, scale);
+        transform.setRenderOffset(0f, 0f);
+
+        BoxCollisionComponent collision = getComponent(BoxCollisionComponent.class);
+        if (collision != null && collision.getBody() != null) {
+            collision.getBody().setTransform(
+                posX + transform.getSize().x * 0.5f,
+                posY + transform.getSize().y * 0.5f,
+                0f
+            );
+            collision.getBody().setLinearVelocity(0f, 0f);
+        }
+
+        if (progress >= 1f && hasAuthority() && getWorld() != null) {
+            getWorld().destroyActor(this);
+        }
     }
 
     private TextureRegion getFallbackWhiteRegion() {

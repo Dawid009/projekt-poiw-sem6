@@ -30,6 +30,7 @@ import com.polsl.poiw.gameplay.actor.TriggerActor;
 
 import com.badlogic.gdx.maps.tiled.TiledMap;
 import com.badlogic.gdx.maps.tiled.TiledMapTileLayer;
+import com.badlogic.gdx.maps.tiled.TiledMapTileSet;
 import com.badlogic.gdx.maps.MapLayer;
 
 import static com.polsl.poiw.engine.tiled.TiledConstants.*;
@@ -43,6 +44,7 @@ public class ServerTiledObjectFactory implements TiledObjectFactory {
     private static final String TAG = "ServerTiledObjectFactory";
 
     private final GameWorld gameWorld;
+    private TiledMap currentMap;
     private TiledMapTileLayer waterLayer;
     private HeadlessTmxLoader tmxLoader;
 
@@ -58,6 +60,7 @@ public class ServerTiledObjectFactory implements TiledObjectFactory {
      * ustawia referencję do mapy — potrzebne do sprawdzania, czy obiekt stoi na wodzie.
      */
     public void setMap(TiledMap map) {
+        this.currentMap = map;
         MapLayer layer = map.getLayers().get("water");
         if (layer instanceof TiledMapTileLayer tl) {
             this.waterLayer = tl;
@@ -218,6 +221,8 @@ public class ServerTiledObjectFactory implements TiledObjectFactory {
         if (mineableKind != null) {
             float mineableHealth = getFloatProperty(tileData.properties(), "life", mineableKind.getMaxHealth());
             MineableActor mineable = new MineableActor();
+            mineable.setMineableKind(mineableKind);
+            mineable.setDropCountRange(1, 1);
             mineable.configureServer(
                 gid,
                 sizeW,
@@ -491,7 +496,8 @@ public class ServerTiledObjectFactory implements TiledObjectFactory {
 
         Object cropType = tileData.properties().get("crop_type");
         CropKind cropKind = CropKind.fromMetadata(cropType instanceof String value ? value : null);
-        int growthStage = getIntProperty(tileData.properties(), "growth_stage", 0);
+        int growthStage = resolveCropGrowthStage(gid, cropKind,
+            getIntProperty(tileData.properties(), "growth_stage", 0));
         return new CropData(
             cropKind,
             growthStage,
@@ -499,6 +505,36 @@ public class ServerTiledObjectFactory implements TiledObjectFactory {
             getFloatProperty(tileData.properties(), "growth_interval", cropKind.getGrowthIntervalSeconds()),
             getFloatProperty(tileData.properties(), "life", cropKind.getMaxHealth())
         );
+    }
+
+    private int resolveCropGrowthStage(int gid, CropKind cropKind, int fallbackStage) {
+        if (cropKind == null || currentMap == null) {
+            return Math.max(0, fallbackStage);
+        }
+
+        for (TiledMapTileSet tileSet : currentMap.getTileSets()) {
+            Integer firstGid = tileSet.getProperties().get("firstgid", Integer.class);
+            Integer tileCount = tileSet.getProperties().get("tilecount", Integer.class);
+            if (firstGid == null) {
+                continue;
+            }
+
+            boolean containsTile = gid >= firstGid && (tileCount == null || gid < firstGid + tileCount);
+            if (!containsTile) {
+                continue;
+            }
+
+            int localTileId = gid - firstGid;
+            int[] stageLocalTileIds = cropKind.getStageLocalTileIds();
+            for (int stageIndex = 0; stageIndex < stageLocalTileIds.length; stageIndex++) {
+                if (stageLocalTileIds[stageIndex] == localTileId) {
+                    return stageIndex;
+                }
+            }
+            break;
+        }
+
+        return Math.max(0, Math.min(fallbackStage, cropKind.getStageCount() - 1));
     }
 
     private int getIntProperty(java.util.Map<String, Object> properties, String key, int defaultValue) {

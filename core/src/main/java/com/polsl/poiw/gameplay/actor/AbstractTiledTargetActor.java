@@ -217,6 +217,8 @@ public abstract class AbstractTiledTargetActor extends AbstractActor {
     protected final void spawnVisualDecoration(int tileGid,
                                                float width,
                                                float height,
+                                               float sortOffsetY,
+                                               int zOrder,
                                                float collHalfW,
                                                float collHalfH,
                                                Vector2 collOffset) {
@@ -234,14 +236,25 @@ public abstract class AbstractTiledTargetActor extends AbstractActor {
 
         TiledVisualActor decoration = new TiledVisualActor();
         if (isReplicated()) {
-            decoration.configureServer(tileGid, width, height, 0f, transform.getZOrder(),
+            decoration.configureServer(tileGid, width, height, sortOffsetY, zOrder,
                 collHalfW, collHalfH, collOffset);
             decoration.setReplicated(true);
         } else {
             decoration.configure(getTiledMap(), tileGid, resolveTileRegion(getTiledMap(), tileGid),
-                width, height, 0f, transform.getZOrder(), collHalfW, collHalfH, collOffset);
+                width, height, sortOffsetY, zOrder, collHalfW, collHalfH, collOffset);
         }
         getWorld().spawnActor(decoration, new Vector2(spawnX, spawnY));
+    }
+
+    protected final void spawnVisualDecoration(int tileGid,
+                                               float width,
+                                               float height,
+                                               float collHalfW,
+                                               float collHalfH,
+                                               Vector2 collOffset) {
+        TransformComponent transform = getComponent(TransformComponent.class);
+        int zOrder = transform != null ? transform.getZOrder() : 0;
+        spawnVisualDecoration(tileGid, width, height, 0f, zOrder, collHalfW, collHalfH, collOffset);
     }
 
     protected final TextureRegion resolveTileRegion(TiledMap map, int tileGid) {

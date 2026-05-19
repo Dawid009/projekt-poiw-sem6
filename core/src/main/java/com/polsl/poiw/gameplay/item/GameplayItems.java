@@ -254,6 +254,7 @@ public final class GameplayItems {
     public static final ItemDefinition HEAL_POTION = POTION_RED;
     public static final ItemDefinition MANA_SHARD = SHARD_BLUE;
     public static final ItemDefinition IRON_ORE = IRON_CLUSTER;
+    public static final ItemDefinition GOLD_ORE = GOLD_CLUSTER;
     public static final ItemDefinition GOLD_COIN = COIN_GOLD;
 
     private static final List<ItemDefinition> ALL_ITEMS = List.of(
