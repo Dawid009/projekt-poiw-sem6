@@ -1,6 +1,7 @@
 package com.polsl.poiw.engine.component;
 
 import com.badlogic.ashley.core.ComponentMapper;
+import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector2;
 
 /**
@@ -14,6 +15,8 @@ public class TransformComponent extends AbstractActorComponent implements Compar
     private final Vector2 position;
     private final Vector2 size;
     private final Vector2 scaling;
+    private final Vector2 renderOffset = new Vector2();
+    private final Vector2 rotationOriginNormalized = new Vector2(0.5f, 0.5f);
     private int zOrder;
     private float rotationDeg;
     private float sortOffsetY;
@@ -51,10 +54,19 @@ public class TransformComponent extends AbstractActorComponent implements Compar
     public Vector2 getPosition() { return position; }
     public Vector2 getSize() { return size; }
     public Vector2 getScaling() { return scaling; }
+    public Vector2 getRenderOffset() { return renderOffset; }
+    public Vector2 getRotationOriginNormalized() { return rotationOriginNormalized; }
     public int getZOrder() { return zOrder; }
     public void setZOrder(int zOrder) { this.zOrder = zOrder; }
     public float getRotationDeg() { return rotationDeg; }
     public void setRotationDeg(float rotationDeg) { this.rotationDeg = rotationDeg; }
     public float getSortOffsetY() { return sortOffsetY; }
     public void setSortOffsetY(float sortOffsetY) { this.sortOffsetY = sortOffsetY; }
+    public void setRenderOffset(float offsetX, float offsetY) { this.renderOffset.set(offsetX, offsetY); }
+    public void setRotationOriginNormalized(float originX, float originY) {
+        this.rotationOriginNormalized.set(
+            MathUtils.clamp(originX, 0f, 1f),
+            MathUtils.clamp(originY, 0f, 1f)
+        );
+    }
 }

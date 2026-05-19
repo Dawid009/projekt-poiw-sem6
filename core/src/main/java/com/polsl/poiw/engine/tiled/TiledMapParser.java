@@ -3,10 +3,15 @@ package com.polsl.poiw.engine.tiled;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.maps.MapLayer;
 import com.badlogic.gdx.maps.MapObject;
+import com.badlogic.gdx.maps.MapObjects;
+import com.badlogic.gdx.maps.objects.EllipseMapObject;
+import com.badlogic.gdx.maps.objects.PolygonMapObject;
 import com.badlogic.gdx.maps.objects.RectangleMapObject;
 import com.badlogic.gdx.maps.tiled.TiledMap;
+import com.badlogic.gdx.maps.tiled.TiledMapTile;
 import com.badlogic.gdx.maps.tiled.TiledMapTileLayer;
 import com.badlogic.gdx.maps.tiled.objects.TiledMapTileMapObject;
+import com.badlogic.gdx.math.Ellipse;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.physics.box2d.Body;
@@ -50,7 +55,7 @@ public class TiledMapParser {
 
     /**
      * Ustawia fabrykę obiektów — tłumaczy typ obiektu Tiled na Actora.
-     * Opcjonalna — jeśli null, obiekty z warstw spawns/objects/triggers nie będą tworzone.
+     * Opcjonalna — jeśli null, obiekty z warstw obiektowych nie będą tworzone.
      */
     public void setObjectFactory(TiledObjectFactory factory) {
         this.objectFactory = factory;
@@ -80,6 +85,8 @@ public class TiledMapParser {
         this.currentMap = map;
         parseCollisionLayer(map);
         parseWaterCollision(map);
+        parseTileLayerCollision(map);
+        parseStaticBackgroundObjectCollision(map);
         parseMapBoundaries(map);
         parsePlayerStartLayer(map);
         parsePlayerFromObjectsLayer(map);
@@ -174,6 +181,81 @@ public class TiledMapParser {
         Gdx.app.debug("TiledMapParser", "Water collision: " + count + " static bodies");
     }
 
+    private void parseTileLayerCollision(TiledMap map) {
+        int count = 0;
+
+        for (MapLayer layer : map.getLayers()) {
+            if (!(layer instanceof TiledMapTileLayer tileLayer)) {
+                continue;
+            }
+            if (LAYER_WATER.equals(layer.getName())) {
+                continue;
+            }
+
+            for (int y = 0; y < tileLayer.getHeight(); y++) {
+                for (int x = 0; x < tileLayer.getWidth(); x++) {
+                    TiledMapTileLayer.Cell cell = tileLayer.getCell(x, y);
+                    if (cell == null || cell.getTile() == null) {
+                        continue;
+                    }
+
+                    count += createTileCollisionBodies(
+                        cell.getTile(),
+                        x * tileLayer.getTileWidth(),
+                        y * tileLayer.getTileHeight(),
+                        tileLayer.getTileWidth(),
+                        tileLayer.getTileHeight()
+                    );
+                }
+            }
+        }
+
+        Gdx.app.debug("TiledMapParser", "Tile collision: " + count + " static bodies");
+    }
+
+    private void parseStaticBackgroundObjectCollision(TiledMap map) {
+        int count = 0;
+
+        for (MapLayer layer : map.getLayers()) {
+            if (!isStaticBackgroundObjectLayer(layer.getName())) {
+                continue;
+            }
+
+            for (MapObject object : layer.getObjects()) {
+                if (object instanceof TiledMapTileMapObject tileObject) {
+                    TiledMapTile tile = tileObject.getTile();
+                    if (!shouldCreateStaticObjectCollision(layer.getName(), tile)) {
+                        continue;
+                    }
+
+                    float spriteW = tileObject.getTextureRegion() != null
+                        ? tileObject.getTextureRegion().getRegionWidth()
+                        : map.getProperties().get("tilewidth", Integer.class);
+                    float spriteH = tileObject.getTextureRegion() != null
+                        ? tileObject.getTextureRegion().getRegionHeight()
+                        : map.getProperties().get("tileheight", Integer.class);
+
+                    count += createTileCollisionBodies(tile, tileObject.getX(), tileObject.getY(), spriteW, spriteH);
+                } else if (object instanceof RectangleMapObject rectObject) {
+                    Integer gid = rectObject.getProperties().get("gid", Integer.class);
+                    if (gid == null) {
+                        continue;
+                    }
+
+                    TiledMapTile tile = map.getTileSets().getTile(gid);
+                    if (!shouldCreateStaticObjectCollision(layer.getName(), tile)) {
+                        continue;
+                    }
+
+                    Rectangle rect = rectObject.getRectangle();
+                    count += createTileCollisionBodies(tile, rect.x, rect.y, rect.width, rect.height);
+                }
+            }
+        }
+
+        Gdx.app.debug("TiledMapParser", "Static object collision: " + count + " static bodies");
+    }
+
     /**
      * Tworzy Box2D static bodies na krawędziach mapy (4 ściany).
      * Zapobiega wyjściu gracza poza mapę.
@@ -217,6 +299,123 @@ public class TiledMapParser {
         shape.dispose();
     }
 
+    private int createTileCollisionBodies(TiledMapTile tile,
+                                          float worldXpx,
+                                          float worldYpx,
+                                          float spriteWpx,
+                                          float spriteHpx) {
+        if (tile == null) {
+            return 0;
+        }
+
+        MapObjects objects = tile.getObjects();
+        if (objects == null || objects.getCount() == 0) {
+            return 0;
+        }
+
+        int count = 0;
+        for (MapObject object : objects) {
+            Boolean sensor = object.getProperties().get("sensor", false, Boolean.class);
+            if (sensor) {
+                continue;
+            }
+
+            Rectangle bounds = toCollisionBounds(object);
+            if (bounds == null || bounds.width <= 0f || bounds.height <= 0f) {
+                continue;
+            }
+
+            float centerX = (worldXpx + bounds.x + bounds.width * 0.5f) / PPM;
+            float centerY = (worldYpx + bounds.y + bounds.height * 0.5f) / PPM;
+            createStaticCollisionBody(centerX, centerY, bounds.width * 0.5f / PPM, bounds.height * 0.5f / PPM);
+            count++;
+        }
+
+        return count;
+    }
+
+    private Rectangle toCollisionBounds(MapObject object) {
+        if (object instanceof RectangleMapObject rectObject) {
+            return rectObject.getRectangle();
+        }
+
+        if (object instanceof EllipseMapObject ellipseObject) {
+            Ellipse ellipse = ellipseObject.getEllipse();
+            return new Rectangle(ellipse.x, ellipse.y, ellipse.width, ellipse.height);
+        }
+
+        if (object instanceof PolygonMapObject polygonObject) {
+            float[] vertices = polygonObject.getPolygon().getTransformedVertices();
+            float minX = Float.MAX_VALUE;
+            float minY = Float.MAX_VALUE;
+            float maxX = -Float.MAX_VALUE;
+            float maxY = -Float.MAX_VALUE;
+
+            for (int index = 0; index < vertices.length; index += 2) {
+                minX = Math.min(minX, vertices[index]);
+                minY = Math.min(minY, vertices[index + 1]);
+                maxX = Math.max(maxX, vertices[index]);
+                maxY = Math.max(maxY, vertices[index + 1]);
+            }
+
+            if (minX == Float.MAX_VALUE || minY == Float.MAX_VALUE) {
+                return null;
+            }
+            return new Rectangle(minX, minY, maxX - minX, maxY - minY);
+        }
+
+        return null;
+    }
+
+    private void createStaticCollisionBody(float cx, float cy, float halfW, float halfH) {
+        BodyDef bodyDef = new BodyDef();
+        bodyDef.type = BodyDef.BodyType.StaticBody;
+        bodyDef.position.set(cx, cy);
+
+        Body body = gameWorld.getBox2dWorld().createBody(bodyDef);
+        body.setUserData(CollisionChannel.ENVIRONMENT);
+
+        PolygonShape shape = new PolygonShape();
+        shape.setAsBox(halfW, halfH);
+
+        FixtureDef fixtureDef = new FixtureDef();
+        fixtureDef.shape = shape;
+        body.createFixture(fixtureDef);
+        shape.dispose();
+    }
+
+    private boolean shouldCreateStaticObjectCollision(String layerName, TiledMapTile tile) {
+        if (!hasBlockingCollision(tile)) {
+            return false;
+        }
+
+        if (LAYER_HOUSES.equals(layerName)) {
+            return true;
+        }
+
+        String bodyType = tile.getProperties().get("bodyType", String.class);
+        return "StaticBody".equals(bodyType);
+    }
+
+    private boolean hasBlockingCollision(TiledMapTile tile) {
+        if (tile == null) {
+            return false;
+        }
+
+        MapObjects objects = tile.getObjects();
+        if (objects == null || objects.getCount() == 0) {
+            return false;
+        }
+
+        for (MapObject object : objects) {
+            Boolean sensor = object.getProperties().get("sensor", false, Boolean.class);
+            if (!sensor && toCollisionBounds(object) != null) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /**
      * Warstwa "player" — odczytuje pozycje startowe graczy.
      *
@@ -242,35 +441,38 @@ public class TiledMapParser {
     }
 
     /**
-     * Szuka obiektu o nazwie "Player" na warstwie "objects" (tile object z gid).
+     * Szuka obiektu o nazwie "Player" na dowolnej warstwie obiektowej (tile object z gid).
      */
     private void parsePlayerFromObjectsLayer(TiledMap map) {
         if (!playerStartPositions.isEmpty()) return; // Już znaleziono w warstwie "player"
 
-        MapLayer layer = map.getLayers().get(LAYER_OBJECTS);
-        if (layer == null) return;
+        for (MapLayer layer : map.getLayers()) {
+            if (!isParsableObjectLayer(layer)) continue;
 
-        for (MapObject obj : layer.getObjects()) {
-            if (!"Player".equals(obj.getName())) continue;
+            for (MapObject obj : layer.getObjects()) {
+                if (!"Player".equals(obj.getName())) continue;
 
-            if (obj instanceof TiledMapTileMapObject tileObj) {
-                float x = tileObj.getX() / PPM;
-                float y = tileObj.getY() / PPM;
-                playerStartPositions.add(new Vector2(x, y));
-                Gdx.app.debug("TiledMapParser", "Player start position from objects layer: (" + x + ", " + y + ")");
-            } else if (obj instanceof RectangleMapObject rectObj) {
-                // headless loader — tile objects stored as RectangleMapObject with gid property
-                Rectangle rect = rectObj.getRectangle();
-                float x = rect.x / PPM;
-                float y = rect.y / PPM;
-                playerStartPositions.add(new Vector2(x, y));
-                Gdx.app.debug("TiledMapParser", "Player start position (headless) from objects layer: (" + x + ", " + y + ")");
+                if (obj instanceof TiledMapTileMapObject tileObj) {
+                    float x = tileObj.getX() / PPM;
+                    float y = tileObj.getY() / PPM;
+                    playerStartPositions.add(new Vector2(x, y));
+                    Gdx.app.debug("TiledMapParser", "Player start position from layer '" + layer.getName() + "': (" + x + ", " + y + ")");
+                    return;
+                } else if (obj instanceof RectangleMapObject rectObj) {
+                    // headless loader — tile objects stored as RectangleMapObject with gid property
+                    Rectangle rect = rectObj.getRectangle();
+                    float x = rect.x / PPM;
+                    float y = rect.y / PPM;
+                    playerStartPositions.add(new Vector2(x, y));
+                    Gdx.app.debug("TiledMapParser", "Player start position (headless) from layer '" + layer.getName() + "': (" + x + ", " + y + ")");
+                    return;
+                }
             }
         }
     }
 
     /**
-     * Warstwy "spawns", "objects", "triggers" — deleguje do TiledObjectFactory.
+     * Wszystkie warstwy obiektowe poza technicznymi — deleguje do TiledObjectFactory.
      */
     private void parseObjectLayers(TiledMap map) {
         if (objectFactory == null) {
@@ -278,11 +480,10 @@ public class TiledMapParser {
             return;
         }
 
-        String[] layerNames = { LAYER_SPAWNS, LAYER_OBJECTS, LAYER_TRIGGERS };
+        for (MapLayer layer : map.getLayers()) {
+            if (!isParsableObjectLayer(layer)) continue;
 
-        for (String layerName : layerNames) {
-            MapLayer layer = map.getLayers().get(layerName);
-            if (layer == null) continue;
+            String layerName = layer.getName();
 
             int count = 0;
             for (MapObject obj : layer.getObjects()) {
@@ -304,6 +505,12 @@ public class TiledMapParser {
             }
             Gdx.app.debug("TiledMapParser", "Layer '" + layerName + "': " + count + " actors created");
         }
+    }
+
+    private boolean isParsableObjectLayer(MapLayer layer) {
+        if (layer == null || layer instanceof TiledMapTileLayer) return false;
+        if (layer.getObjects().getCount() == 0) return false;
+        return isGameplayObjectLayer(layer.getName());
     }
 
     /** Pozycja startowa gracza (dla multiplayer: gracz o danym indeksie) */

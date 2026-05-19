@@ -17,6 +17,7 @@ public class CreatureAnimationComponent extends AbstractActorComponent {
 
     private final TextureRegion idleLeft;
     private final Animation<TextureRegion> walkLeft;
+    private final boolean sourceFacesRight;
 
     private boolean facingRight;
     private boolean moving;
@@ -24,8 +25,16 @@ public class CreatureAnimationComponent extends AbstractActorComponent {
     private float damageFlashRemaining;
 
     public CreatureAnimationComponent(TextureAtlas atlas, String idleRegionName, String walkRegionName) {
+        this(atlas, idleRegionName, walkRegionName, false);
+    }
+
+    public CreatureAnimationComponent(TextureAtlas atlas,
+                                      String idleRegionName,
+                                      String walkRegionName,
+                                      boolean sourceFacesRight) {
         this.idleLeft = findFrames(atlas, idleRegionName).first();
         this.walkLeft = createLoopAnimation(findFrames(atlas, walkRegionName), WALK_FRAME_DURATION);
+        this.sourceFacesRight = sourceFacesRight;
     }
 
     public void update(Vector2 direction, float delta) {
@@ -47,6 +56,10 @@ public class CreatureAnimationComponent extends AbstractActorComponent {
 
     public boolean isFacingRight() {
         return facingRight;
+    }
+
+    public boolean shouldFlipHorizontally() {
+        return sourceFacesRight ? !facingRight : facingRight;
     }
 
     public void triggerDamageFlash() {

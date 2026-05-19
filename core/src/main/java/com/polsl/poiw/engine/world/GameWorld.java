@@ -24,6 +24,9 @@ public class GameWorld {
     /** Kolejka Actorów do zniszczenia (niszczone PO iteracji, nie W TRAKCIE) */
     private final List<Actor> pendingDestroy = new ArrayList<>();
 
+    /** Kolejka Actorów do spawnu, używana gdy świat jest w trakcie update'u. */
+    private final List<PendingSpawn<?>> pendingSpawn = new ArrayList<>();
+
     /** Fixed timestep dla fizyki */
     private static final float PHYSICS_STEP = 1f / 60f;
     private static final int VELOCITY_ITERATIONS = 6;
@@ -32,6 +35,7 @@ public class GameWorld {
 
     /** Współczynnik interpolacji między krokami fizyki (0..1) */
     private float physicsAlpha = 1f;
+    private boolean updating;
 
     public GameWorld() {
         this.ashleyEngine = new Engine();
@@ -85,6 +89,15 @@ public class GameWorld {
     }
 
     private <T extends AbstractActor> T spawnActorInternal(T actor, Vector2 position) {
+        if (updating) {
+            pendingSpawn.add(new PendingSpawn<>(actor, new Vector2(position)));
+            return actor;
+        }
+
+        return spawnActorNow(actor, position);
+    }
+
+    private <T extends AbstractActor> T spawnActorNow(T actor, Vector2 position) {
         actor.setPosition(position.x, position.y);
         actor.setWorld(this);
 
@@ -133,6 +146,8 @@ public class GameWorld {
      * Aktualizuje cały świat gry — wywoływane CO KLATKĘ z WorldContext.update().
      */
     public void update(float delta) {
+        updating = true;
+
         // 1. Fizyka (Box2D) — fixed timestep, max 8 steps per frame (prevents spiral)
         physicsAccumulator += delta;
         int maxSteps = 8;
@@ -151,20 +166,21 @@ public class GameWorld {
         physicsAlpha = physicsAccumulator / PHYSICS_STEP;
 
         // 2. Tick Actorów
-        for (Actor actor : actors.values()) {
-            actor.tick(delta);
+        for (Actor actor : new ArrayList<>(actors.values())) {
+            if (actors.containsKey(actor.getActorId())) {
+                actor.tick(delta);
+            }
         }
 
         // 3. Ashley Systems update
         ashleyEngine.update(delta);
 
+        updating = false;
+
         // 4. Niszczenie oznaczonych Actorów
-        for (Actor actor : pendingDestroy) {
-            actor.endPlay();
-            ashleyEngine.removeEntity(actor.getAshleyEntity());
-            actors.remove(actor.getActorId());
-        }
-        pendingDestroy.clear();
+        flushPendingDestroy();
+        flushPendingSpawn();
+        flushPendingDestroy();
     }
 
     // ===== Queries =====
@@ -249,5 +265,29 @@ public class GameWorld {
         }
         actors.clear();
         box2dWorld.dispose();
+    }
+
+    private void flushPendingDestroy() {
+        for (Actor actor : pendingDestroy) {
+            actor.endPlay();
+            ashleyEngine.removeEntity(actor.getAshleyEntity());
+            actors.remove(actor.getActorId());
+        }
+        pendingDestroy.clear();
+    }
+
+    private void flushPendingSpawn() {
+        if (pendingSpawn.isEmpty()) {
+            return;
+        }
+
+        List<PendingSpawn<?>> spawns = new ArrayList<>(pendingSpawn);
+        pendingSpawn.clear();
+        for (PendingSpawn<?> pending : spawns) {
+            spawnActorNow(pending.actor(), pending.position());
+        }
+    }
+
+    private record PendingSpawn<T extends AbstractActor>(T actor, Vector2 position) {
     }
 }

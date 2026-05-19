@@ -33,6 +33,8 @@ import com.polsl.poiw.engine.net.prediction.InterpolationSystem;
 import com.polsl.poiw.engine.net.replication.ClientReplicationHandler;
 import com.polsl.poiw.input.GameControllerState;
 import com.polsl.poiw.input.KeyboardController;
+import com.polsl.poiw.gameplay.actor.ItemPickupActor;
+import com.polsl.poiw.gameplay.actor.TiledVisualActor;
 
 /**
  * WorldContext — aktywna instancja poziomu.
@@ -170,12 +172,30 @@ public class WorldContext implements Disposable {
                 var actor = (com.polsl.poiw.engine.actor.AbstractActor) clazz.getDeclaredConstructor().newInstance();
                 TextureAtlas objectsAtlas = game.getAssetService().get(AtlasAsset.OBJECTS);
                 TextureAtlas creaturesAtlas = game.getAssetService().get(AtlasAsset.CREATURES);
+                TextureAtlas itemsAtlas = game.getAssetService().get(AtlasAsset.ITEMS);
                 if (actor instanceof com.polsl.poiw.gameplay.character.PlayerCharacter pc) {
                     pc.configure(objectsAtlas);
                 } else if (actor instanceof com.polsl.poiw.gameplay.actor.TrainingDummyActor trainingDummy) {
                     trainingDummy.configureFromReplication(objectsAtlas, initialProps);
                 } else if (actor instanceof com.polsl.poiw.gameplay.actor.AbstractCreatureActor creature) {
                     creature.configureFromReplication(creaturesAtlas, initialProps);
+                } else if (actor instanceof com.polsl.poiw.gameplay.actor.CropActor cropActor) {
+                    cropActor.configureFromReplication(
+                        tiledParser != null ? tiledParser.getCurrentMap() : null,
+                        initialProps
+                    );
+                } else if (actor instanceof com.polsl.poiw.gameplay.actor.AbstractTiledTargetActor tiledTargetActor) {
+                    tiledTargetActor.configureFromReplication(
+                        tiledParser != null ? tiledParser.getCurrentMap() : null,
+                        initialProps
+                    );
+                } else if (actor instanceof TiledVisualActor tiledVisualActor) {
+                    tiledVisualActor.configureFromReplication(
+                        tiledParser != null ? tiledParser.getCurrentMap() : null,
+                        initialProps
+                    );
+                } else if (actor instanceof ItemPickupActor itemPickupActor) {
+                    itemPickupActor.configureFromReplication(initialProps, itemsAtlas, skin);
                 }
                 return actor;
             } catch (Exception e) {

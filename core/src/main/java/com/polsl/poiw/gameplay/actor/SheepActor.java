@@ -1,5 +1,7 @@
 package com.polsl.poiw.gameplay.actor;
 
+import com.polsl.poiw.gameplay.item.GameplayItems;
+
 public class SheepActor extends AbstractCreatureActor {
     @Override
     protected String getIdleRegionName() {
@@ -19,5 +21,10 @@ public class SheepActor extends AbstractCreatureActor {
     @Override
     protected float getWanderRadius() {
         return 3.2f;
+    }
+
+    @Override
+    protected void onBeforeDestroy() {
+        spawnItemDrops(GameplayItems.STEAK_RAW, 1, 2);
     }
 }

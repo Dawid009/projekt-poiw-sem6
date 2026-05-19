@@ -2,11 +2,14 @@ package com.polsl.poiw.gameplay.actor;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.Pixmap;
+import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.polsl.poiw.Main;
+import com.polsl.poiw.engine.asset.AtlasAsset;
 import com.polsl.poiw.engine.actor.AbstractActor;
 import com.polsl.poiw.engine.actor.Actor;
 import com.polsl.poiw.engine.collision.BoxCollisionComponent;
@@ -18,6 +21,10 @@ import com.polsl.poiw.engine.component.SpriteComponent;
 import com.polsl.poiw.engine.component.TransformComponent;
 import com.polsl.poiw.engine.inventory.ItemDefinition;
 import com.polsl.poiw.gameplay.character.PlayerCharacter;
+import com.polsl.poiw.gameplay.item.GameplayItems;
+
+import java.util.HashMap;
+import java.util.Map;
 
 public class ItemPickupActor extends AbstractActor implements OverlapListener {
 
@@ -25,20 +32,61 @@ public class ItemPickupActor extends AbstractActor implements OverlapListener {
     private static final float ITEM_SIZE = 0.5f;
     private static final float BOB_AMPLITUDE = 0.06f;
     private static final float BOB_SPEED = 2.2f;
+    private static final float POP_DURATION_BASE = 0.22f;
+    private static final float POP_HEIGHT_BASE = 0.18f;
+    public static final String PROP_ITEM_ID = "itemId";
+    public static final String PROP_QUANTITY = "quantity";
+
+    private static TextureRegion fallbackWhiteRegion;
 
     private ItemDefinition itemDefinition;
     private int quantity;
     private int ignoredActorId = -1;
     private float pickupGraceRemaining = 0f;
-    private final Vector2 baseRenderPosition = new Vector2();
     private boolean bobbingInitialized;
     private float bobTime;
+    private float popTime;
+    private float popDuration;
+    private float popHeight;
 
     public void configure(ItemDefinition itemDefinition, int quantity) {
         configure(itemDefinition, quantity, (TextureAtlas) null);
     }
 
     public void configure(ItemDefinition itemDefinition, int quantity, TextureAtlas itemsAtlas) {
+        configureInternal(itemDefinition, quantity, itemsAtlas, null, true);
+    }
+
+    public void configure(ItemDefinition itemDefinition, int quantity, TextureAtlas itemsAtlas, Skin skin) {
+        configureInternal(itemDefinition, quantity, itemsAtlas, skin, true);
+    }
+
+    public void configureServer(ItemDefinition itemDefinition, int quantity) {
+        configureInternal(itemDefinition, quantity, null, null, false);
+    }
+
+    public void configureFromReplication(Map<String, Object> initialProperties, TextureAtlas itemsAtlas, Skin skin) {
+        Object itemId = initialProperties != null ? initialProperties.get(PROP_ITEM_ID) : null;
+        Object quantityValue = initialProperties != null ? initialProperties.get(PROP_QUANTITY) : null;
+        ItemDefinition definition = itemId instanceof String value ? GameplayItems.findById(value) : null;
+        int replicatedQuantity = quantityValue instanceof Number number ? number.intValue() : 1;
+        configureInternal(definition, replicatedQuantity, itemsAtlas, skin, true);
+    }
+
+    public Map<String, Object> buildInitialReplicationProperties() {
+        Map<String, Object> properties = new HashMap<>();
+        if (itemDefinition != null) {
+            properties.put(PROP_ITEM_ID, itemDefinition.getItemId());
+        }
+        properties.put(PROP_QUANTITY, quantity);
+        return properties;
+    }
+
+    private void configureInternal(ItemDefinition itemDefinition,
+                                   int quantity,
+                                   TextureAtlas itemsAtlas,
+                                   Skin skin,
+                                   boolean createSprite) {
         this.itemDefinition = itemDefinition;
         this.quantity = Math.max(1, quantity);
 
@@ -63,17 +111,23 @@ public class ItemPickupActor extends AbstractActor implements OverlapListener {
         collision.addOverlapListener(this);
         addComponent(collision);
 
+        if (!createSprite) {
+            return;
+        }
+
         if (itemRegion != null) {
             addComponent(new SpriteComponent(itemRegion, Color.WHITE.cpy()));
+            return;
+        }
+
+        TextureRegion whiteRegion = skin != null ? skin.getRegion("white") : getFallbackWhiteRegion();
+        if (whiteRegion != null && itemDefinition != null) {
+            addComponent(new SpriteComponent(whiteRegion, itemDefinition.getDisplayColor()));
         }
     }
 
     public void configure(ItemDefinition itemDefinition, int quantity, Skin skin) {
-        configure(itemDefinition, quantity, (TextureAtlas) null);
-        TextureRegion whiteRegion = skin.getRegion("white");
-        if (whiteRegion != null) {
-            addComponent(new SpriteComponent(whiteRegion, itemDefinition.getDisplayColor()));
-        }
+        configureInternal(itemDefinition, quantity, null, skin, true);
     }
 
     public void setPickupGrace(int actorIdToIgnore, float durationSeconds) {
@@ -86,12 +140,7 @@ public class ItemPickupActor extends AbstractActor implements OverlapListener {
     public void beginPlay() {
         super.beginPlay();
 
-        TransformComponent transform = getComponent(TransformComponent.class);
-        if (transform != null) {
-            baseRenderPosition.set(transform.getPosition());
-            bobbingInitialized = true;
-            bobTime = (getActorId() & 7) * 0.35f;
-        }
+        initializeVisualMotion();
     }
 
     @Override
@@ -107,13 +156,20 @@ public class ItemPickupActor extends AbstractActor implements OverlapListener {
         }
 
         if (!bobbingInitialized) {
-            baseRenderPosition.set(transform.getPosition());
-            bobbingInitialized = true;
+            initializeVisualMotion();
         }
 
-        bobTime += delta * BOB_SPEED;
-        transform.getPosition().set(baseRenderPosition.x,
-            baseRenderPosition.y + (float) Math.sin(bobTime) * BOB_AMPLITUDE);
+        float popOffsetY = 0f;
+        if (popTime < popDuration) {
+            popTime = Math.min(popDuration, popTime + delta);
+            float progress = popDuration > 0f ? popTime / popDuration : 1f;
+            popOffsetY = 4f * popHeight * progress * (1f - progress);
+        } else {
+            bobTime += delta * BOB_SPEED;
+        }
+
+        float bobOffsetY = popTime >= popDuration ? (float) Math.sin(bobTime) * BOB_AMPLITUDE : 0f;
+        transform.setRenderOffset(0f, popOffsetY + bobOffsetY);
     }
 
     @Override
@@ -160,7 +216,12 @@ public class ItemPickupActor extends AbstractActor implements OverlapListener {
     }
 
     private TextureRegion findItemRegion(TextureAtlas itemsAtlas, ItemDefinition definition) {
-        if (itemsAtlas == null || definition == null) {
+        if (definition == null) {
+            return null;
+        }
+
+        TextureAtlas atlas = itemsAtlas != null ? itemsAtlas : resolveItemsAtlas();
+        if (atlas == null) {
             return null;
         }
 
@@ -169,6 +230,43 @@ public class ItemPickupActor extends AbstractActor implements OverlapListener {
             return null;
         }
 
-        return itemsAtlas.findRegion(regionName);
+        return atlas.findRegion(regionName);
+    }
+
+    private TextureAtlas resolveItemsAtlas() {
+        if (Gdx.app == null) {
+            return null;
+        }
+        if (!(Gdx.app.getApplicationListener() instanceof Main main)) {
+            return null;
+        }
+
+        try {
+            return main.getAssetService().get(AtlasAsset.ITEMS);
+        } catch (RuntimeException exception) {
+            return null;
+        }
+    }
+
+    private void initializeVisualMotion() {
+        bobbingInitialized = true;
+        bobTime = (getActorId() & 7) * 0.35f;
+        popDuration = POP_DURATION_BASE + ((getActorId() >> 1) & 3) * 0.02f;
+        popHeight = POP_HEIGHT_BASE + ((getActorId() >> 3) & 3) * 0.03f;
+        popTime = 0f;
+    }
+
+    private TextureRegion getFallbackWhiteRegion() {
+        if (fallbackWhiteRegion != null) {
+            return fallbackWhiteRegion;
+        }
+
+        Pixmap pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
+        pixmap.setColor(Color.WHITE);
+        pixmap.fill();
+        Texture texture = new Texture(pixmap);
+        pixmap.dispose();
+        fallbackWhiteRegion = new TextureRegion(texture);
+        return fallbackWhiteRegion;
     }
 }

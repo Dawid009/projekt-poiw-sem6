@@ -19,7 +19,10 @@ import java.util.Set;
  * Krótkotrwały sensor melee. Zadaje obrażenia raz na cel i znika po krótkim czasie.
  */
 public class AttackHitboxActor extends AbstractActor implements OverlapListener {
+    private static final float KNOCKBACK_STRENGTH = 2.8f;
+
     private final Set<Integer> hitActorIds = new HashSet<>();
+    private final Vector2 knockbackDirection = new Vector2();
 
     private int instigatorActorId;
     private int damage;
@@ -28,9 +31,11 @@ public class AttackHitboxActor extends AbstractActor implements OverlapListener 
                           int damage,
                           float width,
                           float height,
+                          Vector2 knockbackDirection,
                           float lifeSpanSeconds) {
         this.instigatorActorId = instigatorActorId;
         this.damage = damage;
+        this.knockbackDirection.set(knockbackDirection != null ? knockbackDirection : Vector2.Zero);
 
         addComponent(new TransformComponent(
             new Vector2(),
@@ -72,6 +77,12 @@ public class AttackHitboxActor extends AbstractActor implements OverlapListener 
         DamageReactionComponent damageReaction = other.getComponent(DamageReactionComponent.class);
         if (damageReaction != null) {
             damageReaction.triggerReaction();
+        }
+
+        com.polsl.poiw.engine.component.KnockbackComponent knockback =
+            other.getComponent(com.polsl.poiw.engine.component.KnockbackComponent.class);
+        if (knockback != null) {
+            knockback.apply(knockbackDirection, KNOCKBACK_STRENGTH);
         }
     }
 

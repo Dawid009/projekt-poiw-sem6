@@ -1,42 +1,58 @@
 package com.polsl.poiw.gameplay.actor;
 
 public enum CreatureKind {
-    COW(22) {
+    COW("cow") {
         @Override
         public AbstractCreatureActor createActor() {
             return new CowActor();
         }
     },
-    PIG(24) {
+    PIG("pig") {
         @Override
         public AbstractCreatureActor createActor() {
             return new PigActor();
         }
     },
-    SHEEP(26) {
+    SHEEP("sheep") {
         @Override
         public AbstractCreatureActor createActor() {
             return new SheepActor();
         }
     },
-    CHICKEN(28) {
+    CHICKEN("chicken") {
         @Override
         public AbstractCreatureActor createActor() {
             return new ChickenActor();
         }
+    },
+    SKELETON("skeleton") {
+        @Override
+        public AbstractCreatureActor createActor() {
+            return new SkeletonActor();
+        }
+    },
+    SLIME("slime") {
+        @Override
+        public AbstractCreatureActor createActor() {
+            return new SlimeActor();
+        }
     };
 
-    private final int globalTileId;
+    private final String metadataValue;
 
-    CreatureKind(int globalTileId) {
-        this.globalTileId = globalTileId;
+    CreatureKind(String metadataValue) {
+        this.metadataValue = metadataValue;
     }
 
     public abstract AbstractCreatureActor createActor();
 
-    public static CreatureKind fromGlobalTileId(int globalTileId) {
+    public static CreatureKind fromMetadata(String metadataValue) {
+        if (metadataValue == null || metadataValue.isBlank()) {
+            return null;
+        }
+
         for (CreatureKind kind : values()) {
-            if (kind.globalTileId == globalTileId) {
+            if (kind.metadataValue.equalsIgnoreCase(metadataValue)) {
                 return kind;
             }
         }

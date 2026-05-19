@@ -1,5 +1,7 @@
 package com.polsl.poiw.gameplay.actor;
 
+import com.polsl.poiw.gameplay.item.GameplayItems;
+
 public class PigActor extends AbstractCreatureActor {
     @Override
     protected String getIdleRegionName() {
@@ -14,5 +16,10 @@ public class PigActor extends AbstractCreatureActor {
     @Override
     protected float getMoveSpeed() {
         return 1.05f;
+    }
+
+    @Override
+    protected void onBeforeDestroy() {
+        spawnItemDrops(GameplayItems.STEAK_RAW, 1, 2);
     }
 }

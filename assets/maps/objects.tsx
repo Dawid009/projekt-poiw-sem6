@@ -64,6 +64,12 @@
   </objectgroup>
  </tile>
  <tile id="5" type="Prop">
+    <properties>
+   <property name="stump_height" type="float" value="2"/>
+   <property name="stump_tile_gid" type="int" value="17"/>
+   <property name="stump_width" type="float" value="2"/>
+     <property name="tree_type" value="oak"/>
+    </properties>
   <image source="objects/oak_tree.png" width="41" height="63"/>
   <objectgroup draworder="index" id="2">
    <object id="1" x="13" y="54.1696">
@@ -72,6 +78,12 @@
   </objectgroup>
  </tile>
  <tile id="18" type="Prop">
+    <properties>
+   <property name="stump_height" type="float" value="1.5"/>
+   <property name="stump_tile_gid" type="int" value="17"/>
+   <property name="stump_width" type="float" value="1.5"/>
+     <property name="tree_type" value="small"/>
+    </properties>
   <image source="objects/small_tree.png" width="32" height="48"/>
   <objectgroup draworder="index" id="2">
    <object id="1" x="13.8889" y="30.3778" width="4.22222" height="2.11111"/>
@@ -168,6 +180,7 @@
  </tile>
  <tile id="21" type="Creature">
   <properties>
+     <property name="creature_type" propertytype="CreatureType" value="cow"/>
    <property name="damage" type="float" value="7"/>
    <property name="damageDelay" type="float" value="7"/>
    <property name="speed" type="float" value="2"/>

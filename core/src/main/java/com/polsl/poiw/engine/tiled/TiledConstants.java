@@ -14,6 +14,13 @@ public final class TiledConstants {
     public static final String LAYER_OBJECTS = "objects";
     public static final String LAYER_TRIGGERS = "trigger";
     public static final String LAYER_PLAYER_START = "player";
+    public static final String LAYER_CROPS = "crops";
+    public static final String LAYER_CREATURES = "creatures";
+    public static final String LAYER_MINEABLE = "mineable";
+    public static final String LAYER_HOUSES = "houses";
+    public static final String LAYER_SMALL_FLORA = "small_flora";
+    public static final String LAYER_TREES = "trees";
+    public static final String LAYER_BRIDGES = "bridges";
 
     /** Custom properties na obiektach w Tiled */
     public static final String PROP_TYPE = "type";
@@ -24,6 +31,19 @@ public final class TiledConstants {
     public static final String PROP_DAMAGE = "damage";
     public static final String PROP_DAMAGE_TYPE = "damageType";
     public static final String PROP_COOLDOWN = "cooldown";
+
+    public static boolean isStaticBackgroundObjectLayer(String layerName) {
+        return LAYER_HOUSES.equals(layerName)
+            || LAYER_SMALL_FLORA.equals(layerName)
+            || LAYER_BRIDGES.equals(layerName);
+    }
+
+    public static boolean isGameplayObjectLayer(String layerName) {
+        return layerName != null
+            && !LAYER_COLLISION.equals(layerName)
+            && !LAYER_PLAYER_START.equals(layerName)
+            && !isStaticBackgroundObjectLayer(layerName);
+    }
 
     private TiledConstants() {}
 }

@@ -5,7 +5,6 @@ import com.badlogic.ashley.core.Family;
 import com.badlogic.ashley.systems.IteratingSystem;
 import com.badlogic.gdx.math.Vector2;
 import com.polsl.poiw.engine.actor.Actor;
-import com.polsl.poiw.engine.collision.CollisionComponent;
 import com.polsl.poiw.engine.component.CombatComponent;
 import com.polsl.poiw.engine.component.MovementComponent;
 import com.polsl.poiw.engine.component.TransformComponent;
@@ -17,6 +16,7 @@ import com.polsl.poiw.gameplay.actor.AttackHitboxActor;
  */
 public class CombatSystem extends IteratingSystem {
     private static final Vector2 TMP_SPAWN = new Vector2();
+    private static final Vector2 TMP_KNOCKBACK = new Vector2();
 
     public CombatSystem() {
         super(Family.all(CombatComponent.class, TransformComponent.class).get(), 6);
@@ -72,12 +72,6 @@ public class CombatSystem extends IteratingSystem {
         float centerX = transform.getPosition().x + transform.getSize().x * 0.5f;
         float centerY = transform.getPosition().y + transform.getSize().y * 0.5f;
 
-        CollisionComponent collision = owner.getComponentByType(CollisionComponent.class);
-        if (collision != null && collision.getBody() != null) {
-            centerX = collision.getBody().getPosition().x;
-            centerY = collision.getBody().getPosition().y;
-        }
-
         switch (combat.getFacingDirection()) {
             case DOWN -> centerY -= combat.getAttackReach();
             case UP -> centerY += combat.getAttackReach();
@@ -86,7 +80,14 @@ public class CombatSystem extends IteratingSystem {
         }
 
         AttackHitboxActor hitbox = new AttackHitboxActor();
-        hitbox.configure(owner.getActorId(), combat.rollDamage(), hitboxWidth, hitboxHeight, combat.getHitboxLifetime());
+        TMP_KNOCKBACK.set(switch (combat.getFacingDirection()) {
+            case DOWN -> new Vector2(0f, -1f);
+            case UP -> new Vector2(0f, 1f);
+            case LEFT -> new Vector2(-1f, 0f);
+            case RIGHT -> new Vector2(1f, 0f);
+        });
+        hitbox.configure(owner.getActorId(), combat.rollDamage(), hitboxWidth, hitboxHeight,
+            TMP_KNOCKBACK, combat.getHitboxLifetime());
 
         TMP_SPAWN.set(centerX - hitboxWidth * 0.5f, centerY - hitboxHeight * 0.5f);
         owner.getWorld().spawnActor(hitbox, TMP_SPAWN);

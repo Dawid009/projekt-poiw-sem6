@@ -8,6 +8,7 @@ import com.badlogic.gdx.physics.box2d.Body;
 import com.polsl.poiw.engine.actor.Actor;
 import com.polsl.poiw.engine.actor.NetRole;
 import com.polsl.poiw.engine.collision.CollisionComponent;
+import com.polsl.poiw.engine.component.KnockbackComponent;
 import com.polsl.poiw.engine.component.MovementComponent;
 import com.polsl.poiw.engine.component.TransformComponent;
 
@@ -21,7 +22,11 @@ import com.polsl.poiw.engine.component.TransformComponent;
  * </ul>
  */
 public class MovementSystem extends IteratingSystem {
+    private static final float KNOCKBACK_CONTROL_SCALE = 0.22f;
+
     private static final Vector2 TMP = new Vector2();
+    private static final Vector2 TMP_KNOCKBACK = new Vector2();
+    private static final Vector2 TMP_VELOCITY = new Vector2();
     private static final Vector2 TMP_BODY_POS = new Vector2();
 
     public MovementSystem() {
@@ -32,31 +37,45 @@ public class MovementSystem extends IteratingSystem {
     protected void processEntity(Entity entity, float deltaTime) {
         MovementComponent move = MovementComponent.MAPPER.get(entity);
         TransformComponent transform = TransformComponent.MAPPER.get(entity);
-
-        // SIMULATED_PROXY - position managed by InterpolationSystem, do not modify
+        KnockbackComponent knockback = KnockbackComponent.MAPPER.get(entity);
         Actor actor = transform.getOwner();
-        if (actor != null && actor.getNetRole() == NetRole.SIMULATED_PROXY) {
-            return;
-        }
 
         CollisionComponent collision = findCollision(transform);
         Body body = collision != null ? collision.getBody() : null;
 
-        if (move.isRooted()) {
-            if (body != null) {
-                body.setLinearVelocity(0, 0);
+        TMP_KNOCKBACK.setZero();
+        boolean knockbackActive = false;
+        float knockbackLift = 0f;
+        if (knockback != null) {
+            knockback.tick(deltaTime);
+            if (knockback.isActive()) {
+                TMP_KNOCKBACK.set(knockback.getVelocity());
+                knockbackActive = true;
             }
+            knockbackLift = knockback.getLiftOffsetY();
+        }
+        transform.setRenderOffset(0f, knockbackLift);
+
+        // SIMULATED_PROXY - position managed by InterpolationSystem, do not modify
+        if (actor != null && actor.getNetRole() == NetRole.SIMULATED_PROXY) {
+            return;
         }
 
         if (body != null) {
             // === Tryb fizyczny: velocity na Box2D body ===
-            if (move.isRooted() || move.getDirection().isZero()) {
-                body.setLinearVelocity(0, 0);
-            } else {
+            TMP_VELOCITY.setZero();
+            if (!move.isRooted() && !move.getDirection().isZero()) {
                 TMP.set(move.getDirection()).nor();
                 float speed = move.getMaxSpeed();
-                body.setLinearVelocity(TMP.x * speed, TMP.y * speed);
+                if (knockbackActive) {
+                    speed *= KNOCKBACK_CONTROL_SCALE;
+                }
+                TMP_VELOCITY.set(TMP).scl(speed);
             }
+            if (knockbackActive) {
+                TMP_VELOCITY.add(TMP_KNOCKBACK);
+            }
+            body.setLinearVelocity(TMP_VELOCITY);
 
             // Synchronizacja pozycji body → TransformComponent.
             // Używamy prawidłowej interpolacji między poprzednim i aktualnym stanem Box2D,
@@ -76,13 +95,24 @@ public class MovementSystem extends IteratingSystem {
             transform.getPosition().set(renderX, renderY);
         } else {
             // === Tryb bezpośredni (bez Box2D body) ===
-            if (move.isRooted() || move.getDirection().isZero()) return;
-
-            TMP.set(move.getDirection()).nor();
-            float speed = move.getMaxSpeed();
             Vector2 pos = transform.getPosition();
-            pos.x += TMP.x * speed * deltaTime;
-            pos.y += TMP.y * speed * deltaTime;
+            TMP_VELOCITY.setZero();
+            if (!move.isRooted() && !move.getDirection().isZero()) {
+                TMP.set(move.getDirection()).nor();
+                float speed = move.getMaxSpeed();
+                if (knockbackActive) {
+                    speed *= KNOCKBACK_CONTROL_SCALE;
+                }
+                TMP_VELOCITY.set(TMP).scl(speed);
+            }
+            if (knockbackActive) {
+                TMP_VELOCITY.add(TMP_KNOCKBACK);
+            }
+            if (TMP_VELOCITY.isZero(0.0001f)) {
+                return;
+            }
+            pos.x += TMP_VELOCITY.x * deltaTime;
+            pos.y += TMP_VELOCITY.y * deltaTime;
         }
     }
 

@@ -29,6 +29,9 @@ public abstract class CollisionComponent extends AbstractActorComponent {
     /** Opcjonalne wymuszenie typu body niezależnie od CollisionProfile. */
     private BodyDef.BodyType bodyTypeOverride;
 
+    /** Wymuszenie sensora niezależnie od profilu kolizji. */
+    private boolean sensorOverride;
+
     /** Poprzednia i aktualna pozycja body — do interpolacji renderingu między krokami fizyki */
     private final Vector2 previousBodyPosition = new Vector2();
     private final Vector2 currentBodyPosition = new Vector2();
@@ -89,7 +92,8 @@ public abstract class CollisionComponent extends AbstractActorComponent {
         fixtureDef.shape = createShape();
 
         // TRIGGER i ITEM to "sensory" — nie blokują fizycznie
-        if (profile.getObjectType() == CollisionChannel.TRIGGER
+        if (sensorOverride
+            || profile.getObjectType() == CollisionChannel.TRIGGER
             || profile.getObjectType() == CollisionChannel.ITEM) {
             fixtureDef.isSensor = true;
         }
@@ -142,6 +146,15 @@ public abstract class CollisionComponent extends AbstractActorComponent {
         this.bodyTypeOverride = bodyTypeOverride;
         if (body != null && bodyTypeOverride != null) {
             body.setType(bodyTypeOverride);
+        }
+    }
+
+    public void setSensorOverride(boolean sensorOverride) {
+        this.sensorOverride = sensorOverride;
+        if (fixture != null) {
+            fixture.setSensor(sensorOverride
+                || profile.getObjectType() == CollisionChannel.TRIGGER
+                || profile.getObjectType() == CollisionChannel.ITEM);
         }
     }
 

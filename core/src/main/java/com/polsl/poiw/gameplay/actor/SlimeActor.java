@@ -2,29 +2,31 @@ package com.polsl.poiw.gameplay.actor;
 
 import com.polsl.poiw.gameplay.item.GameplayItems;
 
-public class CowActor extends AbstractCreatureActor {
+public class SlimeActor extends AbstractCreatureActor {
     @Override
     protected String getIdleRegionName() {
-        return "cow/cow_idle_left";
+        return "slime_green/slime_green_idle";
     }
 
     @Override
     protected String getWalkRegionName() {
-        return "cow/cow_walk_left";
+        return "slime_green/slime_green_jump";
     }
 
     @Override
     protected float getMoveSpeed() {
-        return 0.95f;
+        return 0.85f;
     }
 
     @Override
     protected float getWanderRadius() {
-        return 3.4f;
+        return 2.8f;
     }
 
     @Override
     protected void onBeforeDestroy() {
-        spawnItemDrops(GameplayItems.STEAK_RAW, 1, 2);
+        spawnItemDrops(GameplayItems.COIN_GOLD, 1, 1);
+        spawnItemDrops(GameplayItems.COIN_SILVER, 1, 3);
+        spawnItemDrops(GameplayItems.COIN_BRONZE, 1, 5);
     }
 }

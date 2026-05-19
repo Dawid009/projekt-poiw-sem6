@@ -14,9 +14,11 @@ import com.polsl.poiw.engine.component.CombatComponent;
 import com.polsl.poiw.engine.component.CreatureAnimationComponent;
 import com.polsl.poiw.engine.component.DamageReactionComponent;
 import com.polsl.poiw.engine.component.HealthComponent;
+import com.polsl.poiw.engine.component.KnockbackComponent;
 import com.polsl.poiw.engine.component.MovementComponent;
 import com.polsl.poiw.engine.component.SpriteComponent;
 import com.polsl.poiw.engine.component.TransformComponent;
+import com.polsl.poiw.engine.inventory.ItemDefinition;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -47,6 +49,7 @@ public abstract class AbstractCreatureActor extends AbstractActor {
     private final Vector2 targetPosition = new Vector2();
     private boolean homeInitialized;
     private boolean hasTarget;
+    private boolean deathHandled;
     private float idleRemaining;
     private float movementAttemptTimer;
 
@@ -68,7 +71,12 @@ public abstract class AbstractCreatureActor extends AbstractActor {
         }
 
         addComponent(new SpriteComponent(idleFrame, Color.WHITE.cpy()));
-        addComponent(new CreatureAnimationComponent(atlas, getIdleRegionName(), getWalkRegionName()));
+        addComponent(new CreatureAnimationComponent(
+            atlas,
+            getIdleRegionName(),
+            getWalkRegionName(),
+            usesRightFacingSourceFrames()
+        ));
     }
 
     public void configureServer(float sizeW,
@@ -131,6 +139,10 @@ public abstract class AbstractCreatureActor extends AbstractActor {
 
         HealthComponent health = getComponent(HealthComponent.class);
         if (health != null && !health.isAlive()) {
+            if (hasAuthority() && !deathHandled) {
+                deathHandled = true;
+                onBeforeDestroy();
+            }
             if (getWorld() != null) {
                 getWorld().destroyActor(this);
             }
@@ -156,6 +168,48 @@ public abstract class AbstractCreatureActor extends AbstractActor {
 
     protected abstract String getWalkRegionName();
 
+    protected boolean usesRightFacingSourceFrames() {
+        return false;
+    }
+
+    protected void onBeforeDestroy() {
+    }
+
+    protected final void spawnItemDrops(ItemDefinition itemDefinition, int minCount, int maxCount) {
+        if (getWorld() == null || itemDefinition == null || maxCount <= 0) {
+            return;
+        }
+
+        int dropCount = MathUtils.random(Math.max(0, minCount), Math.max(minCount, maxCount));
+        if (dropCount <= 0) {
+            return;
+        }
+
+        TransformComponent transform = getComponent(TransformComponent.class);
+        Vector2 position = transform != null ? transform.getPosition() : getPosition();
+        Vector2 size = transform != null ? transform.getSize() : new Vector2(1f, 1f);
+        float centerX = position.x + size.x * 0.5f;
+        float centerY = position.y + Math.min(size.y * 0.3f, 0.8f);
+
+        for (int index = 0; index < dropCount; index++) {
+            float angle = MathUtils.random(0f, MathUtils.PI2);
+            float radius = MathUtils.random(0.2f, 0.55f);
+            Vector2 dropPosition = new Vector2(
+                centerX + MathUtils.cos(angle) * radius - 0.25f,
+                centerY + MathUtils.sin(angle) * radius - 0.25f
+            );
+
+            ItemPickupActor pickupActor = new ItemPickupActor();
+            if (isReplicated()) {
+                pickupActor.configureServer(itemDefinition, 1);
+                pickupActor.setReplicated(true);
+            } else {
+                pickupActor.configure(itemDefinition, 1);
+            }
+            getWorld().spawnActor(pickupActor, dropPosition);
+        }
+    }
+
     private void addSharedComponents(float sizeW,
                                      float sizeH,
                                      float collHalfW,
@@ -174,6 +228,7 @@ public abstract class AbstractCreatureActor extends AbstractActor {
             sortOffsetY
         ));
         addComponent(new MovementComponent(getMoveSpeed()));
+        addComponent(new KnockbackComponent());
         addComponent(new HealthComponent(maxHealth, currentHealth));
         addComponent(new DamageReactionComponent());
         addComponent(CombatComponent.createPassiveTarget());

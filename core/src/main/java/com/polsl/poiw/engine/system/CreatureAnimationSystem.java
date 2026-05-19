@@ -30,7 +30,7 @@ public class CreatureAnimationSystem extends IteratingSystem {
         animation.tickDamageFlash(deltaTime);
         animation.update(movement.getDirection(), deltaTime);
 
-        transform.getScaling().set(animation.isFacingRight() ? -1f : 1f, 1f);
+        transform.getScaling().set(animation.shouldFlipHorizontally() ? -1f : 1f, 1f);
         sprite.getColor().set(animation.isDamageFlashActive() ? 1f : 1f,
             animation.isDamageFlashActive() ? 0.45f : 1f,
             animation.isDamageFlashActive() ? 0.45f : 1f,

@@ -179,7 +179,7 @@ public final class GameplayItems {
         ItemType.MATERIAL,
         "Marchew",
         "marchew prosto z pola.",
-        "crops/item_carrot",
+        "food/carrot",
         new Color(0.93f, 0.48f, 0.18f, 1f),
         ItemQuality.COMMON,
         50
@@ -190,8 +190,41 @@ public final class GameplayItems {
         ItemType.MATERIAL,
         "Pszenica",
         "Wiazka dojrzalej pszenicy.",
-        "crops/item_wheat",
+        "food/wheat",
         new Color(0.88f, 0.76f, 0.32f, 1f),
+        ItemQuality.COMMON,
+        50
+    );
+
+    public static final ItemDefinition CHICKEN_RAW = simpleItem(
+        "chicken_raw",
+        ItemType.MATERIAL,
+        "Surowy kurczak",
+        "Swieze mieso drobiowe do dalszej obrobki.",
+        "food/chicken_raw",
+        new Color(0.92f, 0.72f, 0.62f, 1f),
+        ItemQuality.COMMON,
+        25
+    );
+
+    public static final ItemDefinition STEAK_RAW = simpleItem(
+        "steak_raw",
+        ItemType.MATERIAL,
+        "Surowy steak",
+        "Surowy kawalek czerwonego miesa.",
+        "food/steak_raw",
+        new Color(0.78f, 0.26f, 0.22f, 1f),
+        ItemQuality.COMMON,
+        25
+    );
+
+    public static final ItemDefinition WOOD_LOG = simpleItem(
+        "wood_log",
+        ItemType.MATERIAL,
+        "Drewno",
+        "Surowy kloc drewna.",
+        null,
+        new Color(0.56f, 0.36f, 0.18f, 1f),
         ItemQuality.COMMON,
         50
     );
@@ -227,8 +260,11 @@ public final class GameplayItems {
         COIN_BRONZE,
         COIN_SILVER,
         COIN_GOLD,
+        CHICKEN_RAW,
         ITEM_CARROT,
         ITEM_WHEAT,
+        STEAK_RAW,
+        WOOD_LOG,
         GOLD_BAR,
         GOLD_CLUSTER,
         GOLD_NUGGETS,
@@ -273,6 +309,20 @@ public final class GameplayItems {
 
     public static List<ItemDefinition> getAllItems() {
         return ALL_ITEMS;
+    }
+
+    public static ItemDefinition findById(String itemId) {
+        if (itemId == null || itemId.isBlank()) {
+            return null;
+        }
+
+        for (ItemDefinition itemDefinition : ALL_ITEMS) {
+            if (itemId.equals(itemDefinition.getItemId())) {
+                return itemDefinition;
+            }
+        }
+
+        return null;
     }
 
     private static ItemDefinition simpleItem(String itemId,

@@ -85,7 +85,7 @@ public class CombatComponent extends AbstractActorComponent {
             15f / 16f,
             15f / 16f,
             32f / 16f,
-            1.35f
+            1.15f
         );
     }
 

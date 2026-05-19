@@ -16,6 +16,8 @@ import com.polsl.poiw.engine.gameframework.PlayerController;
 import com.polsl.poiw.engine.gameframework.PlayerState;
 import com.polsl.poiw.engine.net.replication.ReplicationInfo;
 import com.polsl.poiw.engine.tiled.TiledMapParser;
+import com.polsl.poiw.gameplay.actor.ItemPickupActor;
+import com.polsl.poiw.gameplay.actor.TiledVisualActor;
 import com.polsl.poiw.gameplay.actor.TrainingDummyActor;
 import com.polsl.poiw.gameplay.character.PlayerCharacter;
 import com.polsl.poiw.gameplay.gamemode.MainGameMode;
@@ -635,6 +637,18 @@ public class GameServer implements ApplicationListener {
 
         if (actor instanceof com.polsl.poiw.gameplay.actor.AbstractCreatureActor creature) {
             return creature.buildInitialReplicationProperties();
+        }
+
+        if (actor instanceof com.polsl.poiw.gameplay.actor.AbstractTiledTargetActor tiledTargetActor) {
+            return tiledTargetActor.buildInitialReplicationProperties();
+        }
+
+        if (actor instanceof TiledVisualActor tiledVisualActor) {
+            return tiledVisualActor.buildInitialReplicationProperties();
+        }
+
+        if (actor instanceof ItemPickupActor itemPickupActor) {
+            return itemPickupActor.buildInitialReplicationProperties();
         }
 
         return null;

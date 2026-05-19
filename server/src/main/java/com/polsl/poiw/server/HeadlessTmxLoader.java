@@ -2,18 +2,26 @@ package com.polsl.poiw.server;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.files.FileHandle;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.maps.MapLayer;
 import com.badlogic.gdx.maps.MapObject;
 import com.badlogic.gdx.maps.MapProperties;
 import com.badlogic.gdx.maps.objects.RectangleMapObject;
 import com.badlogic.gdx.maps.tiled.TiledMap;
+import com.badlogic.gdx.maps.tiled.TiledMapTile;
 import com.badlogic.gdx.maps.tiled.TiledMapTileLayer;
 import com.badlogic.gdx.maps.tiled.TiledMapTileSet;
+import com.badlogic.gdx.maps.tiled.tiles.StaticTiledMapTile;
 import com.badlogic.gdx.utils.XmlReader;
 import com.badlogic.gdx.utils.Array;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Base64;
+import java.util.zip.InflaterInputStream;
 
 /**
  * Headless TMX loader — parsuje XML mapy Tiled bez ładowania tekstur.
@@ -199,6 +207,19 @@ public class HeadlessTmxLoader {
 
                 tileDataMap.put(globalId, new TileData(tileType, imgW, imgH,
                     collX, collY, collW, collH, hasCollision, Map.copyOf(tileProperties)));
+
+                TiledMapTile tile = new StaticTiledMapTile(new TextureRegion());
+                tile.setId(globalId);
+                if (!tileType.isBlank()) {
+                    tile.getProperties().put("type", tileType);
+                }
+                for (Map.Entry<String, Object> entry : tileProperties.entrySet()) {
+                    tile.getProperties().put(entry.getKey(), entry.getValue());
+                }
+                if (hasCollision) {
+                    tile.getObjects().add(new RectangleMapObject(collX, collY, collW, collH));
+                }
+                tileSet.putTile(globalId, tile);
             }
 
             map.getTileSets().addTileSet(tileSet);
@@ -214,9 +235,71 @@ public class HeadlessTmxLoader {
         // parse properties
         parseLayerProperties(element, layer.getProperties());
 
-        // server doesn't need tile data (cells) for rendering —
-        // collision layer uses object groups, not tile cells
+        XmlReader.Element dataElement = element.getChildByName("data");
+        if (dataElement != null) {
+            populateTileLayerCells(dataElement, map, layer, mapWidth, mapHeight);
+        }
+
         map.getLayers().add(layer);
+    }
+
+    private void populateTileLayerCells(XmlReader.Element dataElement,
+                                        TiledMap map,
+                                        TiledMapTileLayer layer,
+                                        int mapWidth,
+                                        int mapHeight) {
+        String encoding = dataElement.getAttribute("encoding", "");
+        String compression = dataElement.getAttribute("compression", "");
+        if (!"base64".equals(encoding)) {
+            return;
+        }
+
+        String rawData = dataElement.getText();
+        if (rawData == null || rawData.isBlank()) {
+            return;
+        }
+
+        byte[] decoded = Base64.getDecoder().decode(rawData.replaceAll("\\s+", ""));
+        byte[] bytes = decompressLayerBytes(decoded, compression);
+        int cellCount = Math.min(mapWidth * mapHeight, bytes.length / 4);
+
+        for (int index = 0; index < cellCount; index++) {
+            int byteIndex = index * 4;
+            long rawGid = ((long) bytes[byteIndex] & 0xFFL)
+                | (((long) bytes[byteIndex + 1] & 0xFFL) << 8)
+                | (((long) bytes[byteIndex + 2] & 0xFFL) << 16)
+                | (((long) bytes[byteIndex + 3] & 0xFFL) << 24);
+            int gid = clearTileFlags(rawGid);
+            if (gid == 0) {
+                continue;
+            }
+
+            TiledMapTile tile = map.getTileSets().getTile(gid);
+            if (tile == null) {
+                continue;
+            }
+
+            int x = index % mapWidth;
+            int y = mapHeight - 1 - (index / mapWidth);
+            TiledMapTileLayer.Cell cell = new TiledMapTileLayer.Cell();
+            cell.setTile(tile);
+            layer.setCell(x, y, cell);
+        }
+    }
+
+    private byte[] decompressLayerBytes(byte[] data, String compression) {
+        if (compression == null || compression.isBlank()) {
+            return data;
+        }
+
+        try (InputStream input = switch (compression) {
+            case "zlib" -> new InflaterInputStream(new ByteArrayInputStream(data));
+            default -> throw new IllegalArgumentException("Unsupported TMX compression: " + compression);
+        }) {
+            return input.readAllBytes();
+        } catch (IOException exception) {
+            throw new RuntimeException("Cannot decompress TMX layer data", exception);
+        }
     }
 
     private void parseObjectGroup(XmlReader.Element element, TiledMap map, int mapHeightPx) {
