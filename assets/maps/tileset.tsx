@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<tileset version="1.10" tiledversion="1.12.1" name="tileset" tilewidth="16" tileheight="16" spacing="16" margin="8" tilecount="192" columns="12">
+<tileset version="1.10" tiledversion="1.12.0" name="tileset" tilewidth="16" tileheight="16" spacing="16" margin="8" tilecount="192" columns="12">
  <image source="tileset.png" width="384" height="512"/>
  <tile id="0">
   <objectgroup draworder="index" id="2">
@@ -248,16 +248,61 @@
  <tile id="132" type="Ground"/>
  <tile id="133" type="Ground"/>
  <tile id="134" type="Ground"/>
- <tile id="144" type="Farmland"/>
- <tile id="145" type="Farmland"/>
- <tile id="146" type="Farmland"/>
+ <tile id="144" type="Farmland">
+  <properties>
+   <property name="occupied" type="bool" value="false"/>
+   <property name="watered" type="bool" value="false"/>
+  </properties>
+ </tile>
+ <tile id="145" type="Farmland">
+  <properties>
+   <property name="occupied" type="bool" value="false"/>
+   <property name="watered" type="bool" value="false"/>
+  </properties>
+ </tile>
+ <tile id="146" type="Farmland">
+  <properties>
+   <property name="occupied" type="bool" value="false"/>
+   <property name="watered" type="bool" value="false"/>
+  </properties>
+ </tile>
  <tile id="147" type="Ground"/>
- <tile id="156" type="Farmland"/>
- <tile id="157" type="Farmland"/>
- <tile id="158" type="Farmland"/>
- <tile id="168" type="Farmland"/>
- <tile id="169" type="Farmland"/>
- <tile id="170" type="Farmland"/>
+ <tile id="156" type="Farmland">
+  <properties>
+   <property name="occupied" type="bool" value="false"/>
+   <property name="watered" type="bool" value="false"/>
+  </properties>
+ </tile>
+ <tile id="157" type="Farmland">
+  <properties>
+   <property name="occupied" type="bool" value="false"/>
+   <property name="watered" type="bool" value="false"/>
+  </properties>
+ </tile>
+ <tile id="158" type="Farmland">
+  <properties>
+   <property name="occupied" type="bool" value="false"/>
+   <property name="watered" type="bool" value="false"/>
+  </properties>
+ </tile>
+ <tile id="168" type="Farmland">
+  <properties>
+   <property name="occupied" type="bool" value="false"/>
+   <property name="watered" type="bool" value="false"/>
+  </properties>
+ </tile>
+ <tile id="169" type="Farmland">
+  <properties>
+   <property name="occupied" type="bool" value="false"/>
+   <property name="watered" type="bool" value="false"/>
+  </properties>
+ </tile>
+ <tile id="170" type="Farmland">
+  <properties>
+   <property name="occupied" type="bool" value="false"/>
+   <property name="watered" type="bool" value="false"/>
+  </properties>
+ </tile>
  <tile id="180" type="Ground">
   <properties>
    <property name="ground_type" propertytype="GroundType" value="water"/>

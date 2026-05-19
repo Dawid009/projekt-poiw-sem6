@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<tileset version="1.10" tiledversion="1.12.1" name="decor" tilewidth="16" tileheight="16" tilecount="84" columns="7">
+<tileset version="1.10" tiledversion="1.12.0" name="decor" tilewidth="16" tileheight="16" tilecount="84" columns="7">
  <image source="decor_tileset.png" width="112" height="192"/>
  <tile id="3">
   <objectgroup draworder="index" id="2">
@@ -11,15 +11,22 @@
    <object id="1" x="6.82609" y="11.8261" width="2.3913" height="2.26087"/>
   </objectgroup>
  </tile>
- <tile id="10" type="Crop"/>
+ <tile id="10" type="Crop">
+  <properties>
+   <property name="crop_type" propertytype="CropType" value="carrot"/>
+   <property name="growth_stage" type="int" value="0"/>
+  </properties>
+ </tile>
  <tile id="11" type="Crop">
   <properties>
+   <property name="crop_type" propertytype="CropType" value="carrot"/>
    <property name="growth_stage" type="int" value="1"/>
   </properties>
  </tile>
  <tile id="12" type="Crop">
   <properties>
    <property name="crop_type" propertytype="CropType" value="wheat"/>
+   <property name="growth_stage" type="int" value="0"/>
   </properties>
  </tile>
  <tile id="13" type="Crop">
@@ -28,9 +35,10 @@
    <property name="growth_stage" type="int" value="1"/>
   </properties>
  </tile>
- <tile id="14" type="Prop">
+ <tile id="14" type="Tree">
   <properties>
-   <property name="bodyType" propertytype="BodyType" value="StaticBody"/>
+   <property name="is_stump" type="bool" value="true"/>
+   <property name="tree_size" propertytype="TreeSize" value="Normal"/>
   </properties>
   <objectgroup draworder="index" id="2">
    <object id="1" x="2" y="12.3478">
@@ -47,11 +55,13 @@
  </tile>
  <tile id="17" type="Crop">
   <properties>
+   <property name="crop_type" propertytype="CropType" value="carrot"/>
    <property name="growth_stage" type="int" value="2"/>
   </properties>
  </tile>
  <tile id="18" type="Crop">
   <properties>
+   <property name="crop_type" propertytype="CropType" value="carrot"/>
    <property name="growth_stage" type="int" value="3"/>
   </properties>
  </tile>
@@ -68,21 +78,33 @@
   </properties>
  </tile>
  <tile id="21" type="Ore">
+  <properties>
+   <property name="ore_type" propertytype="OreType" value="iron"/>
+  </properties>
   <objectgroup draworder="index" id="2">
    <object id="1" x="1.95652" y="8.43478" width="12.1304" height="6"/>
   </objectgroup>
  </tile>
  <tile id="22" type="Ore">
+  <properties>
+   <property name="ore_type" propertytype="OreType" value="iron"/>
+  </properties>
   <objectgroup draworder="index" id="2">
    <object id="1" x="3.84784" y="7.52174" width="9.7391" height="6"/>
   </objectgroup>
  </tile>
  <tile id="23" type="Ore">
+  <properties>
+   <property name="ore_type" propertytype="OreType" value="iron"/>
+  </properties>
   <objectgroup draworder="index" id="2">
    <object id="1" x="2.84784" y="7.95652" width="9.7391" height="5.47826"/>
   </objectgroup>
  </tile>
  <tile id="24" type="Ore">
+  <properties>
+   <property name="ore_type" propertytype="OreType" value="iron"/>
+  </properties>
   <objectgroup draworder="index" id="2">
    <object id="1" x="3.02176" y="8.52174" width="10.8695" height="5.13043"/>
   </objectgroup>

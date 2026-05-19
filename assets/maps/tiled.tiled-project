@@ -40,7 +40,7 @@
                     "name": "creature_type",
                     "propertyType": "CreatureType",
                     "type": "string",
-                    "value": "cow"
+                    "value": "NULL"
                 },
                 {
                     "name": "damage",
@@ -88,12 +88,13 @@
             "storageType": "string",
             "type": "enum",
             "values": [
-                "cow",
+                "NULL",
                 "chicken",
                 "sheep",
                 "pig",
-                "skeleton",
-                "slime"
+                "cow",
+                "slime",
+                "skeleton"
             ],
             "valuesAsFlags": false
         },
@@ -106,12 +107,12 @@
                     "name": "crop_type",
                     "propertyType": "CropType",
                     "type": "string",
-                    "value": "carrot"
+                    "value": "NULL"
                 },
                 {
                     "name": "growth_stage",
                     "type": "int",
-                    "value": 0
+                    "value": -1
                 }
             ],
             "name": "Crop",
@@ -134,8 +135,9 @@
             "storageType": "string",
             "type": "enum",
             "values": [
-                "carrot",
-                "wheat"
+                "NULL",
+                "wheat",
+                "carrot"
             ],
             "valuesAsFlags": false
         },
@@ -277,7 +279,7 @@
                     "name": "ore_type",
                     "propertyType": "OreType",
                     "type": "string",
-                    "value": "iron"
+                    "value": "NULL"
                 }
             ],
             "name": "Ore",
@@ -300,8 +302,9 @@
             "storageType": "string",
             "type": "enum",
             "values": [
-                "iron",
-                "gold"
+                "NULL",
+                "gold",
+                "iron"
             ],
             "valuesAsFlags": false
         },
@@ -324,6 +327,48 @@
                 "tile",
                 "project"
             ]
+        },
+        {
+            "color": "#ffa0a0a4",
+            "drawFill": true,
+            "id": 14,
+            "members": [
+                {
+                    "name": "is_stump",
+                    "type": "bool",
+                    "value": false
+                },
+                {
+                    "name": "tree_size",
+                    "propertyType": "TreeSize",
+                    "type": "string",
+                    "value": "Normal"
+                }
+            ],
+            "name": "Tree",
+            "type": "class",
+            "useAs": [
+                "property",
+                "map",
+                "layer",
+                "object",
+                "tile",
+                "tileset",
+                "wangcolor",
+                "wangset",
+                "project"
+            ]
+        },
+        {
+            "id": 15,
+            "name": "TreeSize",
+            "storageType": "string",
+            "type": "enum",
+            "values": [
+                "Normal",
+                "Small"
+            ],
+            "valuesAsFlags": false
         }
     ]
 }

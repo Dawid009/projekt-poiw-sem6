@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.12.1" orientation="orthogonal" renderorder="right-down" width="96" height="96" tilewidth="16" tileheight="16" infinite="0" nextlayerid="16" nextobjectid="8717">
+<map version="1.10" tiledversion="1.12.0" orientation="orthogonal" renderorder="right-down" width="96" height="96" tilewidth="16" tileheight="16" infinite="0" nextlayerid="16" nextobjectid="8737">
  <properties>
   <property name="music" value="TOWN"/>
  </properties>
@@ -3898,8 +3898,8 @@
   <object id="4944" gid="19" x="11.6665" y="784.667" width="32" height="48"/>
   <object id="4945" gid="19" x="92.3332" y="768.667" width="32" height="48"/>
   <object id="4946" gid="19" x="115" y="718" width="32" height="48"/>
-  <object id="4947" gid="19" x="173" y="665.333" width="32" height="48"/>
-  <object id="4948" gid="19" x="105.666" y="662" width="32" height="48"/>
+  <object id="4947" gid="19" x="184.5" y="651.333" width="32" height="48"/>
+  <object id="4948" gid="19" x="112.666" y="648.5" width="32" height="48"/>
   <object id="4949" gid="19" x="139.666" y="587.333" width="32" height="48"/>
   <object id="4950" gid="19" x="163.666" y="528" width="32" height="48"/>
   <object id="4951" gid="19" x="213" y="602" width="32" height="48"/>
@@ -4240,6 +4240,25 @@
   <object id="5336" gid="278" x="656.665" y="565.583" width="16" height="16"/>
   <object id="5337" gid="278" x="697.165" y="606.083" width="16" height="16"/>
   <object id="5338" gid="278" x="725.665" y="617.583" width="16" height="16"/>
+  <object id="8717" gid="6" x="37" y="658.5" width="41" height="63"/>
+  <object id="8718" gid="6" x="30.5" y="567.5" width="41" height="63"/>
+  <object id="8719" gid="6" x="-13.5" y="545" width="41" height="63"/>
+  <object id="8721" gid="6" x="-28" y="621" width="41" height="63"/>
+  <object id="8722" gid="19" x="-17" y="703.5" width="32" height="48"/>
+  <object id="8723" gid="19" x="-10.5" y="743.5" width="32" height="48"/>
+  <object id="8724" gid="19" x="127" y="668.5" width="32" height="48"/>
+  <object id="8725" gid="6" x="118.5" y="608" width="41" height="63"/>
+  <object id="8726" gid="19" x="67.5" y="584.5" width="32" height="48"/>
+  <object id="8727" gid="19" x="27.5" y="625.5" width="32" height="48"/>
+  <object id="8728" gid="19" x="29" y="507" width="32" height="48"/>
+  <object id="8729" gid="19" x="62" y="499.5" width="32" height="48"/>
+  <object id="8730" gid="6" x="159" y="670.5" width="41" height="63"/>
+  <object id="8731" gid="6" x="90.5" y="657.5" width="41" height="63"/>
+  <object id="8732" gid="19" x="-10" y="487" width="32" height="48"/>
+  <object id="8733" gid="6" x="-31" y="332" width="41" height="63"/>
+  <object id="8734" gid="6" x="-24" y="406" width="41" height="63"/>
+  <object id="8735" gid="6" x="-30" y="468" width="41" height="63"/>
+  <object id="8736" gid="6" x="-29" y="794.5" width="41" height="63"/>
  </objectgroup>
  <objectgroup id="7" name="bridges">
   <object id="4605" gid="21" x="128" y="1280" width="48" height="48"/>
