@@ -12,19 +12,28 @@ import com.badlogic.gdx.math.Ellipse;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
 import com.polsl.poiw.engine.actor.Actor;
-import com.polsl.poiw.engine.tiled.TiledObjectFactory;
-import com.polsl.poiw.engine.world.GameWorld;
-import com.polsl.poiw.gameplay.actor.PropActor;
-import com.polsl.poiw.gameplay.actor.TriggerActor;
 import com.polsl.poiw.engine.collision.BoxCollisionComponent;
 import com.polsl.poiw.engine.collision.CollisionProfile;
 import com.polsl.poiw.engine.component.TransformComponent;
+import com.polsl.poiw.engine.tiled.TiledObjectFactory;
+import com.polsl.poiw.engine.world.GameWorld;
+import com.polsl.poiw.gameplay.actor.AbstractCreatureActor;
+import com.polsl.poiw.gameplay.actor.CropActor;
+import com.polsl.poiw.gameplay.actor.CropKind;
+import com.polsl.poiw.gameplay.actor.CreatureKind;
+import com.polsl.poiw.gameplay.actor.MineableActor;
+import com.polsl.poiw.gameplay.actor.MineableKind;
+import com.polsl.poiw.gameplay.actor.TreeActor;
+import com.polsl.poiw.gameplay.actor.TreeKind;
+import com.polsl.poiw.gameplay.actor.TrainingDummyActor;
+import com.polsl.poiw.gameplay.actor.TriggerActor;
 
 import com.badlogic.gdx.maps.tiled.TiledMap;
 import com.badlogic.gdx.maps.tiled.TiledMapTileLayer;
+import com.badlogic.gdx.maps.tiled.TiledMapTileSet;
 import com.badlogic.gdx.maps.MapLayer;
 
-import static com.polsl.poiw.engine.tiled.TiledConstants.PPM;
+import static com.polsl.poiw.engine.tiled.TiledConstants.*;
 
 /**
  * fabryka obiektów Tiled po stronie serwera — headless, bez tekstur.
@@ -35,6 +44,7 @@ public class ServerTiledObjectFactory implements TiledObjectFactory {
     private static final String TAG = "ServerTiledObjectFactory";
 
     private final GameWorld gameWorld;
+    private TiledMap currentMap;
     private TiledMapTileLayer waterLayer;
     private HeadlessTmxLoader tmxLoader;
 
@@ -50,6 +60,7 @@ public class ServerTiledObjectFactory implements TiledObjectFactory {
      * ustawia referencję do mapy — potrzebne do sprawdzania, czy obiekt stoi na wodzie.
      */
     public void setMap(TiledMap map) {
+        this.currentMap = map;
         MapLayer layer = map.getLayers().get("water");
         if (layer instanceof TiledMapTileLayer tl) {
             this.waterLayer = tl;
@@ -126,28 +137,172 @@ public class ServerTiledObjectFactory implements TiledObjectFactory {
         float worldX = rectObj.getRectangle().x / PPM;
         float worldY = rectObj.getRectangle().y / PPM;
 
-        if (!tileData.hasCollision()) {
-            return null; // no collision shape → skip
+        boolean trainingDummyTile = isTrainingDummyTile(tileData, objName);
+        CreatureKind creatureKind = getCreatureKind(tileData);
+        MineableKind mineableKind = getMineableKind(tileData, type);
+        TreeKind treeKind = getTreeKind(tileData, type);
+        CropData cropData = getCropData(gid, tileData, type);
+
+        if (!tileData.hasCollision()
+            && creatureKind == null
+            && !trainingDummyTile
+            && mineableKind == null
+            && treeKind == null
+            && cropData == null) {
+            return null;
         }
 
-        if (isOnWater(worldX, worldY)) {
+        if (!trainingDummyTile
+            && creatureKind == null
+            && mineableKind == null
+            && treeKind == null
+            && cropData == null
+            && isOnWater(worldX, worldY)) {
             return null; // skip water objects
         }
 
-        // compute collision offset relative to sprite center (same logic as DefaultTiledObjectFactory)
-        float spriteCenterXpx = tileData.imageW() / 2f;
-        float spriteCenterYpx = tileData.imageH() / 2f;
-        float collCenterXpx = tileData.collX() + tileData.collW() / 2f;
-        float collCenterYpx = tileData.collY() + tileData.collH() / 2f;
-        float offsetX = (collCenterXpx - spriteCenterXpx) / PPM;
-        float offsetY = (collCenterYpx - spriteCenterYpx) / PPM;
-        float halfW = tileData.collW() / 2f / PPM;
-        float halfH = tileData.collH() / 2f / PPM;
+        CollisionData collisionData = tileData.hasCollision()
+            ? collisionFromTileData(tileData, sizeW, sizeH)
+            : cropData != null ? defaultCropCollision(sizeW, sizeH) : null;
 
-        if (halfW <= 0 || halfH <= 0) return null;
+        if (collisionData == null || collisionData.halfW <= 0f || collisionData.halfH <= 0f) {
+            return null;
+        }
+
+        float offsetX = collisionData.offsetX;
+        float offsetY = collisionData.offsetY;
+        float halfW = collisionData.halfW;
+        float halfH = collisionData.halfH;
+        float sortOffsetY = sizeH / 2f + offsetY - halfH;
+        int zOrder = getIntProperty(tileData.properties(), "z", 1);
+        float maxHealth = getFloatProperty(tileData.properties(), "life", 100f);
+
+        if (creatureKind != null) {
+            float creatureHealth = getFloatProperty(tileData.properties(), "life", AbstractCreatureActor.DEFAULT_MAX_HEALTH);
+            AbstractCreatureActor creature = creatureKind.createActor();
+            creature.configureServer(
+                sizeW,
+                sizeH,
+                halfW,
+                halfH,
+                new Vector2(offsetX, offsetY),
+                sortOffsetY,
+                zOrder,
+                creatureHealth,
+                creatureHealth
+            );
+            creature.setReplicated(true);
+
+            gameWorld.spawnActor(creature, new Vector2(worldX, worldY));
+            Gdx.app.debug(TAG, "Creature '" + creatureKind + "' at (" + worldX + ", " + worldY + ") [replicated gid=" + gid + "]");
+            return creature;
+        }
+
+        if (trainingDummyTile) {
+            TrainingDummyActor trainingDummy = new TrainingDummyActor();
+            trainingDummy.configureServer(
+                sizeW,
+                sizeH,
+                halfW,
+                halfH,
+                new Vector2(offsetX, offsetY),
+                sortOffsetY,
+                zOrder,
+                maxHealth
+            );
+            trainingDummy.setReplicated(true);
+
+            gameWorld.spawnActor(trainingDummy, new Vector2(worldX, worldY));
+            Gdx.app.debug(TAG, "Training dummy '" + (objName != null ? objName : type)
+                + "' at (" + worldX + ", " + worldY + ") [replicated gid=" + gid + "]");
+            return trainingDummy;
+        }
+
+        if (mineableKind != null) {
+            float mineableHealth = getFloatProperty(tileData.properties(), "life", mineableKind.getMaxHealth());
+            MineableActor mineable = new MineableActor();
+            mineable.setMineableKind(mineableKind);
+            mineable.setDropCountRange(1, 1);
+            mineable.configureServer(
+                gid,
+                sizeW,
+                sizeH,
+                halfW,
+                halfH,
+                new Vector2(offsetX, offsetY),
+                sortOffsetY,
+                zOrder,
+                mineableHealth,
+                mineableHealth
+            );
+            mineable.setReplicated(true);
+
+            gameWorld.spawnActor(mineable, new Vector2(worldX, worldY));
+            Gdx.app.debug(TAG, "Mineable '" + mineableKind + "' at (" + worldX + ", " + worldY + ") [replicated gid=" + gid + "]");
+            return mineable;
+        }
+
+        if (treeKind != null) {
+            float treeHealth = getFloatProperty(tileData.properties(), "life", treeKind.getMaxHealth());
+            TreeActor tree = new TreeActor();
+            int stumpTileGid = getIntProperty(tileData.properties(), "stump_tile_gid", 17);
+            float stumpWidth = getFloatProperty(tileData.properties(), "stump_width", treeKind == TreeKind.SMALL ? 1.5f : 2f);
+            float stumpHeight = getFloatProperty(tileData.properties(), "stump_height", treeKind == TreeKind.SMALL ? 1.5f : 2f);
+            tree.setTreeKind(treeKind);
+            tree.setStumpTileGid(stumpTileGid);
+            tree.setStumpSize(stumpWidth, stumpHeight);
+            HeadlessTmxLoader.TileData stumpTileData = tmxLoader != null ? tmxLoader.getTileData(stumpTileGid) : null;
+            CollisionData stumpCollision = collisionFromTileData(stumpTileData, stumpWidth, stumpHeight);
+            if (stumpCollision != null) {
+                tree.setStumpCollision(stumpCollision.halfW, stumpCollision.halfH,
+                    new Vector2(stumpCollision.offsetX, stumpCollision.offsetY));
+            }
+            tree.configureServer(
+                gid,
+                sizeW,
+                sizeH,
+                halfW,
+                halfH,
+                new Vector2(offsetX, offsetY),
+                sortOffsetY,
+                zOrder,
+                treeHealth,
+                treeHealth
+            );
+            tree.setReplicated(true);
+
+            gameWorld.spawnActor(tree, new Vector2(worldX, worldY));
+            Gdx.app.debug(TAG, "Tree '" + treeKind + "' at (" + worldX + ", " + worldY + ") [replicated gid=" + gid + "]");
+            return tree;
+        }
+
+        if (cropData != null) {
+            CropActor crop = new CropActor();
+            crop.configureServer(
+                gid,
+                cropData.kind(),
+                cropData.growthStage(),
+                cropData.globalStageTileGids(),
+                sizeW,
+                sizeH,
+                halfW,
+                halfH,
+                new Vector2(offsetX, offsetY),
+                sortOffsetY,
+                zOrder,
+                cropData.growthIntervalSeconds(),
+                cropData.maxHealth()
+            );
+            crop.setReplicated(true);
+
+            gameWorld.spawnActor(crop, new Vector2(worldX, worldY));
+            Gdx.app.debug(TAG, "Crop '" + cropData.kind() + "' stage=" + cropData.growthStage()
+                + " at (" + worldX + ", " + worldY + ") [replicated gid=" + gid + "]");
+            return crop;
+        }
 
         ServerPropActor prop = new ServerPropActor();
-        prop.configure(sizeW, sizeH, halfW, halfH, new Vector2(offsetX, offsetY));
+        prop.configure(sizeW, sizeH, halfW, halfH, new Vector2(offsetX, offsetY), sortOffsetY, zOrder);
 
         gameWorld.spawnActor(prop, new Vector2(worldX, worldY));
         Gdx.app.debug(TAG, "ServerProp '" + (objName != null ? objName : type)
@@ -182,15 +337,15 @@ public class ServerTiledObjectFactory implements TiledObjectFactory {
             collData = null;
         }
 
-        // serwer tworzy actora z kolizją tylko jeśli tile ma collision shape
+        // props nie biorą udziału w kolizji gameplay po stronie serwera
         if (collData == null || collData.halfW <= 0 || collData.halfH <= 0) {
             return null;
         }
 
-        // headless prop — transform + collision, bez sprite
         ServerPropActor prop = new ServerPropActor();
+        float sortOffsetY = sizeH / 2f + collData.offsetY - collData.halfH;
         prop.configure(sizeW, sizeH, collData.halfW, collData.halfH,
-            new Vector2(collData.offsetX, collData.offsetY));
+            new Vector2(collData.offsetX, collData.offsetY), sortOffsetY, 1);
 
         gameWorld.spawnActor(prop, new Vector2(worldX, worldY));
         Gdx.app.debug(TAG, "ServerProp '" + (objName != null ? objName : type)
@@ -264,21 +419,160 @@ public class ServerTiledObjectFactory implements TiledObjectFactory {
         );
     }
 
+    private CollisionData collisionFromTileData(HeadlessTmxLoader.TileData tileData, float spriteW, float spriteH) {
+        if (tileData == null || !tileData.hasCollision()) {
+            return null;
+        }
+
+        float baseSpriteW = tileData.imageW() / PPM;
+        float baseSpriteH = tileData.imageH() / PPM;
+        float scaleX = baseSpriteW > 0f ? spriteW / baseSpriteW : 1f;
+        float scaleY = baseSpriteH > 0f ? spriteH / baseSpriteH : 1f;
+
+        float spriteCenterXpx = tileData.imageW() / 2f;
+        float spriteCenterYpx = tileData.imageH() / 2f;
+        float collCenterXpx = tileData.collX() + tileData.collW() / 2f;
+        float collCenterYpx = tileData.collY() + tileData.collH() / 2f;
+        float offsetX = (collCenterXpx - spriteCenterXpx) / PPM * scaleX;
+        float offsetY = (collCenterYpx - spriteCenterYpx) / PPM * scaleY;
+        float halfW = tileData.collW() / 2f / PPM * scaleX;
+        float halfH = tileData.collH() / 2f / PPM * scaleY;
+        return new CollisionData(halfW, halfH, offsetX, offsetY);
+    }
+
+    private CollisionData defaultCropCollision(float spriteW, float spriteH) {
+        return new CollisionData(
+            spriteW * 0.22f,
+            spriteH * 0.16f,
+            0f,
+            -spriteH * 0.18f
+        );
+    }
+
     private record CollisionData(float halfW, float halfH, float offsetX, float offsetY) {}
 
-    /**
-     * headless prop actor — transform + collision, bez sprite.
-     * używany na serwerze do odwzorowania statycznych przeszkód z mapy.
-     */
+    private boolean isTrainingDummyTile(HeadlessTmxLoader.TileData tileData, String objName) {
+        if (!"Object".equals(tileData.type())) {
+            return false;
+        }
+
+        Object bodyType = tileData.properties().get("bodyType");
+        return bodyType instanceof String body && "StaticBody".equals(body)
+            && tileData.properties().containsKey("life")
+            && !"Player".equals(objName);
+    }
+
+    private CreatureKind getCreatureKind(HeadlessTmxLoader.TileData tileData) {
+        if (!"Creature".equals(tileData.type())) {
+            return null;
+        }
+
+        Object creatureType = tileData.properties().get("creature_type");
+        return creatureType instanceof String value ? CreatureKind.fromMetadata(value) : null;
+    }
+
+    private MineableKind getMineableKind(HeadlessTmxLoader.TileData tileData, String layerName) {
+        if (!LAYER_MINEABLE.equals(layerName)) {
+            return null;
+        }
+
+        Object oreType = tileData.properties().get("ore_type");
+        return MineableKind.fromMetadata(oreType instanceof String value ? value : null);
+    }
+
+    private TreeKind getTreeKind(HeadlessTmxLoader.TileData tileData, String layerName) {
+        if (!LAYER_TREES.equals(layerName)) {
+            return null;
+        }
+
+        Object treeType = tileData.properties().get("tree_type");
+        return TreeKind.fromMetadata(treeType instanceof String value ? value : null);
+    }
+
+    private CropData getCropData(int gid, HeadlessTmxLoader.TileData tileData, String layerName) {
+        if (!LAYER_CROPS.equals(layerName)) {
+            return null;
+        }
+
+        Object cropType = tileData.properties().get("crop_type");
+        CropKind cropKind = CropKind.fromMetadata(cropType instanceof String value ? value : null);
+        int growthStage = resolveCropGrowthStage(gid, cropKind,
+            getIntProperty(tileData.properties(), "growth_stage", 0));
+        return new CropData(
+            cropKind,
+            growthStage,
+            cropKind.toGlobalStageTileIds(gid, growthStage),
+            getFloatProperty(tileData.properties(), "growth_interval", cropKind.getGrowthIntervalSeconds()),
+            getFloatProperty(tileData.properties(), "life", cropKind.getMaxHealth())
+        );
+    }
+
+    private int resolveCropGrowthStage(int gid, CropKind cropKind, int fallbackStage) {
+        if (cropKind == null || currentMap == null) {
+            return Math.max(0, fallbackStage);
+        }
+
+        for (TiledMapTileSet tileSet : currentMap.getTileSets()) {
+            Integer firstGid = tileSet.getProperties().get("firstgid", Integer.class);
+            Integer tileCount = tileSet.getProperties().get("tilecount", Integer.class);
+            if (firstGid == null) {
+                continue;
+            }
+
+            boolean containsTile = gid >= firstGid && (tileCount == null || gid < firstGid + tileCount);
+            if (!containsTile) {
+                continue;
+            }
+
+            int localTileId = gid - firstGid;
+            int[] stageLocalTileIds = cropKind.getStageLocalTileIds();
+            for (int stageIndex = 0; stageIndex < stageLocalTileIds.length; stageIndex++) {
+                if (stageLocalTileIds[stageIndex] == localTileId) {
+                    return stageIndex;
+                }
+            }
+            break;
+        }
+
+        return Math.max(0, Math.min(fallbackStage, cropKind.getStageCount() - 1));
+    }
+
+    private int getIntProperty(java.util.Map<String, Object> properties, String key, int defaultValue) {
+        Object value = properties.get(key);
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        return defaultValue;
+    }
+
+    private float getFloatProperty(java.util.Map<String, Object> properties, String key, float defaultValue) {
+        Object value = properties.get(key);
+        if (value instanceof Number number) {
+            return number.floatValue();
+        }
+        return defaultValue;
+    }
+
     static class ServerPropActor extends com.polsl.poiw.engine.actor.AbstractActor {
-        public void configure(float sizeW, float sizeH,
-                              float collHalfW, float collHalfH, Vector2 collOffset) {
+        public void configure(float sizeW,
+                              float sizeH,
+                              float collHalfW,
+                              float collHalfH,
+                              Vector2 collOffset,
+                              float sortOffsetY,
+                              int zOrder) {
             addComponent(new TransformComponent(
-                new Vector2(), 1, new Vector2(sizeW, sizeH)
+                new Vector2(), zOrder, new Vector2(sizeW, sizeH), new Vector2(1f, 1f), 0f, sortOffsetY
             ));
             addComponent(new BoxCollisionComponent(
                 CollisionProfile.ENVIRONMENT, collHalfW, collHalfH, collOffset
             ));
         }
     }
+
+    private record CropData(CropKind kind,
+                            int growthStage,
+                            int[] globalStageTileGids,
+                            float growthIntervalSeconds,
+                            float maxHealth) {}
 }

@@ -42,6 +42,15 @@ public class CollisionProfile {
         .setResponse(CollisionChannel.ITEM, CollisionResponseType.OVERLAP)
         .setResponse(CollisionChannel.PLAYER, CollisionResponseType.OVERLAP);
 
+    /** Wróg / cel walki: blokuje gracza i środowisko, overlap z triggerami/hitboxami. */
+    public static final CollisionProfile ENEMY = new CollisionProfile(CollisionChannel.ENEMY)
+        .setResponse(CollisionChannel.PLAYER, CollisionResponseType.BLOCK)
+        .setResponse(CollisionChannel.ENEMY, CollisionResponseType.OVERLAP)
+        .setResponse(CollisionChannel.PROJECTILE, CollisionResponseType.OVERLAP)
+        .setResponse(CollisionChannel.TRIGGER, CollisionResponseType.OVERLAP)
+        .setResponse(CollisionChannel.ITEM, CollisionResponseType.IGNORE)
+        .setResponse(CollisionChannel.ENVIRONMENT, CollisionResponseType.BLOCK);
+
     /** Środowisko (ściany, domy, pnie drzew): blokuje gracza/wroga/pociski, ignoruje triggery/itemy */
     public static final CollisionProfile ENVIRONMENT = new CollisionProfile(CollisionChannel.ENVIRONMENT)
         .setResponse(CollisionChannel.PLAYER, CollisionResponseType.BLOCK)

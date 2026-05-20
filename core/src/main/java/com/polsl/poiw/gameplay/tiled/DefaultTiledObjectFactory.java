@@ -16,14 +16,23 @@ import com.badlogic.gdx.math.Vector2;
 import com.polsl.poiw.engine.actor.Actor;
 import com.polsl.poiw.engine.tiled.TiledObjectFactory;
 import com.polsl.poiw.engine.world.GameWorld;
+import com.polsl.poiw.gameplay.actor.AbstractCreatureActor;
+import com.polsl.poiw.gameplay.actor.CropActor;
+import com.polsl.poiw.gameplay.actor.CropKind;
+import com.polsl.poiw.gameplay.actor.CreatureKind;
+import com.polsl.poiw.gameplay.actor.MineableActor;
+import com.polsl.poiw.gameplay.actor.MineableKind;
 import com.polsl.poiw.gameplay.actor.PropActor;
+import com.polsl.poiw.gameplay.actor.TreeActor;
+import com.polsl.poiw.gameplay.actor.TreeKind;
+import com.polsl.poiw.gameplay.actor.TrainingDummyActor;
 import com.polsl.poiw.gameplay.actor.TriggerActor;
 
 import com.badlogic.gdx.maps.tiled.TiledMap;
 import com.badlogic.gdx.maps.tiled.TiledMapTileLayer;
 import com.badlogic.gdx.maps.MapLayer;
 
-import static com.polsl.poiw.engine.tiled.TiledConstants.PPM;
+import static com.polsl.poiw.engine.tiled.TiledConstants.*;
 
 /**
  * Domyślna fabryka tworząca Actorów z obiektów Tiled.
@@ -51,22 +60,31 @@ public class DefaultTiledObjectFactory implements TiledObjectFactory {
     private static final String TAG = "TiledObjectFactory";
 
     private final GameWorld gameWorld;
-    private final TextureAtlas atlas;
+    private final TextureAtlas objectsAtlas;
+    private final TextureAtlas creaturesAtlas;
+    private TiledMap currentMap;
     private TiledMapTileLayer waterLayer;
+    private boolean skipReplicatedDamageableObjects;
 
-    public DefaultTiledObjectFactory(GameWorld gameWorld, TextureAtlas atlas) {
+    public DefaultTiledObjectFactory(GameWorld gameWorld, TextureAtlas objectsAtlas, TextureAtlas creaturesAtlas) {
         this.gameWorld = gameWorld;
-        this.atlas = atlas;
+        this.objectsAtlas = objectsAtlas;
+        this.creaturesAtlas = creaturesAtlas;
     }
 
     /**
      * Ustawia referencję do mapy — potrzebne do sprawdzania, czy obiekt stoi na wodzie.
      */
     public void setMap(TiledMap map) {
-        MapLayer layer = map.getLayers().get("water");
+        this.currentMap = map;
+        MapLayer layer = map.getLayers().get(LAYER_WATER);
         if (layer instanceof TiledMapTileLayer tl) {
             this.waterLayer = tl;
         }
+    }
+
+    public void setSkipReplicatedDamageableObjects(boolean skipReplicatedDamageableObjects) {
+        this.skipReplicatedDamageableObjects = skipReplicatedDamageableObjects;
     }
 
     @Override
@@ -148,10 +166,25 @@ public class DefaultTiledObjectFactory implements TiledObjectFactory {
 
         // Odczytaj collision shape z tile objectgroup (jeśli istnieje)
         CollisionData collData = extractCollisionFromTile(tile, sizeW, sizeH);
+        CreatureKind creatureKind = getCreatureKind(tile, tileType);
+        boolean trainingDummyTile = isTrainingDummyTile(tile, tileType);
+        MineableKind mineableKind = getMineableKind(tile, type);
+        TreeKind treeKind = getTreeKind(tile, type);
+        CropData cropData = getCropData(tile, type);
+
+        if (cropData != null && collData == null) {
+            collData = defaultCropCollision(sizeW, sizeH);
+        }
 
         // Sprawdź czy obiekt stoi na wodzie — jeśli tak, pomijamy kolizję
         // (woda i tak blokuje gracza, dekoracja na wodzie nie powinna mieć hitboxa)
-        if (collData != null && isOnWater(worldX, worldY)) {
+        if (!trainingDummyTile
+            && creatureKind == null
+            && mineableKind == null
+            && treeKind == null
+            && cropData == null
+            && collData != null
+            && isOnWater(worldX, worldY)) {
             collData = null;
         }
 
@@ -166,6 +199,158 @@ public class DefaultTiledObjectFactory implements TiledObjectFactory {
 
         // zOrder z tile property "z" (np. trap ma z=0 → rysuje się pod graczem)
         int zOrder = tile.getProperties().get("z", 1, Integer.class);
+
+        if (creatureKind != null) {
+            if (skipReplicatedDamageableObjects) {
+                Gdx.app.debug(TAG, "Skipping local creature spawn in multiplayer: " + creatureKind);
+                return null;
+            }
+
+            float maxHealth = getFloatProperty(tile, "life", AbstractCreatureActor.DEFAULT_MAX_HEALTH);
+
+            AbstractCreatureActor creature = creatureKind.createActor();
+            creature.configure(
+                creaturesAtlas,
+                sizeW,
+                sizeH,
+                collData != null ? collData.halfW : 0f,
+                collData != null ? collData.halfH : 0f,
+                collData != null ? new Vector2(collData.offsetX, collData.offsetY) : Vector2.Zero,
+                sortOffsetY,
+                zOrder,
+                maxHealth,
+                maxHealth
+            );
+
+            gameWorld.spawnActor(creature, new Vector2(worldX, worldY));
+            Gdx.app.debug(TAG, "Creature '" + creatureKind + "' at (" + worldX + ", " + worldY + ")");
+            return creature;
+        }
+
+        if (trainingDummyTile) {
+            if (skipReplicatedDamageableObjects) {
+                Gdx.app.debug(TAG, "Skipping local training dummy spawn in multiplayer");
+                return null;
+            }
+
+            Integer life = tile.getProperties().get("life", Integer.class);
+            TrainingDummyActor trainingDummy = new TrainingDummyActor();
+            trainingDummy.configure(
+                objectsAtlas,
+                sizeW,
+                sizeH,
+                collData != null ? collData.halfW : 0f,
+                collData != null ? collData.halfH : 0f,
+                collData != null ? new Vector2(collData.offsetX, collData.offsetY) : Vector2.Zero,
+                sortOffsetY,
+                zOrder,
+                life != null ? life.floatValue() : 100f
+            );
+
+            gameWorld.spawnActor(trainingDummy, new Vector2(worldX, worldY));
+            Gdx.app.debug(TAG, "Training dummy at (" + worldX + ", " + worldY + ") [combat target]");
+            return trainingDummy;
+        }
+
+        if (mineableKind != null) {
+            if (skipReplicatedDamageableObjects) {
+                Gdx.app.debug(TAG, "Skipping local mineable spawn in multiplayer: " + mineableKind);
+                return null;
+            }
+
+            float maxHealth = getFloatProperty(tile, "life", mineableKind.getMaxHealth());
+            MineableActor mineable = new MineableActor();
+            mineable.setMineableKind(mineableKind);
+            mineable.setDropCountRange(1, 1);
+            mineable.configure(
+                currentMap,
+                tile.getId(),
+                region,
+                sizeW,
+                sizeH,
+                collData != null ? collData.halfW : 0f,
+                collData != null ? collData.halfH : 0f,
+                collData != null ? new Vector2(collData.offsetX, collData.offsetY) : Vector2.Zero,
+                sortOffsetY,
+                zOrder,
+                maxHealth,
+                maxHealth
+            );
+
+            gameWorld.spawnActor(mineable, new Vector2(worldX, worldY));
+            Gdx.app.debug(TAG, "Mineable '" + mineableKind + "' at (" + worldX + ", " + worldY + ")");
+            return mineable;
+        }
+
+        if (treeKind != null) {
+            if (skipReplicatedDamageableObjects) {
+                Gdx.app.debug(TAG, "Skipping local tree spawn in multiplayer: " + treeKind);
+                return null;
+            }
+
+            float maxHealth = getFloatProperty(tile, "life", treeKind.getMaxHealth());
+            TreeActor tree = new TreeActor();
+            int stumpTileGid = getIntProperty(tile, "stump_tile_gid", 17);
+            float stumpWidth = getFloatProperty(tile, "stump_width", treeKind == TreeKind.SMALL ? 1.5f : 2f);
+            float stumpHeight = getFloatProperty(tile, "stump_height", treeKind == TreeKind.SMALL ? 1.5f : 2f);
+            tree.setTreeKind(treeKind);
+            tree.setStumpTileGid(stumpTileGid);
+            tree.setStumpSize(stumpWidth, stumpHeight);
+            CollisionData stumpCollision = extractCollisionFromTileByGid(stumpTileGid, stumpWidth, stumpHeight);
+            if (stumpCollision != null) {
+                tree.setStumpCollision(stumpCollision.halfW, stumpCollision.halfH,
+                    new Vector2(stumpCollision.offsetX, stumpCollision.offsetY));
+            }
+            tree.configure(
+                currentMap,
+                tile.getId(),
+                region,
+                sizeW,
+                sizeH,
+                collData != null ? collData.halfW : 0f,
+                collData != null ? collData.halfH : 0f,
+                collData != null ? new Vector2(collData.offsetX, collData.offsetY) : Vector2.Zero,
+                sortOffsetY,
+                zOrder,
+                maxHealth,
+                maxHealth
+            );
+
+            gameWorld.spawnActor(tree, new Vector2(worldX, worldY));
+            Gdx.app.debug(TAG, "Tree '" + treeKind + "' at (" + worldX + ", " + worldY + ")");
+            return tree;
+        }
+
+        if (cropData != null) {
+            if (skipReplicatedDamageableObjects) {
+                Gdx.app.debug(TAG, "Skipping local crop spawn in multiplayer: " + cropData.kind());
+                return null;
+            }
+
+            CropActor crop = new CropActor();
+            crop.configure(
+                currentMap,
+                tile.getId(),
+                region,
+                cropData.kind(),
+                cropData.growthStage(),
+                cropData.globalStageTileGids(),
+                sizeW,
+                sizeH,
+                collData != null ? collData.halfW : 0f,
+                collData != null ? collData.halfH : 0f,
+                collData != null ? new Vector2(collData.offsetX, collData.offsetY) : Vector2.Zero,
+                sortOffsetY,
+                zOrder,
+                cropData.growthIntervalSeconds(),
+                cropData.maxHealth()
+            );
+
+            gameWorld.spawnActor(crop, new Vector2(worldX, worldY));
+            Gdx.app.debug(TAG, "Crop '" + cropData.kind() + "' stage=" + cropData.growthStage()
+                + " at (" + worldX + ", " + worldY + ")");
+            return crop;
+        }
 
         // Twórz PropActor
         PropActor prop = new PropActor();
@@ -183,6 +368,19 @@ public class DefaultTiledObjectFactory implements TiledObjectFactory {
             + "' at (" + worldX + ", " + worldY + ")"
             + (collData != null ? " [collision]" : " [no collision]"));
         return prop;
+    }
+
+    private CollisionData extractCollisionFromTileByGid(int tileGid, float spriteW, float spriteH) {
+        if (currentMap == null || tileGid <= 0) {
+            return null;
+        }
+
+        TiledMapTile tile = currentMap.getTileSets().getTile(tileGid);
+        if (tile == null) {
+            return null;
+        }
+
+        return extractCollisionFromTile(tile, spriteW, spriteH);
     }
 
     // ===== Collision Extraction from Tile =====
@@ -278,6 +476,102 @@ public class DefaultTiledObjectFactory implements TiledObjectFactory {
         );
     }
 
+    private boolean isTrainingDummyTile(TiledMapTile tile, String tileType) {
+        if (!"Object".equals(tileType)) {
+            return false;
+        }
+
+        String bodyType = tile.getProperties().get("bodyType", String.class);
+        Integer life = tile.getProperties().get("life", Integer.class);
+        return bodyType != null && bodyType.equals("StaticBody") && life != null;
+    }
+
+    private CreatureKind getCreatureKind(TiledMapTile tile, String tileType) {
+        if (!"Creature".equals(tileType) || tile == null) {
+            return null;
+        }
+
+        String creatureType = tile.getProperties().get("creature_type", String.class);
+        return CreatureKind.fromMetadata(creatureType);
+    }
+
+    private MineableKind getMineableKind(TiledMapTile tile, String layerName) {
+        if (!LAYER_MINEABLE.equals(layerName) || tile == null) {
+            return null;
+        }
+
+        String oreType = tile.getProperties().get("ore_type", String.class);
+        return MineableKind.fromMetadata(oreType);
+    }
+
+    private TreeKind getTreeKind(TiledMapTile tile, String layerName) {
+        if (!LAYER_TREES.equals(layerName) || tile == null) {
+            return null;
+        }
+
+        String treeType = tile.getProperties().get("tree_type", String.class);
+        return TreeKind.fromMetadata(treeType);
+    }
+
+    private CropData getCropData(TiledMapTile tile, String layerName) {
+        if (!LAYER_CROPS.equals(layerName) || tile == null) {
+            return null;
+        }
+
+        String cropType = tile.getProperties().get("crop_type", String.class);
+        CropKind cropKind = CropKind.fromMetadata(cropType);
+        int growthStage = tile.getProperties().get("growth_stage", 0, Integer.class);
+        float growthIntervalSeconds = getFloatProperty(tile, "growth_interval", cropKind.getGrowthIntervalSeconds());
+        float maxHealth = getFloatProperty(tile, "life", cropKind.getMaxHealth());
+
+        return new CropData(
+            cropKind,
+            growthStage,
+            cropKind.toGlobalStageTileIds(tile.getId(), growthStage),
+            growthIntervalSeconds,
+            maxHealth
+        );
+    }
+
+    private CollisionData defaultCropCollision(float spriteW, float spriteH) {
+        return new CollisionData(
+            spriteW * 0.22f,
+            spriteH * 0.16f,
+            0f,
+            -spriteH * 0.18f
+        );
+    }
+
+    private float getFloatProperty(TiledMapTile tile, String propertyName, float defaultValue) {
+        if (tile == null) {
+            return defaultValue;
+        }
+
+        Object value = tile.getProperties().get(propertyName);
+        if (value instanceof Number number) {
+            return number.floatValue();
+        }
+        return defaultValue;
+    }
+
+    private int getIntProperty(TiledMapTile tile, String propertyName, int defaultValue) {
+        if (tile == null) {
+            return defaultValue;
+        }
+
+        Object value = tile.getProperties().get(propertyName);
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        return defaultValue;
+    }
+
     /** Dane kolizji — halfW, halfH, offset od centrum body */
     private record CollisionData(float halfW, float halfH, float offsetX, float offsetY) {}
+
+    private record CropData(CropKind kind,
+                            int growthStage,
+                            int[] globalStageTileGids,
+                            float growthIntervalSeconds,
+                            float maxHealth) {}
 }

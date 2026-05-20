@@ -89,6 +89,17 @@ public final class NetworkProtocol {
         public float timestamp;
     }
 
+    public enum InventoryActionType {
+        USE,
+        DROP
+    }
+
+    public static class ClientInventoryAction {
+        public int playerId;
+        public String itemId;
+        public InventoryActionType action;
+    }
+
     // serwer -> klient: korekta pozycji (np. po wykryciu desynchronizacji)
     public static class ServerPositionCorrection {
         public int actorId;

@@ -35,10 +35,12 @@ public class PropActor extends AbstractActor {
         // Grafika
         addComponent(new SpriteComponent(region, Color.WHITE.cpy()));
 
-        // Kolizja (opcjonalna — tylko jeśli tile ma collision objectgroup w .tsx)
-        if (collHalfW > 0 && collHalfH > 0) {
+        if (collHalfW > 0f && collHalfH > 0f) {
             addComponent(new BoxCollisionComponent(
-                CollisionProfile.ENVIRONMENT, collHalfW, collHalfH, collOffset
+                CollisionProfile.ENVIRONMENT,
+                collHalfW,
+                collHalfH,
+                collOffset
             ));
         }
     }

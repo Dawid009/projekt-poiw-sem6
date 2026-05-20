@@ -2,21 +2,28 @@ package com.polsl.poiw.server;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.files.FileHandle;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.maps.MapLayer;
 import com.badlogic.gdx.maps.MapObject;
 import com.badlogic.gdx.maps.MapProperties;
 import com.badlogic.gdx.maps.objects.RectangleMapObject;
 import com.badlogic.gdx.maps.tiled.TiledMap;
+import com.badlogic.gdx.maps.tiled.TiledMapTile;
 import com.badlogic.gdx.maps.tiled.TiledMapTileLayer;
 import com.badlogic.gdx.maps.tiled.TiledMapTileSet;
-import com.badlogic.gdx.maps.tiled.TiledMapTileSets;
-import com.badlogic.gdx.maps.tiled.objects.TiledMapTileMapObject;
-import com.badlogic.gdx.math.Rectangle;
+import com.badlogic.gdx.maps.tiled.tiles.StaticTiledMapTile;
 import com.badlogic.gdx.utils.XmlReader;
 import com.badlogic.gdx.utils.Array;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Base64;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.ArrayList;
+import java.util.zip.InflaterInputStream;
 
 /**
  * Headless TMX loader — parsuje XML mapy Tiled bez ładowania tekstur.
@@ -25,6 +32,12 @@ import java.util.Map;
 public class HeadlessTmxLoader {
 
     private static final String TAG = "HeadlessTmxLoader";
+    private static final long FLAG_FLIP_HORIZONTALLY = 0x80000000L;
+    private static final long FLAG_FLIP_VERTICALLY = 0x40000000L;
+    private static final long FLAG_FLIP_DIAGONALLY = 0x20000000L;
+    private static final long MASK_CLEAR_TILE_FLAGS = 0x1FFFFFFFL;
+
+    private record CollisionRect(float x, float y, float width, float height) {}
 
     /**
      * per-tile data parsed from TSX — collision shapes, tile type, image dimensions.
@@ -32,7 +45,7 @@ public class HeadlessTmxLoader {
      */
     public record TileData(String type, float imageW, float imageH,
                            float collX, float collY, float collW, float collH,
-                           boolean hasCollision) {}
+                           boolean hasCollision, Map<String, Object> properties) {}
 
     private final Map<Integer, TileData> tileDataMap = new HashMap<>();
 
@@ -105,6 +118,8 @@ public class HeadlessTmxLoader {
 
             String tsName = tsRoot.getAttribute("name", "tileset");
             int tileCount = tsRoot.getIntAttribute("tilecount", 0);
+            float tilesetTileWidth = tsRoot.getFloatAttribute("tilewidth", 32f);
+            float tilesetTileHeight = tsRoot.getFloatAttribute("tileheight", 32f);
 
             TiledMapTileSet tileSet = new TiledMapTileSet();
             tileSet.setName(tsName);
@@ -118,18 +133,29 @@ public class HeadlessTmxLoader {
                 int globalId = firstGid + tileId;
 
                 String tileType = tileEl.getAttribute("type", "");
+                Map<String, Object> tileProperties = new HashMap<>();
+                XmlReader.Element tilePropsEl = tileEl.getChildByName("properties");
+                if (tilePropsEl != null) {
+                    parsePropertiesElement(tilePropsEl, tileProperties);
+                }
 
                 // image dimensions
-                float imgW = 32f, imgH = 32f;
+                // Atlas-backed tiles in TSX often do not have per-tile <image>, so default to
+                // the tileset's nominal tile size instead of 32x32. Otherwise server-side size
+                // and collision Y-flip drift away from the client for decor/crop/ore tiles.
+                float imgW = tilesetTileWidth;
+                float imgH = tilesetTileHeight;
                 XmlReader.Element imageEl = tileEl.getChildByName("image");
                 if (imageEl != null) {
                     imgW = imageEl.getFloatAttribute("width", 32f);
                     imgH = imageEl.getFloatAttribute("height", 32f);
                 }
 
-                // collision shape from objectgroup (first non-sensor object)
+                // collision shape from objectgroup (first non-sensor object for gameplay,
+                // all non-sensor shapes are still added to tile objects for static map collision)
                 float collX = 0, collY = 0, collW = 0, collH = 0;
                 boolean hasCollision = false;
+                List<CollisionRect> collisionRects = new ArrayList<>();
                 XmlReader.Element objGroup = tileEl.getChildByName("objectgroup");
                 if (objGroup != null) {
                     for (int j = 0; j < objGroup.getChildCount(); j++) {
@@ -151,14 +177,14 @@ public class HeadlessTmxLoader {
                         }
 
                         // use bounding box (works for rect, ellipse, polygon)
-                        collX = objEl.getFloatAttribute("x", 0);
-                        collY = objEl.getFloatAttribute("y", 0);
-                        collW = objEl.getFloatAttribute("width", 0);
-                        collH = objEl.getFloatAttribute("height", 0);
+                        float shapeX = objEl.getFloatAttribute("x", 0);
+                        float shapeY = objEl.getFloatAttribute("y", 0);
+                        float shapeW = objEl.getFloatAttribute("width", 0);
+                        float shapeH = objEl.getFloatAttribute("height", 0);
 
                         // polygon → compute bounding box
                         XmlReader.Element polyEl = objEl.getChildByName("polygon");
-                        if (polyEl != null && collW == 0 && collH == 0) {
+                        if (polyEl != null && shapeW == 0 && shapeH == 0) {
                             String points = polyEl.getAttribute("points", "");
                             float minX = Float.MAX_VALUE, minY = Float.MAX_VALUE;
                             float maxX = -Float.MAX_VALUE, maxY = -Float.MAX_VALUE;
@@ -172,27 +198,44 @@ public class HeadlessTmxLoader {
                                 maxX = Math.max(maxX, px);
                                 maxY = Math.max(maxY, py);
                             }
-                            collX += minX;
-                            collY += minY;
-                            collW = maxX - minX;
-                            collH = maxY - minY;
+                            shapeX += minX;
+                            shapeY += minY;
+                            shapeW = maxX - minX;
+                            shapeH = maxY - minY;
                         }
 
-                        // ellipse → use x,y,w,h directly (already set)
-                        hasCollision = collW > 0 && collH > 0;
-                        if (hasCollision) break; // use first non-sensor shape
+                        if (shapeW <= 0f || shapeH <= 0f) {
+                            continue;
+                        }
+
+                        float flippedY = imgH - shapeY - shapeH;
+                        collisionRects.add(new CollisionRect(shapeX, flippedY, shapeW, shapeH));
+
+                        if (!hasCollision) {
+                            collX = shapeX;
+                            collY = flippedY;
+                            collW = shapeW;
+                            collH = shapeH;
+                            hasCollision = true;
+                        }
                     }
                 }
 
-                // TSX collision shapes are in Tiled Y-down space (origin=top-left of tile).
-                // LibGDX client flips them to Y-up automatically. Server must do the same:
-                //   collY_yup = imageH - collY_ydown - collH
-                if (hasCollision) {
-                    collY = imgH - collY - collH;
-                }
-
                 tileDataMap.put(globalId, new TileData(tileType, imgW, imgH,
-                    collX, collY, collW, collH, hasCollision));
+                    collX, collY, collW, collH, hasCollision, Map.copyOf(tileProperties)));
+
+                TiledMapTile tile = new StaticTiledMapTile(new TextureRegion());
+                tile.setId(globalId);
+                if (!tileType.isBlank()) {
+                    tile.getProperties().put("type", tileType);
+                }
+                for (Map.Entry<String, Object> entry : tileProperties.entrySet()) {
+                    tile.getProperties().put(entry.getKey(), entry.getValue());
+                }
+                for (CollisionRect rect : collisionRects) {
+                    tile.getObjects().add(new RectangleMapObject(rect.x(), rect.y(), rect.width(), rect.height()));
+                }
+                tileSet.putTile(globalId, tile);
             }
 
             map.getTileSets().addTileSet(tileSet);
@@ -208,9 +251,71 @@ public class HeadlessTmxLoader {
         // parse properties
         parseLayerProperties(element, layer.getProperties());
 
-        // server doesn't need tile data (cells) for rendering —
-        // collision layer uses object groups, not tile cells
+        XmlReader.Element dataElement = element.getChildByName("data");
+        if (dataElement != null) {
+            populateTileLayerCells(dataElement, map, layer, mapWidth, mapHeight);
+        }
+
         map.getLayers().add(layer);
+    }
+
+    private void populateTileLayerCells(XmlReader.Element dataElement,
+                                        TiledMap map,
+                                        TiledMapTileLayer layer,
+                                        int mapWidth,
+                                        int mapHeight) {
+        String encoding = dataElement.getAttribute("encoding", "");
+        String compression = dataElement.getAttribute("compression", "");
+        if (!"base64".equals(encoding)) {
+            return;
+        }
+
+        String rawData = dataElement.getText();
+        if (rawData == null || rawData.isBlank()) {
+            return;
+        }
+
+        byte[] decoded = Base64.getDecoder().decode(rawData.replaceAll("\\s+", ""));
+        byte[] bytes = decompressLayerBytes(decoded, compression);
+        int cellCount = Math.min(mapWidth * mapHeight, bytes.length / 4);
+
+        for (int index = 0; index < cellCount; index++) {
+            int byteIndex = index * 4;
+            long rawGid = ((long) bytes[byteIndex] & 0xFFL)
+                | (((long) bytes[byteIndex + 1] & 0xFFL) << 8)
+                | (((long) bytes[byteIndex + 2] & 0xFFL) << 16)
+                | (((long) bytes[byteIndex + 3] & 0xFFL) << 24);
+            int gid = clearTileFlags(rawGid);
+            if (gid == 0) {
+                continue;
+            }
+
+            TiledMapTile tile = map.getTileSets().getTile(gid);
+            if (tile == null) {
+                continue;
+            }
+
+            int x = index % mapWidth;
+            int y = mapHeight - 1 - (index / mapWidth);
+            TiledMapTileLayer.Cell cell = new TiledMapTileLayer.Cell();
+            cell.setTile(tile);
+            layer.setCell(x, y, cell);
+        }
+    }
+
+    private byte[] decompressLayerBytes(byte[] data, String compression) {
+        if (compression == null || compression.isBlank()) {
+            return data;
+        }
+
+        try (InputStream input = switch (compression) {
+            case "zlib" -> new InflaterInputStream(new ByteArrayInputStream(data));
+            default -> throw new IllegalArgumentException("Unsupported TMX compression: " + compression);
+        }) {
+            return input.readAllBytes();
+        } catch (IOException exception) {
+            throw new RuntimeException("Cannot decompress TMX layer data", exception);
+        }
     }
 
     private void parseObjectGroup(XmlReader.Element element, TiledMap map, int mapHeightPx) {
@@ -237,7 +342,8 @@ public class HeadlessTmxLoader {
         float y = objEl.getFloatAttribute("y", 0);
         float width = objEl.getFloatAttribute("width", 0);
         float height = objEl.getFloatAttribute("height", 0);
-        int gid = objEl.getIntAttribute("gid", 0);
+        long rawGid = parseRawGid(objEl);
+        int gid = clearTileFlags(rawGid);
         String name = objEl.getAttribute("name", "");
         String type = objEl.getAttribute("type", objEl.getAttribute("class", ""));
 
@@ -258,6 +364,10 @@ public class HeadlessTmxLoader {
             RectangleMapObject rectObj = new RectangleMapObject(x, y, width, height);
             mapObject = rectObj;
             mapObject.getProperties().put("gid", gid);
+            mapObject.getProperties().put("rawGid", rawGid);
+            mapObject.getProperties().put("flipHorizontally", hasTileFlag(rawGid, FLAG_FLIP_HORIZONTALLY));
+            mapObject.getProperties().put("flipVertically", hasTileFlag(rawGid, FLAG_FLIP_VERTICALLY));
+            mapObject.getProperties().put("flipDiagonally", hasTileFlag(rawGid, FLAG_FLIP_DIAGONALLY));
         } else {
             // rectangle object
             RectangleMapObject rectObj = new RectangleMapObject(x, y, width, height);
@@ -291,20 +401,56 @@ public class HeadlessTmxLoader {
         return mapObject;
     }
 
+    private long parseRawGid(XmlReader.Element objEl) {
+        String gidValue = objEl.getAttribute("gid", null);
+        if (gidValue == null || gidValue.isBlank()) {
+            return 0L;
+        }
+
+        return Long.parseLong(gidValue);
+    }
+
+    private int clearTileFlags(long rawGid) {
+        return (int) (rawGid & MASK_CLEAR_TILE_FLAGS);
+    }
+
+    private boolean hasTileFlag(long rawGid, long flag) {
+        return (rawGid & flag) != 0L;
+    }
+
     private void parseLayerProperties(XmlReader.Element element, MapProperties props) {
         XmlReader.Element propsEl = element.getChildByName("properties");
         if (propsEl == null) return;
 
+        parsePropertiesElement(propsEl, props);
+    }
+
+    private void parsePropertiesElement(XmlReader.Element propsEl, MapProperties target) {
         for (XmlReader.Element propEl : propsEl.getChildrenByName("property")) {
             String name = propEl.getAttribute("name", "");
             String type = propEl.getAttribute("type", "string");
             String value = propEl.getAttribute("value", propEl.getText() != null ? propEl.getText() : "");
 
             switch (type) {
-                case "int" -> props.put(name, Integer.parseInt(value));
-                case "float" -> props.put(name, Float.parseFloat(value));
-                case "bool" -> props.put(name, Boolean.parseBoolean(value));
-                default -> props.put(name, value);
+                case "int" -> target.put(name, Integer.parseInt(value));
+                case "float" -> target.put(name, Float.parseFloat(value));
+                case "bool" -> target.put(name, Boolean.parseBoolean(value));
+                default -> target.put(name, value);
+            }
+        }
+    }
+
+    private void parsePropertiesElement(XmlReader.Element propsEl, Map<String, Object> target) {
+        for (XmlReader.Element propEl : propsEl.getChildrenByName("property")) {
+            String name = propEl.getAttribute("name", "");
+            String type = propEl.getAttribute("type", "string");
+            String value = propEl.getAttribute("value", propEl.getText() != null ? propEl.getText() : "");
+
+            switch (type) {
+                case "int" -> target.put(name, Integer.parseInt(value));
+                case "float" -> target.put(name, Float.parseFloat(value));
+                case "bool" -> target.put(name, Boolean.parseBoolean(value));
+                default -> target.put(name, value);
             }
         }
     }

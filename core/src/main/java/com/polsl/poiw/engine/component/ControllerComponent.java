@@ -17,6 +17,7 @@ public class ControllerComponent extends AbstractActorComponent {
 
     private final List<Command> pressedCommands;
     private final List<Command> releasedCommands;
+    private boolean attackInputTriggered;
 
     public ControllerComponent() {
         this.pressedCommands = new ArrayList<>();
@@ -25,4 +26,14 @@ public class ControllerComponent extends AbstractActorComponent {
 
     public List<Command> getPressedCommands() { return pressedCommands; }
     public List<Command> getReleasedCommands() { return releasedCommands; }
+
+    public void triggerAttackInput() {
+        attackInputTriggered = true;
+    }
+
+    public boolean consumeAttackInputTrigger() {
+        boolean triggered = attackInputTriggered;
+        attackInputTriggered = false;
+        return triggered;
+    }
 }

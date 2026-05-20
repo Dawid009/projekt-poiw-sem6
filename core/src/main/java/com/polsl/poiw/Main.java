@@ -10,11 +10,13 @@ import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.math.Vector2;
-import com.badlogic.gdx.utils.viewport.ExtendViewport;
+import com.badlogic.gdx.utils.viewport.ScreenViewport;
+import com.badlogic.gdx.utils.viewport.Viewport;
 import com.polsl.poiw.engine.asset.AssetService;
 import com.polsl.poiw.engine.asset.AtlasAsset;
 import com.polsl.poiw.engine.level.LevelScreen;
 import com.polsl.poiw.engine.level.WorldContext;
+import com.polsl.poiw.engine.settings.GraphicsSettingsService;
 import com.polsl.poiw.gameplay.actor.TriggerActor;
 import com.polsl.poiw.gameplay.character.PlayerCharacter;
 import com.polsl.poiw.gameplay.level.LevelDefinitions;
@@ -43,11 +45,13 @@ public class Main extends Game {
     /** Rozmiar viewport w metrach (nie pikselach) */
     public static final float WORLD_WIDTH = 16f;
     public static final float WORLD_HEIGHT = 9f;
+    public static final int REFERENCE_WIDTH = 1280;
+    public static final float WORLD_UNITS_PER_PIXEL = WORLD_WIDTH / REFERENCE_WIDTH;
 
     private SpriteBatch batch;
     private AssetService assetService;
     private OrthographicCamera camera;
-    private ExtendViewport viewport;
+    private ScreenViewport viewport;
     private GameInstance gameInstance;
     private InputMultiplexer inputMultiplexer;
 
@@ -66,7 +70,15 @@ public class Main extends Game {
         batch = new SpriteBatch();
         assetService = new AssetService(new InternalFileHandleResolver());
         camera = new OrthographicCamera();
-        viewport = new ExtendViewport(WORLD_WIDTH, WORLD_HEIGHT, camera);
+        viewport = new ScreenViewport(camera);
+        // Wieksza rozdzielczosc pokazuje wiecej swiata, bez rozciagania obiektow.
+        viewport.setUnitsPerPixel(WORLD_UNITS_PER_PIXEL);
+        viewport.update(Gdx.graphics.getWidth(), Gdx.graphics.getHeight(), true);
+
+        GraphicsSettingsService.initialize();
+        GraphicsSettingsService.applySettings(GraphicsSettingsService.getAppliedSettings());
+        viewport.update(Gdx.graphics.getWidth(), Gdx.graphics.getHeight(), true);
+
         gameInstance = new GameInstance();
 
         // LevelScreen — jeden ekran dla wszystkich poziomów
@@ -187,6 +199,6 @@ public class Main extends Game {
     public SpriteBatch getBatch() { return batch; }
     public AssetService getAssetService() { return assetService; }
     public OrthographicCamera getCamera() { return camera; }
-    public ExtendViewport getViewport() { return viewport; }
+    public Viewport getViewport() { return viewport; }
     public GameInstance getGameInstance() { return gameInstance; }
 }

@@ -34,6 +34,184 @@
         {
             "color": "#ffa0a0a4",
             "drawFill": true,
+            "id": 5,
+            "members": [
+                {
+                    "name": "creature_type",
+                    "propertyType": "CreatureType",
+                    "type": "string",
+                    "value": "NULL"
+                },
+                {
+                    "name": "damage",
+                    "type": "float",
+                    "value": 0
+                },
+                {
+                    "name": "damageDelay",
+                    "type": "float",
+                    "value": 0
+                },
+                {
+                    "name": "hostile",
+                    "type": "bool",
+                    "value": false
+                },
+                {
+                    "name": "life",
+                    "type": "float",
+                    "value": 100
+                },
+                {
+                    "name": "speed",
+                    "type": "float",
+                    "value": 3
+                }
+            ],
+            "name": "Creature",
+            "type": "class",
+            "useAs": [
+                "property",
+                "map",
+                "layer",
+                "object",
+                "tile",
+                "tileset",
+                "wangcolor",
+                "wangset",
+                "project"
+            ]
+        },
+        {
+            "id": 10,
+            "name": "CreatureType",
+            "storageType": "string",
+            "type": "enum",
+            "values": [
+                "NULL",
+                "chicken",
+                "sheep",
+                "pig",
+                "cow",
+                "slime",
+                "skeleton"
+            ],
+            "valuesAsFlags": false
+        },
+        {
+            "color": "#ffa0a0a4",
+            "drawFill": true,
+            "id": 6,
+            "members": [
+                {
+                    "name": "crop_type",
+                    "propertyType": "CropType",
+                    "type": "string",
+                    "value": "NULL"
+                },
+                {
+                    "name": "growth_stage",
+                    "type": "int",
+                    "value": -1
+                }
+            ],
+            "name": "Crop",
+            "type": "class",
+            "useAs": [
+                "property",
+                "map",
+                "layer",
+                "object",
+                "tile",
+                "tileset",
+                "wangcolor",
+                "wangset",
+                "project"
+            ]
+        },
+        {
+            "id": 9,
+            "name": "CropType",
+            "storageType": "string",
+            "type": "enum",
+            "values": [
+                "NULL",
+                "wheat",
+                "carrot"
+            ],
+            "valuesAsFlags": false
+        },
+        {
+            "color": "#ffa0a0a4",
+            "drawFill": true,
+            "id": 11,
+            "members": [
+                {
+                    "name": "occupied",
+                    "type": "bool",
+                    "value": false
+                },
+                {
+                    "name": "watered",
+                    "type": "bool",
+                    "value": false
+                }
+            ],
+            "name": "Farmland",
+            "type": "class",
+            "useAs": [
+                "property",
+                "map",
+                "layer",
+                "object",
+                "tile",
+                "tileset",
+                "wangcolor",
+                "wangset",
+                "project"
+            ]
+        },
+        {
+            "color": "#ffa0a0a4",
+            "drawFill": true,
+            "id": 12,
+            "members": [
+                {
+                    "name": "ground_type",
+                    "propertyType": "GroundType",
+                    "type": "string",
+                    "value": "dirt"
+                }
+            ],
+            "name": "Ground",
+            "type": "class",
+            "useAs": [
+                "property",
+                "map",
+                "layer",
+                "object",
+                "tile",
+                "tileset",
+                "wangcolor",
+                "wangset",
+                "project"
+            ]
+        },
+        {
+            "id": 13,
+            "name": "GroundType",
+            "storageType": "string",
+            "type": "enum",
+            "values": [
+                "dirt",
+                "grass",
+                "water"
+            ],
+            "valuesAsFlags": false
+        },
+        {
+            "color": "#ffa0a0a4",
+            "drawFill": true,
             "id": 3,
             "members": [
                 {
@@ -95,6 +273,44 @@
         {
             "color": "#ffa0a0a4",
             "drawFill": true,
+            "id": 7,
+            "members": [
+                {
+                    "name": "ore_type",
+                    "propertyType": "OreType",
+                    "type": "string",
+                    "value": "NULL"
+                }
+            ],
+            "name": "Ore",
+            "type": "class",
+            "useAs": [
+                "property",
+                "map",
+                "layer",
+                "object",
+                "tile",
+                "tileset",
+                "wangcolor",
+                "wangset",
+                "project"
+            ]
+        },
+        {
+            "id": 8,
+            "name": "OreType",
+            "storageType": "string",
+            "type": "enum",
+            "values": [
+                "NULL",
+                "gold",
+                "iron"
+            ],
+            "valuesAsFlags": false
+        },
+        {
+            "color": "#ffa0a0a4",
+            "drawFill": true,
             "id": 1,
             "members": [
                 {
@@ -111,6 +327,48 @@
                 "tile",
                 "project"
             ]
+        },
+        {
+            "color": "#ffa0a0a4",
+            "drawFill": true,
+            "id": 14,
+            "members": [
+                {
+                    "name": "is_stump",
+                    "type": "bool",
+                    "value": false
+                },
+                {
+                    "name": "tree_size",
+                    "propertyType": "TreeSize",
+                    "type": "string",
+                    "value": "Normal"
+                }
+            ],
+            "name": "Tree",
+            "type": "class",
+            "useAs": [
+                "property",
+                "map",
+                "layer",
+                "object",
+                "tile",
+                "tileset",
+                "wangcolor",
+                "wangset",
+                "project"
+            ]
+        },
+        {
+            "id": 15,
+            "name": "TreeSize",
+            "storageType": "string",
+            "type": "enum",
+            "values": [
+                "Normal",
+                "Small"
+            ],
+            "valuesAsFlags": false
         }
     ]
 }

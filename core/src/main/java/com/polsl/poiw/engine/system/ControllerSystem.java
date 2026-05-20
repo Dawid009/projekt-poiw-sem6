@@ -4,6 +4,7 @@ import com.badlogic.ashley.core.Entity;
 import com.badlogic.ashley.core.Family;
 import com.badlogic.ashley.systems.IteratingSystem;
 import com.polsl.poiw.engine.actor.NetRole;
+import com.polsl.poiw.engine.component.CombatComponent;
 import com.polsl.poiw.engine.component.ControllerComponent;
 import com.polsl.poiw.engine.component.MovementComponent;
 import com.polsl.poiw.engine.component.TransformComponent;
@@ -40,6 +41,9 @@ public class ControllerSystem extends IteratingSystem {
                 case DOWN -> moveEntity(entity, 0f, -1f);
                 case LEFT -> moveEntity(entity, -1f, 0f);
                 case RIGHT -> moveEntity(entity, 1f, 0f);
+                case SELECT -> requestAttack(entity);
+                case CANCEL -> {
+                }
             }
         }
         controller.getPressedCommands().clear();
@@ -50,6 +54,8 @@ public class ControllerSystem extends IteratingSystem {
                 case DOWN -> moveEntity(entity, 0f, 1f);
                 case LEFT -> moveEntity(entity, 1f, 0f);
                 case RIGHT -> moveEntity(entity, -1f, 0f);
+                case SELECT, CANCEL -> {
+                }
             }
         }
         controller.getReleasedCommands().clear();
@@ -60,6 +66,18 @@ public class ControllerSystem extends IteratingSystem {
         if (move != null) {
             move.getDirection().x += dx;
             move.getDirection().y += dy;
+        }
+    }
+
+    private void requestAttack(Entity entity) {
+        ControllerComponent controller = ControllerComponent.MAPPER.get(entity);
+        if (controller != null) {
+            controller.triggerAttackInput();
+        }
+
+        CombatComponent combat = CombatComponent.MAPPER.get(entity);
+        if (combat != null) {
+            combat.requestAttack();
         }
     }
 }

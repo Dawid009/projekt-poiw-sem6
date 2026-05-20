@@ -9,17 +9,27 @@ import com.polsl.poiw.engine.actor.ActorIdGenerator;
 import com.polsl.poiw.engine.actor.NetRole;
 import com.polsl.poiw.engine.asset.MapAsset;
 import com.polsl.poiw.engine.collision.CollisionComponent;
+import com.polsl.poiw.engine.component.CombatComponent;
 import com.polsl.poiw.engine.collision.CollisionSystem;
+import com.polsl.poiw.engine.component.InventoryComponent;
+import com.polsl.poiw.engine.component.TransformComponent;
 import com.polsl.poiw.engine.gameframework.GameMode;
 import com.polsl.poiw.engine.gameframework.PlayerController;
 import com.polsl.poiw.engine.gameframework.PlayerState;
+import com.polsl.poiw.engine.inventory.InventoryStack;
+import com.polsl.poiw.engine.inventory.ItemDefinition;
+import com.polsl.poiw.engine.net.replication.ReplicationInfo;
 import com.polsl.poiw.engine.tiled.TiledMapParser;
+import com.polsl.poiw.gameplay.actor.ItemPickupActor;
+import com.polsl.poiw.gameplay.actor.TiledVisualActor;
+import com.polsl.poiw.gameplay.actor.TrainingDummyActor;
 import com.polsl.poiw.gameplay.character.PlayerCharacter;
 import com.polsl.poiw.gameplay.gamemode.MainGameMode;
 import com.polsl.poiw.engine.net.driver.ConnectionManager;
 import com.polsl.poiw.engine.net.driver.NetDriver;
 import com.polsl.poiw.engine.net.driver.PlayerConnection;
 import com.polsl.poiw.engine.net.replication.ReplicationSystem;
+import com.polsl.poiw.engine.system.CombatSystem;
 import com.polsl.poiw.engine.system.ControllerSystem;
 import com.polsl.poiw.engine.system.MovementSystem;
 import com.polsl.poiw.engine.world.GameWorld;
@@ -29,7 +39,9 @@ import com.polsl.poiw.shared.protocol.NetworkProtocol;
 
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -40,6 +52,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class GameServer implements ApplicationListener {
 
     private static final String TAG = "GameServer";
+    private static final int ATTACK_INPUT_FLAG = 1 << 30;
+    private static final int INPUT_SEQUENCE_MASK = ATTACK_INPUT_FLAG - 1;
+    private static final int INITIAL_REPLICATION_BATCH_SIZE = 32;
+    private static final int INITIAL_MOVEMENT_SNAPSHOT_BATCH_SIZE = 48;
 
     private GameWorld gameWorld;
     private NetDriver netDriver;
@@ -61,6 +77,7 @@ public class GameServer implements ApplicationListener {
     private int tcpPort = NetworkProtocol.DEFAULT_TCP_PORT;
     private int udpPort = NetworkProtocol.DEFAULT_UDP_PORT;
     private int maxPlayers = 4;
+    private final Set<Integer> knownReplicatedActorIds = new HashSet<>();
 
     public GameServer() {}
 
@@ -84,10 +101,12 @@ public class GameServer implements ApplicationListener {
         // server systems (NO Render, Camera, Debug)
         gameWorld.addSystem(new CollisionSystem(gameWorld.getBox2dWorld()));
         gameWorld.addSystem(new ControllerSystem());
+        gameWorld.addSystem(new CombatSystem());
         gameWorld.addSystem(new MovementSystem());
 
         // load and parse Tiled map — collisions, triggers, spawn points
         loadServerMap();
+        syncKnownReplicatedActors();
 
         // NetDriver
         netDriver = new NetDriver(true);
@@ -157,6 +176,7 @@ public class GameServer implements ApplicationListener {
 
         // 2. update GameWorld (physics + ECS + ReplicationSystem)
         gameWorld.update(delta);
+        replicateActorLifecycleChanges();
 
         // 3. send position corrections to each player (AFTER physics, so position is accurate)
         sendPlayerCorrections();
@@ -217,6 +237,8 @@ public class GameServer implements ApplicationListener {
             handleClientConnect(connectionId, connect);
         } else if (message instanceof NetworkProtocol.ClientInputUpdate input) {
             handleClientInput(connectionId, input);
+        } else if (message instanceof NetworkProtocol.ClientInventoryAction inventoryAction) {
+            handleClientInventoryAction(connectionId, inventoryAction);
         } else if (message instanceof NetworkProtocol.Ping ping) {
             handlePing(connectionId, ping);
         } else if (message instanceof NetworkProtocol.ClientDisconnect) {
@@ -270,6 +292,7 @@ public class GameServer implements ApplicationListener {
 
         // send existing actors to the new client
         sendExistingActors(connectionId);
+        sendFullReplicationState(connectionId);
 
         // spawn pawn for the new player
         spawnPlayerPawn(connectionId, playerId, playerName);
@@ -286,6 +309,9 @@ public class GameServer implements ApplicationListener {
     }
 
     private void handleClientInput(int connectionId, NetworkProtocol.ClientInputUpdate input) {
+        boolean attackPressed = (input.sequenceNumber & ATTACK_INPUT_FLAG) != 0;
+        int sequenceNumber = input.sequenceNumber & INPUT_SEQUENCE_MASK;
+
         // validation: input magnitude <= 1.1 (margin for floating point)
         float magnitude = (float) Math.sqrt(input.dirX * input.dirX + input.dirY * input.dirY);
         if (magnitude > 1.1f) {
@@ -297,13 +323,23 @@ public class GameServer implements ApplicationListener {
         PlayerController pc = playerControllers.get(connectionId);
         if (pc == null) return;
 
-        pc.receiveClientInput(input.dirX, input.dirY, input.sequenceNumber);
+        pc.receiveClientInput(input.dirX, input.dirY, sequenceNumber);
+
+        if (attackPressed) {
+            var pawn = pc.getPossessedPawn();
+            if (pawn != null) {
+                CombatComponent combat = pawn.getComponent(CombatComponent.class);
+                if (combat != null) {
+                    combat.requestAttack();
+                }
+            }
+        }
 
         // update last processed sequence — correction sent after physics in render()
         ConnectionManager connMgr = netDriver.getConnectionManager();
         PlayerConnection conn = connMgr.getByConnectionId(connectionId);
         if (conn != null) {
-            conn.setLastProcessedInputSeq(input.sequenceNumber);
+            conn.setLastProcessedInputSeq(sequenceNumber);
         }
     }
 
@@ -312,6 +348,47 @@ public class GameServer implements ApplicationListener {
         pong.clientTimestamp = ping.clientTimestamp;
         pong.serverTimestamp = System.currentTimeMillis();
         netDriver.sendToClient(connectionId, pong, false);
+    }
+
+    private void handleClientInventoryAction(int connectionId, NetworkProtocol.ClientInventoryAction request) {
+        if (request == null || request.action == null || request.itemId == null || request.itemId.isBlank()) {
+            return;
+        }
+
+        PlayerController controller = playerControllers.get(connectionId);
+        if (controller == null) {
+            return;
+        }
+
+        if (request.playerId > 0 && request.playerId != controller.getPlayerId()) {
+            Gdx.app.debug(TAG, "Ignoring inventory action with mismatched playerId from conn=" + connectionId);
+            return;
+        }
+
+        if (!(controller.getPossessedPawn() instanceof PlayerCharacter player)) {
+            return;
+        }
+
+        InventoryComponent inventory = player.getInventoryComponent();
+        if (inventory == null) {
+            return;
+        }
+
+        switch (request.action) {
+            case USE -> inventory.useItem(request.itemId);
+            case DROP -> dropInventoryItem(player, inventory, request.itemId);
+        }
+    }
+
+    private void dropInventoryItem(PlayerCharacter player, InventoryComponent inventory, String itemId) {
+        InventoryStack stack = inventory.getStack(itemId);
+        if (stack == null) {
+            return;
+        }
+
+        if (inventory.removeItem(itemId, 1) > 0) {
+            spawnItemNearPlayer(player, stack.getDefinition(), 1, 0.35f, 0.45f);
+        }
     }
 
     /**
@@ -357,6 +434,33 @@ public class GameServer implements ApplicationListener {
         }
     }
 
+    private void spawnItemNearPlayer(PlayerCharacter player,
+                                     ItemDefinition item,
+                                     int quantity,
+                                     float heightOffset,
+                                     float pickupGraceSeconds) {
+        if (gameWorld == null || player == null || item == null || quantity <= 0) {
+            return;
+        }
+
+        TransformComponent transform = player.getComponent(TransformComponent.class);
+        Vector2 playerPosition = player.getPosition();
+        float playerWidth = transform != null ? transform.getSize().x : 1f;
+        float playerHeight = transform != null ? transform.getSize().y : 1f;
+        float itemSize = 0.5f;
+
+        Vector2 spawnPosition = new Vector2(
+            playerPosition.x + playerWidth * 0.5f - itemSize * 0.5f,
+            playerPosition.y + playerHeight + heightOffset
+        );
+
+        ItemPickupActor pickupActor = new ItemPickupActor();
+        pickupActor.configureServer(item, quantity);
+        pickupActor.setReplicated(true);
+        pickupActor.setPickupGrace(player.getActorId(), pickupGraceSeconds);
+        gameWorld.spawnActor(pickupActor, spawnPosition);
+    }
+
     /**
      * helper methods
      */
@@ -378,6 +482,7 @@ public class GameServer implements ApplicationListener {
             spawn.y = pos.y;
 
             spawn.ownerId = actor.getOwnerId();
+            spawn.initialProperties = buildInitialSpawnProperties(actor);
             netDriver.sendToClient(connectionId, spawn, true);
             Gdx.app.log(TAG, "  Sent ActorSpawn #" + spawn.actorId + " class=" + spawn.actorClass
                 + " owner=" + spawn.ownerId + " pos=(" + spawn.x + "," + spawn.y + ")");
@@ -422,11 +527,7 @@ public class GameServer implements ApplicationListener {
 
         if (snapshots.isEmpty()) return;
 
-        var batch = new NetworkProtocol.BatchMovementSnapshot();
-        batch.snapshots = snapshots.toArray(new NetworkProtocol.MovementSnapshot[0]);
-        batch.serverTime = replicationSystem.getTickCounter() * (1f / 20f);
-        batch.serverTick = replicationSystem.getTickCounter();
-        netDriver.sendToClient(connectionId, batch, false); // UDP
+        sendMovementSnapshotsInChunks(connectionId, snapshots, INITIAL_MOVEMENT_SNAPSHOT_BATCH_SIZE);
     }
 
     private void spawnPlayerPawn(int connectionId, int playerId, String playerName) {
@@ -478,7 +579,9 @@ public class GameServer implements ApplicationListener {
         spawn.x = spawnPos.x;
         spawn.y = spawnPos.y;
         spawn.ownerId = playerId;
+        spawn.initialProperties = buildInitialSpawnProperties(pawn);
         netDriver.sendToAllClients(spawn, true);
+        knownReplicatedActorIds.add(pawn.getActorId());
 
         Gdx.app.log(TAG, "Spawned pawn for player " + playerName
             + " at (" + spawnPos.x + ", " + spawnPos.y + ")");
@@ -516,5 +619,164 @@ public class GameServer implements ApplicationListener {
         Gdx.app.log(TAG, "Shutting down server...");
         if (netDriver != null) netDriver.dispose();
         if (gameWorld != null) gameWorld.dispose();
+    }
+
+    private void sendFullReplicationState(int connectionId) {
+        java.util.List<NetworkProtocol.ReplicationUpdate> updates = new java.util.ArrayList<>();
+
+        for (var actor : gameWorld.getAllActors()) {
+            if (!actor.isReplicated()) {
+                continue;
+            }
+
+            collectFullComponentUpdates(actor, updates);
+        }
+
+        if (updates.isEmpty()) {
+            return;
+        }
+
+        sendReplicationUpdatesInChunks(connectionId, updates, INITIAL_REPLICATION_BATCH_SIZE);
+    }
+
+    private void sendReplicationUpdatesInChunks(int connectionId,
+                                                java.util.List<NetworkProtocol.ReplicationUpdate> updates,
+                                                int batchSize) {
+        float serverTime = replicationSystem.getTickCounter() * (1f / 20f);
+        int serverTick = replicationSystem.getTickCounter();
+
+        for (int start = 0; start < updates.size(); start += batchSize) {
+            int end = Math.min(start + batchSize, updates.size());
+            var batch = new NetworkProtocol.BatchReplicationUpdate();
+            batch.updates = updates.subList(start, end).toArray(new NetworkProtocol.ReplicationUpdate[0]);
+            batch.serverTime = serverTime;
+            batch.serverTick = serverTick;
+            netDriver.sendToClient(connectionId, batch, true);
+        }
+    }
+
+    private void sendMovementSnapshotsInChunks(int connectionId,
+                                               java.util.List<NetworkProtocol.MovementSnapshot> snapshots,
+                                               int batchSize) {
+        float serverTime = replicationSystem.getTickCounter() * (1f / 20f);
+        int serverTick = replicationSystem.getTickCounter();
+
+        for (int start = 0; start < snapshots.size(); start += batchSize) {
+            int end = Math.min(start + batchSize, snapshots.size());
+            var batch = new NetworkProtocol.BatchMovementSnapshot();
+            batch.snapshots = snapshots.subList(start, end).toArray(new NetworkProtocol.MovementSnapshot[0]);
+            batch.serverTime = serverTime;
+            batch.serverTick = serverTick;
+            netDriver.sendToClient(connectionId, batch, false);
+        }
+    }
+
+    private void collectFullComponentUpdates(com.polsl.poiw.engine.actor.Actor actor,
+                                             java.util.List<NetworkProtocol.ReplicationUpdate> updates) {
+        var components = actor.getAshleyEntity().getComponents();
+
+        for (var component : components) {
+            if (!(component instanceof com.polsl.poiw.engine.actor.ActorComponent actorComponent)) {
+                continue;
+            }
+            if (!actorComponent.isReplicated()) {
+                continue;
+            }
+
+            ReplicationInfo info = ReplicationInfo.scan(component.getClass());
+            if (!info.hasReplicatedProperties()) {
+                continue;
+            }
+
+            java.util.Map<String, Object> properties = new java.util.HashMap<>();
+            for (var property : info.getProperties()) {
+                properties.put(property.getFieldName(), property.getValue(component));
+            }
+            if (properties.isEmpty()) {
+                continue;
+            }
+
+            var update = new NetworkProtocol.ReplicationUpdate();
+            update.actorId = actor.getActorId();
+            update.componentClass = component.getClass().getName();
+            update.properties = properties;
+            update.sequenceNumber = replicationSystem.getTickCounter();
+            updates.add(update);
+        }
+    }
+
+    private java.util.Map<String, Object> buildInitialSpawnProperties(com.polsl.poiw.engine.actor.Actor actor) {
+        if (actor instanceof TrainingDummyActor trainingDummy) {
+            return trainingDummy.buildInitialReplicationProperties();
+        }
+
+        if (actor instanceof com.polsl.poiw.gameplay.actor.AbstractCreatureActor creature) {
+            return creature.buildInitialReplicationProperties();
+        }
+
+        if (actor instanceof com.polsl.poiw.gameplay.actor.AbstractTiledTargetActor tiledTargetActor) {
+            return tiledTargetActor.buildInitialReplicationProperties();
+        }
+
+        if (actor instanceof TiledVisualActor tiledVisualActor) {
+            return tiledVisualActor.buildInitialReplicationProperties();
+        }
+
+        if (actor instanceof ItemPickupActor itemPickupActor) {
+            return itemPickupActor.buildInitialReplicationProperties();
+        }
+
+        return null;
+    }
+
+    private void replicateActorLifecycleChanges() {
+        Map<Integer, com.polsl.poiw.engine.actor.Actor> currentActors = new HashMap<>();
+        for (var actor : gameWorld.getAllActors()) {
+            if (actor.isReplicated()) {
+                currentActors.put(actor.getActorId(), actor);
+            }
+        }
+
+        for (var entry : currentActors.entrySet()) {
+            if (knownReplicatedActorIds.contains(entry.getKey())) {
+                continue;
+            }
+
+            var actor = entry.getValue();
+            var spawn = new NetworkProtocol.ActorSpawn();
+            spawn.actorId = actor.getActorId();
+            spawn.actorClass = actor.getClass().getName();
+
+            var pos = actor.getPosition();
+            spawn.x = pos.x;
+            spawn.y = pos.y;
+            spawn.ownerId = actor.getOwnerId();
+            spawn.initialProperties = buildInitialSpawnProperties(actor);
+            netDriver.sendToAllClients(spawn, true);
+        }
+
+        Set<Integer> currentIds = new HashSet<>(currentActors.keySet());
+
+        for (Integer knownId : new HashSet<>(knownReplicatedActorIds)) {
+            if (currentIds.contains(knownId)) {
+                continue;
+            }
+
+            var destroy = new NetworkProtocol.ActorDestroy();
+            destroy.actorId = knownId;
+            netDriver.sendToAllClients(destroy, true);
+            knownReplicatedActorIds.remove(knownId);
+        }
+
+        knownReplicatedActorIds.addAll(currentIds);
+    }
+
+    private void syncKnownReplicatedActors() {
+        knownReplicatedActorIds.clear();
+        for (var actor : gameWorld.getAllActors()) {
+            if (actor.isReplicated()) {
+                knownReplicatedActorIds.add(actor.getActorId());
+            }
+        }
     }
 }

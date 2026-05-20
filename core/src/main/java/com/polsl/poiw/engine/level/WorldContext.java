@@ -2,12 +2,8 @@ package com.polsl.poiw.engine.level;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
-import com.badlogic.gdx.graphics.GL20;
-import com.badlogic.gdx.graphics.OrthographicCamera;
-import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.maps.tiled.TiledMap;
-import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.utils.Disposable;
@@ -22,8 +18,10 @@ import com.polsl.poiw.engine.gameframework.PlayerController;
 import com.polsl.poiw.engine.render.CameraSystem;
 import com.polsl.poiw.engine.render.DebugRenderSystem;
 import com.polsl.poiw.engine.render.RenderSystem;
+import com.polsl.poiw.engine.system.CombatSystem;
 import com.polsl.poiw.engine.system.ControllerSystem;
 import com.polsl.poiw.engine.system.MovementSystem;
+import com.polsl.poiw.engine.system.PlayerAnimationSystem;
 import com.polsl.poiw.engine.tiled.TiledMapParser;
 import com.polsl.poiw.engine.ui.HUD;
 import com.polsl.poiw.engine.ui.EAnchor;
@@ -35,6 +33,8 @@ import com.polsl.poiw.engine.net.prediction.InterpolationSystem;
 import com.polsl.poiw.engine.net.replication.ClientReplicationHandler;
 import com.polsl.poiw.input.GameControllerState;
 import com.polsl.poiw.input.KeyboardController;
+import com.polsl.poiw.gameplay.actor.ItemPickupActor;
+import com.polsl.poiw.gameplay.actor.TiledVisualActor;
 
 /**
  * WorldContext — aktywna instancja poziomu.
@@ -59,6 +59,7 @@ import com.polsl.poiw.input.KeyboardController;
 public class WorldContext implements Disposable {
 
     private static final String TAG = "WorldContext";
+    private static final float SIMULATED_PROXY_MOVE_EPSILON = 0.06f;
 
     private final Main game;
     private final LevelDefinition levelDef;
@@ -108,6 +109,7 @@ public class WorldContext implements Disposable {
         Gdx.app.debug(TAG, "Inicjalizacja: " + levelDef);
 
         this.skin = game.getAssetService().get(SkinAsset.DEFAULT);
+        TextureAtlas itemsAtlas = game.getAssetService().get(AtlasAsset.ITEMS);
 
         // HUD — Stage UI z osobnym viewportem (zawsze, nawet UI_ONLY)
         Stage hudStage = new Stage(new FitViewport(320f, 180f), game.getBatch());
@@ -131,7 +133,7 @@ public class WorldContext implements Disposable {
 
         // PlayerController
         this.playerController = createInstance(levelDef.getControllerClass(), "PlayerController");
-        playerController.initialize(game.getGameInstance(), gameWorld, gameMode, hud, skin);
+        playerController.initialize(game.getGameInstance(), gameWorld, gameMode, hud, skin, itemsAtlas);
 
         initializeDebugHud();
 
@@ -169,9 +171,32 @@ public class WorldContext implements Disposable {
             try {
                 Class<?> clazz = Class.forName(actorClass);
                 var actor = (com.polsl.poiw.engine.actor.AbstractActor) clazz.getDeclaredConstructor().newInstance();
+                TextureAtlas objectsAtlas = game.getAssetService().get(AtlasAsset.OBJECTS);
+                TextureAtlas creaturesAtlas = game.getAssetService().get(AtlasAsset.CREATURES);
+                TextureAtlas itemsAtlas = game.getAssetService().get(AtlasAsset.ITEMS);
                 if (actor instanceof com.polsl.poiw.gameplay.character.PlayerCharacter pc) {
-                    TextureAtlas atlas = game.getAssetService().get(AtlasAsset.OBJECTS);
-                    pc.configure(atlas);
+                    pc.configure(objectsAtlas);
+                } else if (actor instanceof com.polsl.poiw.gameplay.actor.TrainingDummyActor trainingDummy) {
+                    trainingDummy.configureFromReplication(objectsAtlas, initialProps);
+                } else if (actor instanceof com.polsl.poiw.gameplay.actor.AbstractCreatureActor creature) {
+                    creature.configureFromReplication(creaturesAtlas, initialProps);
+                } else if (actor instanceof com.polsl.poiw.gameplay.actor.CropActor cropActor) {
+                    cropActor.configureFromReplication(
+                        tiledParser != null ? tiledParser.getCurrentMap() : null,
+                        initialProps
+                    );
+                } else if (actor instanceof com.polsl.poiw.gameplay.actor.AbstractTiledTargetActor tiledTargetActor) {
+                    tiledTargetActor.configureFromReplication(
+                        tiledParser != null ? tiledParser.getCurrentMap() : null,
+                        initialProps
+                    );
+                } else if (actor instanceof TiledVisualActor tiledVisualActor) {
+                    tiledVisualActor.configureFromReplication(
+                        tiledParser != null ? tiledParser.getCurrentMap() : null,
+                        initialProps
+                    );
+                } else if (actor instanceof ItemPickupActor itemPickupActor) {
+                    itemPickupActor.configureFromReplication(initialProps, itemsAtlas, skin);
                 }
                 return actor;
             } catch (Exception e) {
@@ -192,9 +217,15 @@ public class WorldContext implements Disposable {
             gi.returnToMenu("Utracono polaczenie z serwerem");
         });
 
+        playerController.setPlayerId(gi.getLocalPlayerId());
+
         // give PlayerController access to ClientPrediction for saveMove()
         if (clientPrediction != null) {
             playerController.setClientPrediction(clientPrediction);
+        }
+
+        for (Object pendingMessage : gi.drainPendingGameplayMessages()) {
+            handleNetworkMessage(pendingMessage);
         }
     }
 
@@ -202,6 +233,14 @@ public class WorldContext implements Disposable {
     // handles network messages on the client during gameplay.
     private void handleNetworkMessage(Object message) {
         var gi = game.getGameInstance();
+
+        if (gameWorld == null || replicationHandler == null || playerController == null) {
+            if (!(message instanceof com.polsl.poiw.shared.protocol.NetworkProtocol.ServerReject)) {
+                Gdx.app.debug(TAG, "Ignoring gameplay message after WorldContext teardown: "
+                    + message.getClass().getSimpleName());
+            }
+            return;
+        }
 
         if (message instanceof com.polsl.poiw.shared.protocol.NetworkProtocol.ServerAccept accept) {
             // ServerAccept already handled in GameInstance.connectToServer() —
@@ -262,10 +301,10 @@ public class WorldContext implements Disposable {
                     interpolationSystem.addSnapshot(correction.actorId, correction.serverTime,
                         correction.x, correction.y, correction.velX, correction.velY);
                 }
+                updateSimulatedProxyMovement(actor, correction.velX, correction.velY);
             }
 
         } else if (message instanceof com.polsl.poiw.shared.protocol.NetworkProtocol.Pong pong) {
-            float ping = (System.currentTimeMillis() - pong.clientTimestamp) / 1000f;
             gi.setServerTime(pong.serverTimestamp / 1000f);
 
         } else if (message instanceof com.polsl.poiw.shared.protocol.NetworkProtocol.ServerTravel travel) {
@@ -297,6 +336,7 @@ public class WorldContext implements Disposable {
                     interpolationSystem.addSnapshot(snapshot.actorId, batch.serverTime,
                         snapshot.x, snapshot.y, snapshot.velX, snapshot.velY);
                 }
+                updateSimulatedProxyMovement(actor, snapshot.velX, snapshot.velY);
             }
             // AUTONOMOUS_PROXY — skip; reconciliation is handled by ServerPositionCorrection
         }
@@ -330,7 +370,19 @@ public class WorldContext implements Disposable {
     private void addGameSystems() {
         gameWorld.addSystem(new CollisionSystem(gameWorld.getBox2dWorld()));
         gameWorld.addSystem(new ControllerSystem());
+        gameWorld.addSystem(new CombatSystem());
         gameWorld.addSystem(new MovementSystem());
+        gameWorld.addSystem(new PlayerAnimationSystem());
+        gameWorld.addSystem(new com.polsl.poiw.engine.system.CreatureAnimationSystem());
+
+        // in multiplayer the client adds InterpolationSystem + NetworkClock + ClientPrediction
+        if (game.getGameInstance().isMultiplayer()) {
+            networkClock = new com.polsl.poiw.engine.net.prediction.NetworkClock();
+            clientPrediction = new com.polsl.poiw.engine.net.prediction.ClientPrediction();
+            interpolationSystem = new InterpolationSystem();
+            interpolationSystem.setNetworkClock(networkClock);
+            gameWorld.addSystem(interpolationSystem);
+        }
 
         // in multiplayer the client adds InterpolationSystem + NetworkClock + ClientPrediction
         if (game.getGameInstance().isMultiplayer()) {
@@ -356,9 +408,11 @@ public class WorldContext implements Disposable {
      */
     private void loadTiledMap() {
         AssetService assetService = game.getAssetService();
-        TextureAtlas atlas = assetService.get(AtlasAsset.OBJECTS);
+        TextureAtlas objectsAtlas = assetService.get(AtlasAsset.OBJECTS);
+        TextureAtlas creaturesAtlas = assetService.get(AtlasAsset.CREATURES);
 
-        var objectFactory = new com.polsl.poiw.gameplay.tiled.DefaultTiledObjectFactory(gameWorld, atlas);
+        var objectFactory = new com.polsl.poiw.gameplay.tiled.DefaultTiledObjectFactory(gameWorld, objectsAtlas, creaturesAtlas);
+        objectFactory.setSkipReplicatedDamageableObjects(game.getGameInstance().isMultiplayer());
         this.tiledParser = new TiledMapParser(gameWorld, assetService);
         tiledParser.setObjectFactory(objectFactory);
 
@@ -368,6 +422,21 @@ public class WorldContext implements Disposable {
 
         renderSystem.setMap(map);
         cameraSystem.setMap(map);
+    }
+
+    private void updateSimulatedProxyMovement(com.polsl.poiw.engine.actor.Actor actor, float velX, float velY) {
+        var movement = actor.getComponent(com.polsl.poiw.engine.component.MovementComponent.class);
+        if (movement == null) {
+            return;
+        }
+
+        if (Math.abs(velX) <= SIMULATED_PROXY_MOVE_EPSILON
+            && Math.abs(velY) <= SIMULATED_PROXY_MOVE_EPSILON) {
+            movement.getDirection().setZero();
+            return;
+        }
+
+        movement.getDirection().set(velX, velY).nor();
     }
 
     /**
@@ -417,6 +486,10 @@ public class WorldContext implements Disposable {
      * Aktualizacja co klatkę. Wywoływane z aktywnego ekranu.
      */
     public void update(float delta) {
+        if (!isUiAvailable()) {
+            return;
+        }
+
         delta = Math.min(delta, 1f / 30f);
 
         // update network clock
@@ -427,6 +500,10 @@ public class WorldContext implements Disposable {
         // process network messages (main thread!)
         if (netDriver != null) {
             netDriver.processMessages();
+        }
+
+        if (!isUiAvailable()) {
+            return;
         }
 
         // F3 — debug rendering (tylko w GAME world)
@@ -488,9 +565,21 @@ public class WorldContext implements Disposable {
             gameWorld.update(delta);
         }
 
+        if (!isUiAvailable()) {
+            return;
+        }
+
         // GameMode i PlayerController tick
         if (gameMode != null) gameMode.tick(delta);
+        if (!isUiAvailable()) {
+            return;
+        }
+
         if (playerController != null) playerController.tick(delta);
+
+        if (!isUiAvailable()) {
+            return;
+        }
 
         // HUD tick i act
         updateDebugHud(delta);
@@ -515,6 +604,18 @@ public class WorldContext implements Disposable {
      * Renderuje świat i UI. Wywoływane po update().
      */
     public void render() {
+        if (!isUiAvailable()) {
+            return;
+        }
+
+        if (playerController != null) {
+            playerController.renderBeforeHud();
+        }
+
+        if (!isUiAvailable()) {
+            return;
+        }
+
         hud.render();
     }
 
@@ -525,7 +626,10 @@ public class WorldContext implements Disposable {
         if (levelDef.isGameWorld()) {
             game.getViewport().update(width, height, true);
         }
-        hud.resize(width, height);
+
+        if (hud != null) {
+            hud.resize(width, height);
+        }
     }
 
     // ===== Dostęp =====
@@ -578,12 +682,15 @@ public class WorldContext implements Disposable {
 
     // ===== Internals =====
 
-    @SuppressWarnings("unchecked")
     private <T> T createInstance(Class<? extends T> clazz, String label) {
         try {
             return clazz.getDeclaredConstructor().newInstance();
         } catch (Exception e) {
             throw new RuntimeException("Nie można stworzyć " + label + ": " + clazz.getName(), e);
         }
+    }
+
+    private boolean isUiAvailable() {
+        return initialized && hud != null;
     }
 }

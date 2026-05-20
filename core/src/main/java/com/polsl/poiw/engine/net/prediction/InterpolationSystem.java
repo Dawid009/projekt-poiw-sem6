@@ -6,7 +6,10 @@ import com.badlogic.ashley.systems.IteratingSystem;
 import com.badlogic.gdx.math.Vector2;
 import com.polsl.poiw.engine.actor.Actor;
 import com.polsl.poiw.engine.actor.NetRole;
+import com.polsl.poiw.engine.component.KnockbackComponent;
+import com.polsl.poiw.engine.component.PickupCollectAnimationComponent;
 import com.polsl.poiw.engine.component.TransformComponent;
+import com.polsl.poiw.gameplay.actor.ItemPickupActor;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -37,11 +40,16 @@ public class InterpolationSystem extends IteratingSystem {
         TransformComponent transform = TransformComponent.MAPPER.get(entity);
         Actor owner = transform.getOwner();
         if (owner == null || owner.getNetRole() != NetRole.SIMULATED_PROXY) return;
+        if (owner instanceof ItemPickupActor) return;
 
         EntityInterpolation interp = interpolators.get(owner.getActorId());
         if (interp == null) return;
 
-        Vector2 pos = interp.interpolate(networkClock.getRenderTime());
+        KnockbackComponent knockback = KnockbackComponent.MAPPER.get(entity);
+        PickupCollectAnimationComponent collectAnimation = owner.getComponent(PickupCollectAnimationComponent.class);
+        boolean allowExtrapolation = (knockback == null || !knockback.isActive())
+            && (collectAnimation == null || !collectAnimation.isCollecting());
+        Vector2 pos = interp.interpolate(networkClock.getRenderTime(), allowExtrapolation);
         if (pos != null) {
             // snapshots contain body-center position; TransformComponent stores bottom-left
             Vector2 size = transform.getSize();
