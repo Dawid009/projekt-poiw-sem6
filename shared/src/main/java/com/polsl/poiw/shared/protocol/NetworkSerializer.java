@@ -67,5 +67,12 @@ public final class NetworkSerializer {
         // healthcheck
         kryo.register(NetworkProtocol.Ping.class);
         kryo.register(NetworkProtocol.Pong.class);
+
+        // chat
+        kryo.register(NetworkProtocol.ChatMessageType.class);
+        kryo.register(NetworkProtocol.ChatMessage.class);
+
+        // player list
+        kryo.register(NetworkProtocol.PlayerListUpdate.class);
     }
 }

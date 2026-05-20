@@ -56,13 +56,6 @@ public class MenuPlayerController extends PlayerController {
     private TextButton connectButton;
     private SettingsPanelWidget settingsPanel;
 
-    private UserWidget menuContainer;
-    private UserWidget multiplayerPanel;
-    private TextFieldWidget ipField;
-    private TextFieldWidget portField;
-    private TextBlock statusText;
-    private ButtonWidget connectButton;
-
     @Override
     protected void setupHUD() {
         Skin skin = getSkin();

@@ -80,4 +80,8 @@ public class KeyboardController extends InputAdapter {
         this.activeState.keyUp(command);
         return true;
     }
+
+    public ControllerState getActiveState() {
+        return activeState;
+    }
 }

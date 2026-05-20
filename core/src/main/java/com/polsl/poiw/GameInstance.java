@@ -11,6 +11,7 @@ import com.polsl.poiw.engine.net.driver.NetDriver;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -78,6 +79,12 @@ public class GameInstance {
 
     /** target map received in ServerAccept; deferred until connect-phase queue has been drained */
     private String pendingConnectLevelId;
+
+    // ===== Chat =====
+
+    /** Chat message history — persists across level transitions */
+    private final List<NetworkProtocol.ChatMessage> chatHistory = new ArrayList<>();
+    private static final int MAX_CHAT_HISTORY = 50;
 
     // ===== System poziomów =====
 
@@ -332,6 +339,7 @@ public class GameInstance {
         }
         pendingGameplayMessages.clear();
         pendingConnectLevelId = null;
+        chatHistory.clear();
         mode = Mode.SINGLE_PLAYER;
         localPlayerId = -1;
         connectStatusCallback = null;
@@ -394,5 +402,33 @@ public class GameInstance {
     }
     public float getServerTime() { return serverTime; }
     public void setServerTime(float serverTime) { this.serverTime = serverTime; }
-}
 
+    // ===== Chat accessors =====
+
+    public void addChatMessage(NetworkProtocol.ChatMessage msg) {
+        chatHistory.add(msg);
+        while (chatHistory.size() > MAX_CHAT_HISTORY) {
+            chatHistory.removeFirst();
+        }
+    }
+
+    public List<NetworkProtocol.ChatMessage> getChatHistory() {
+        return Collections.unmodifiableList(chatHistory);
+    }
+
+    public void clearChatHistory() {
+        chatHistory.clear();
+    }
+
+    // ===== Chat input state =====
+
+    private static boolean chatInputActive = false;
+
+    public static boolean isChatInputActive() {
+        return chatInputActive;
+    }
+
+    public static void setChatInputActive(boolean active) {
+        chatInputActive = active;
+    }
+}

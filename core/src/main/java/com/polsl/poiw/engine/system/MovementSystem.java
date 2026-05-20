@@ -41,7 +41,6 @@ public class MovementSystem extends IteratingSystem {
         Actor actor = transform.getOwner();
 
         // SIMULATED_PROXY - position managed by InterpolationSystem, do not modify
-        Actor actor = transform.getOwner();
         if (actor != null && actor.getNetRole() == NetRole.SIMULATED_PROXY) {
             return;
         }

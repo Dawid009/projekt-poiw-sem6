@@ -9,7 +9,10 @@ import java.util.Map;
 public final class NetworkProtocol {
 
     // wersja protokołu - musi być taka sama między klientem i serwerem
-    public static final int PROTOCOL_VERSION = 1;
+    public static final int PROTOCOL_VERSION = 2;
+
+    // maksymalna długość wiadomości czatu
+    public static final int MAX_CHAT_MESSAGE_LENGTH = 60;
 
     // domyślny port TCP i UDP
     public static final int DEFAULT_TCP_PORT = 54555;
@@ -195,5 +198,32 @@ public final class NetworkProtocol {
     public static class Pong {
         public long clientTimestamp;
         public long serverTimestamp;
+    }
+
+    /**
+     * CHAT
+     */
+
+    public enum ChatMessageType {
+        PLAYER,  // wiadomość od gracza
+        SYSTEM   // wiadomość systemowa (join/leave)
+    }
+
+    // klient -> serwer (PLAYER) / serwer -> klienci (broadcast)
+    public static class ChatMessage {
+        public int playerId;
+        public String playerName;
+        public String message;
+        public long timestamp;
+        public ChatMessageType type;
+    }
+
+    /**
+     * PLAYER LIST
+     */
+
+    // serwer -> klienci: aktualna lista graczy
+    public static class PlayerListUpdate {
+        public String[] playerNames;
     }
 }

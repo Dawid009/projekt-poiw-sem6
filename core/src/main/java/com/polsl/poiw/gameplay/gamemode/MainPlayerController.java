@@ -164,6 +164,12 @@ public class MainPlayerController extends PlayerController {
     @Override
     public void tick(float delta) {
         super.tick(delta);
+
+        // Skip all key handling when chat input is active
+        if (GameInstance.isChatInputActive()) {
+            return;
+        }
+
         handlePauseToggle();
 
         if (isOverlayVisible()) {
