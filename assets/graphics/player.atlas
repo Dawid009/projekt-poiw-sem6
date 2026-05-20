@@ -1,0 +1,629 @@
+
+player.png
+size: 1024, 256
+format: RGBA8888
+filter: Nearest, Nearest
+repeat: none
+player_attack/attack_down
+  rotate: false
+  xy: 4, 4
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 0
+player_attack/attack_down
+  rotate: false
+  xy: 316, 160
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 1
+player_attack/attack_down
+  rotate: false
+  xy: 368, 212
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 2
+player_attack/attack_down
+  rotate: false
+  xy: 264, 56
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 3
+player
+  rotate: false
+  xy: 264, 56
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: -1
+player_idle/idle_down
+  rotate: false
+  xy: 264, 56
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 5
+player_idle/idle_down
+  rotate: false
+  xy: 264, 56
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 0
+player_attack/attack_left
+  rotate: false
+  xy: 40, 4
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 0
+player_attack/attack_left
+  rotate: false
+  xy: 316, 124
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 1
+player_attack/attack_left
+  rotate: false
+  xy: 404, 212
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 2
+player_attack/attack_left
+  rotate: false
+  xy: 76, 4
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 3
+player_idle/idle_left
+  rotate: false
+  xy: 76, 4
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 0
+player_idle/idle_left
+  rotate: false
+  xy: 76, 4
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 5
+player_attack/attack_right
+  rotate: false
+  xy: 440, 212
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 0
+player_attack/attack_right
+  rotate: false
+  xy: 112, 4
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 1
+player_attack/attack_right
+  rotate: false
+  xy: 476, 212
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 2
+player_attack/attack_right
+  rotate: false
+  xy: 148, 4
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 3
+player_idle/idle_right
+  rotate: false
+  xy: 148, 4
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 0
+player_idle/idle_right
+  rotate: false
+  xy: 148, 4
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 5
+player_attack/attack_up
+  rotate: false
+  xy: 512, 212
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 0
+player_attack/attack_up
+  rotate: false
+  xy: 184, 4
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 1
+player_attack/attack_up
+  rotate: false
+  xy: 548, 212
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 2
+player_attack/attack_up
+  rotate: false
+  xy: 220, 4
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 3
+player_idle/idle_up
+  rotate: false
+  xy: 220, 4
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 5
+player_idle/idle_up
+  rotate: false
+  xy: 220, 4
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 0
+player_cutting/player_cutting_down
+  rotate: false
+  xy: 4, 196
+  size: 48, 48
+  orig: 48, 48
+  offset: 0, 0
+  index: 0
+player_cutting/player_cutting_down
+  rotate: false
+  xy: 4, 144
+  size: 48, 48
+  orig: 48, 48
+  offset: 0, 0
+  index: 1
+player_cutting/player_cutting_right
+  rotate: false
+  xy: 56, 196
+  size: 48, 48
+  orig: 48, 48
+  offset: 0, 0
+  index: 0
+player_cutting/player_cutting_right
+  rotate: false
+  xy: 4, 92
+  size: 48, 48
+  orig: 48, 48
+  offset: 0, 0
+  index: 1
+player_cutting/player_cutting_up
+  rotate: false
+  xy: 56, 144
+  size: 48, 48
+  orig: 48, 48
+  offset: 0, 0
+  index: 0
+player_cutting/player_cutting_up
+  rotate: false
+  xy: 108, 196
+  size: 48, 48
+  orig: 48, 48
+  offset: 0, 0
+  index: 1
+player_hoe/player_hoe_down
+  rotate: false
+  xy: 4, 40
+  size: 48, 48
+  orig: 48, 48
+  offset: 0, 0
+  index: 0
+player_hoe/player_hoe_down
+  rotate: false
+  xy: 56, 92
+  size: 48, 48
+  orig: 48, 48
+  offset: 0, 0
+  index: 1
+player_hoe/player_hoe_right
+  rotate: false
+  xy: 108, 144
+  size: 48, 48
+  orig: 48, 48
+  offset: 0, 0
+  index: 0
+player_hoe/player_hoe_right
+  rotate: false
+  xy: 160, 196
+  size: 48, 48
+  orig: 48, 48
+  offset: 0, 0
+  index: 1
+player_hoe/player_hoe_up
+  rotate: false
+  xy: 56, 40
+  size: 48, 48
+  orig: 48, 48
+  offset: 0, 0
+  index: 0
+player_hoe/player_hoe_up
+  rotate: false
+  xy: 108, 92
+  size: 48, 48
+  orig: 48, 48
+  offset: 0, 0
+  index: 1
+player_idle/idle_down
+  rotate: false
+  xy: 584, 212
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 1
+player_idle/idle_down
+  rotate: false
+  xy: 584, 212
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 4
+player_idle/idle_down
+  rotate: false
+  xy: 620, 212
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 2
+player_idle/idle_down
+  rotate: false
+  xy: 620, 212
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 3
+player_idle/idle_left
+  rotate: false
+  xy: 656, 212
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 1
+player_idle/idle_left
+  rotate: false
+  xy: 656, 212
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 4
+player_idle/idle_left
+  rotate: false
+  xy: 692, 212
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 2
+player_idle/idle_left
+  rotate: false
+  xy: 692, 212
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 3
+player_idle/idle_right
+  rotate: false
+  xy: 728, 212
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 1
+player_idle/idle_right
+  rotate: false
+  xy: 728, 212
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 4
+player_idle/idle_right
+  rotate: false
+  xy: 764, 212
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 2
+player_idle/idle_right
+  rotate: false
+  xy: 764, 212
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 3
+player_idle/idle_up
+  rotate: false
+  xy: 800, 212
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 1
+player_idle/idle_up
+  rotate: false
+  xy: 800, 212
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 4
+player_idle/idle_up
+  rotate: false
+  xy: 836, 212
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 2
+player_idle/idle_up
+  rotate: false
+  xy: 836, 212
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 3
+player_mining/player_mining_down
+  rotate: false
+  xy: 160, 144
+  size: 48, 48
+  orig: 48, 48
+  offset: 0, 0
+  index: 0
+player_mining/player_mining_down
+  rotate: false
+  xy: 212, 196
+  size: 48, 48
+  orig: 48, 48
+  offset: 0, 0
+  index: 1
+player_mining/player_mining_right
+  rotate: false
+  xy: 108, 40
+  size: 48, 48
+  orig: 48, 48
+  offset: 0, 0
+  index: 0
+player_mining/player_mining_right
+  rotate: false
+  xy: 160, 92
+  size: 48, 48
+  orig: 48, 48
+  offset: 0, 0
+  index: 1
+player_mining/player_mining_up
+  rotate: false
+  xy: 212, 144
+  size: 48, 48
+  orig: 48, 48
+  offset: 0, 0
+  index: 0
+player_mining/player_mining_up
+  rotate: false
+  xy: 264, 196
+  size: 48, 48
+  orig: 48, 48
+  offset: 0, 0
+  index: 1
+player_walk/walk_down
+  rotate: false
+  xy: 872, 212
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 0
+player_walk/walk_down
+  rotate: false
+  xy: 908, 212
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 1
+player_walk/walk_down
+  rotate: false
+  xy: 944, 212
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 2
+player_walk/walk_down
+  rotate: false
+  xy: 980, 212
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 3
+player_walk/walk_down
+  rotate: false
+  xy: 316, 88
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 4
+player_walk/walk_down
+  rotate: false
+  xy: 352, 160
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 5
+player_walk/walk_left
+  rotate: false
+  xy: 352, 124
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 0
+player_walk/walk_left
+  rotate: false
+  xy: 352, 88
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 1
+player_walk/walk_left
+  rotate: false
+  xy: 388, 176
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 2
+player_walk/walk_left
+  rotate: false
+  xy: 388, 140
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 3
+player_walk/walk_left
+  rotate: false
+  xy: 424, 176
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 4
+player_walk/walk_left
+  rotate: false
+  xy: 388, 104
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 5
+player_walk/walk_right
+  rotate: false
+  xy: 424, 140
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 0
+player_walk/walk_right
+  rotate: false
+  xy: 460, 176
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 1
+player_walk/walk_right
+  rotate: false
+  xy: 424, 104
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 2
+player_walk/walk_right
+  rotate: false
+  xy: 460, 140
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 3
+player_walk/walk_right
+  rotate: false
+  xy: 496, 176
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 4
+player_walk/walk_right
+  rotate: false
+  xy: 460, 104
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 5
+player_walk/walk_up
+  rotate: false
+  xy: 496, 140
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 0
+player_walk/walk_up
+  rotate: false
+  xy: 532, 176
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 1
+player_walk/walk_up
+  rotate: false
+  xy: 496, 104
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 2
+player_walk/walk_up
+  rotate: false
+  xy: 532, 140
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 3
+player_walk/walk_up
+  rotate: false
+  xy: 568, 176
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 4
+player_walk/walk_up
+  rotate: false
+  xy: 532, 104
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 5
+player_watering/player_watering_down
+  rotate: false
+  xy: 160, 40
+  size: 48, 48
+  orig: 48, 48
+  offset: 0, 0
+  index: 0
+player_watering/player_watering_down
+  rotate: false
+  xy: 212, 92
+  size: 48, 48
+  orig: 48, 48
+  offset: 0, 0
+  index: 1
+player_watering/player_watering_right
+  rotate: false
+  xy: 264, 144
+  size: 48, 48
+  orig: 48, 48
+  offset: 0, 0
+  index: 0
+player_watering/player_watering_right
+  rotate: false
+  xy: 316, 196
+  size: 48, 48
+  orig: 48, 48
+  offset: 0, 0
+  index: 1
+player_watering/player_watering_up
+  rotate: false
+  xy: 212, 40
+  size: 48, 48
+  orig: 48, 48
+  offset: 0, 0
+  index: 0
+player_watering/player_watering_up
+  rotate: false
+  xy: 264, 92
+  size: 48, 48
+  orig: 48, 48
+  offset: 0, 0
+  index: 1
