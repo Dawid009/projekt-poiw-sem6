@@ -40,6 +40,11 @@ public class MovementSystem extends IteratingSystem {
         KnockbackComponent knockback = KnockbackComponent.MAPPER.get(entity);
         Actor actor = transform.getOwner();
 
+        // SIMULATED_PROXY - position managed by InterpolationSystem, do not modify
+        if (actor != null && actor.getNetRole() == NetRole.SIMULATED_PROXY) {
+            return;
+        }
+
         CollisionComponent collision = findCollision(transform);
         Body body = collision != null ? collision.getBody() : null;
 

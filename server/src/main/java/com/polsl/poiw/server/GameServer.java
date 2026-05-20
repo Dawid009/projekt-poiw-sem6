@@ -207,6 +207,8 @@ public class GameServer implements ApplicationListener {
         PlayerConnection conn = connMgr.getByConnectionId(connectionId);
         if (conn == null) return;
 
+        String leavingName = conn.getPlayerName();
+
         // inform gamemode
         gameMode.onPlayerLogout(connectionId);
 
@@ -230,6 +232,10 @@ public class GameServer implements ApplicationListener {
         gameMode.getGameState().setPlayerCount(connMgr.getPlayerCount() - 1);
 
         connMgr.removeConnection(connectionId);
+
+        // broadcast leave message to remaining clients
+        broadcastSystemMessage(leavingName + " left the game");
+        broadcastPlayerList();
     }
 
     private void onMessageReceived(int connectionId, Object message) {
@@ -239,6 +245,8 @@ public class GameServer implements ApplicationListener {
             handleClientInput(connectionId, input);
         } else if (message instanceof NetworkProtocol.ClientInventoryAction inventoryAction) {
             handleClientInventoryAction(connectionId, inventoryAction);
+        } else if (message instanceof NetworkProtocol.ChatMessage chat) {
+            handleChatMessage(connectionId, chat);
         } else if (message instanceof NetworkProtocol.Ping ping) {
             handlePing(connectionId, ping);
         } else if (message instanceof NetworkProtocol.ClientDisconnect) {
@@ -306,6 +314,10 @@ public class GameServer implements ApplicationListener {
         // update GameState
         gameMode.getGameState().addPlayerState(new PlayerState(playerId, playerName));
         gameMode.getGameState().setPlayerCount(connMgr.getPlayerCount());
+
+        // broadcast join message to all clients
+        broadcastSystemMessage(playerName + " joined the game");
+        broadcastPlayerList();
     }
 
     private void handleClientInput(int connectionId, NetworkProtocol.ClientInputUpdate input) {
@@ -348,6 +360,50 @@ public class GameServer implements ApplicationListener {
         pong.clientTimestamp = ping.clientTimestamp;
         pong.serverTimestamp = System.currentTimeMillis();
         netDriver.sendToClient(connectionId, pong, false);
+    }
+
+    private void handleChatMessage(int connectionId, NetworkProtocol.ChatMessage chat) {
+        ConnectionManager connMgr = netDriver.getConnectionManager();
+        PlayerConnection conn = connMgr.getByConnectionId(connectionId);
+        if (conn == null) return;
+
+        // Sanitize: enforce length limit, strip leading/trailing whitespace
+        if (chat.message == null || chat.message.isBlank()) return;
+        String msg = chat.message.trim();
+        if (msg.length() > NetworkProtocol.MAX_CHAT_MESSAGE_LENGTH) {
+            msg = msg.substring(0, NetworkProtocol.MAX_CHAT_MESSAGE_LENGTH);
+        }
+
+        // Build broadcast message with server-verified data
+        var broadcast = new NetworkProtocol.ChatMessage();
+        broadcast.playerId = conn.getPlayerId();
+        broadcast.playerName = conn.getPlayerName();
+        broadcast.message = msg;
+        broadcast.timestamp = System.currentTimeMillis();
+        broadcast.type = NetworkProtocol.ChatMessageType.PLAYER;
+
+        netDriver.sendToAllClients(broadcast, true); // TCP — reliable
+        Gdx.app.debug(TAG, "[CHAT] " + conn.getPlayerName() + ": " + msg);
+    }
+
+    private void broadcastSystemMessage(String message) {
+        var chat = new NetworkProtocol.ChatMessage();
+        chat.playerId = -1;
+        chat.playerName = "Server";
+        chat.message = message;
+        chat.timestamp = System.currentTimeMillis();
+        chat.type = NetworkProtocol.ChatMessageType.SYSTEM;
+        netDriver.sendToAllClients(chat, true);
+        Gdx.app.debug(TAG, "[SYSTEM] " + message);
+    }
+
+    private void broadcastPlayerList() {
+        ConnectionManager connMgr = netDriver.getConnectionManager();
+        var update = new NetworkProtocol.PlayerListUpdate();
+        update.playerNames = connMgr.getAllConnections().stream()
+            .map(PlayerConnection::getPlayerName)
+            .toArray(String[]::new);
+        netDriver.sendToAllClients(update, true);
     }
 
     private void handleClientInventoryAction(int connectionId, NetworkProtocol.ClientInventoryAction request) {

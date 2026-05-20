@@ -27,6 +27,8 @@ import com.polsl.poiw.engine.ui.HUD;
 import com.polsl.poiw.engine.ui.EAnchor;
 import com.polsl.poiw.engine.ui.EVisibility;
 import com.polsl.poiw.engine.ui.TextBlock;
+import com.polsl.poiw.engine.ui.ChatWidget;
+import com.polsl.poiw.engine.ui.PlayerListWidget;
 import com.polsl.poiw.engine.world.GameWorld;
 import com.polsl.poiw.engine.net.driver.NetDriver;
 import com.polsl.poiw.engine.net.prediction.InterpolationSystem;
@@ -83,6 +85,12 @@ public class WorldContext implements Disposable {
     // ===== Debug UI =====
     private TextBlock fpsDebugText;
     private float fpsUpdateTimer = 0f;
+
+    // ===== Chat =====
+    private ChatWidget chatWidget;
+
+    // ===== Player List =====
+    private PlayerListWidget playerListWidget;
 
     // ===== Stan =====
     private boolean initialized = false;
@@ -143,6 +151,7 @@ public class WorldContext implements Disposable {
         // Multiplayer client: connect with server
         if (game.getGameInstance().isMultiplayer() && levelDef.isGameWorld()) {
             initializeMultiplayer();
+            initializeChat();
         }
 
         initialized = true;
@@ -229,6 +238,40 @@ public class WorldContext implements Disposable {
         }
     }
 
+    private void initializeChat() {
+        var gi = game.getGameInstance();
+        chatWidget = new ChatWidget(skin);
+        chatWidget.setAnchor(EAnchor.BOTTOM_LEFT);
+        chatWidget.setAlignment(EAnchor.BOTTOM_LEFT);
+        chatWidget.setOffset(4f, 4f);
+        chatWidget.setVisibility(EVisibility.VISIBLE);
+        hud.addToViewport(chatWidget);
+
+        // load persisted history from previous levels
+        chatWidget.loadHistory(gi.getChatHistory());
+
+        // wire send callback → server
+        chatWidget.setSendCallback(text -> {
+            if (netDriver != null) {
+                var msg = new com.polsl.poiw.shared.protocol.NetworkProtocol.ChatMessage();
+                msg.playerId = gi.getLocalPlayerId();
+                msg.playerName = gi.getPlayerName();
+                msg.message = text;
+                msg.timestamp = System.currentTimeMillis();
+                msg.type = com.polsl.poiw.shared.protocol.NetworkProtocol.ChatMessageType.PLAYER;
+                netDriver.sendToServer(msg, true);
+            }
+        });
+
+        // Player list (TAB)
+        playerListWidget = new PlayerListWidget(skin);
+        playerListWidget.setAnchor(EAnchor.TOP_CENTER);
+        playerListWidget.setAlignment(EAnchor.TOP_CENTER);
+        playerListWidget.setOffset(0f, -10f);
+        playerListWidget.setVisibility(EVisibility.HIDDEN);
+        hud.addToViewport(playerListWidget);
+    }
+
 
     // handles network messages on the client during gameplay.
     private void handleNetworkMessage(Object message) {
@@ -310,6 +353,17 @@ public class WorldContext implements Disposable {
         } else if (message instanceof com.polsl.poiw.shared.protocol.NetworkProtocol.ServerTravel travel) {
             Gdx.app.log(TAG, "ServerTravel received: " + travel.levelId);
             gi.clientTravel(travel.levelId, gi.getServerHost());
+
+        } else if (message instanceof com.polsl.poiw.shared.protocol.NetworkProtocol.ChatMessage chat) {
+            gi.addChatMessage(chat);
+            if (chatWidget != null) {
+                chatWidget.addMessage(chat);
+            }
+
+        } else if (message instanceof com.polsl.poiw.shared.protocol.NetworkProtocol.PlayerListUpdate plUpdate) {
+            if (playerListWidget != null) {
+                playerListWidget.updatePlayers(plUpdate.playerNames);
+            }
         }
     }
 
@@ -374,6 +428,15 @@ public class WorldContext implements Disposable {
         gameWorld.addSystem(new MovementSystem());
         gameWorld.addSystem(new PlayerAnimationSystem());
         gameWorld.addSystem(new com.polsl.poiw.engine.system.CreatureAnimationSystem());
+
+        // in multiplayer the client adds InterpolationSystem + NetworkClock + ClientPrediction
+        if (game.getGameInstance().isMultiplayer()) {
+            networkClock = new com.polsl.poiw.engine.net.prediction.NetworkClock();
+            clientPrediction = new com.polsl.poiw.engine.net.prediction.ClientPrediction();
+            interpolationSystem = new InterpolationSystem();
+            interpolationSystem.setNetworkClock(networkClock);
+            gameWorld.addSystem(interpolationSystem);
+        }
 
         // in multiplayer the client adds InterpolationSystem + NetworkClock + ClientPrediction
         if (game.getGameInstance().isMultiplayer()) {
@@ -549,6 +612,28 @@ public class WorldContext implements Disposable {
                 Gdx.app.debug(TAG, "Sent debug ping to server");
             }
             Gdx.app.log(TAG, "=== END NETWORK DEBUG ===");
+        }
+
+        // T — toggle chat input (multiplayer only)
+        if (chatWidget != null && !chatWidget.isInputActive() && Gdx.input.isKeyJustPressed(Input.Keys.T)) {
+            chatWidget.activateInput();
+            if (keyboardController != null) {
+                keyboardController.setActiveState(com.polsl.poiw.input.IdleControllerState.class);
+            }
+        }
+        // restore game input when chat is deactivated
+        if (chatWidget != null && !chatWidget.isInputActive() && keyboardController != null
+            && keyboardController.getActiveState() instanceof com.polsl.poiw.input.IdleControllerState) {
+            keyboardController.setActiveState(GameControllerState.class);
+        }
+
+        // TAB — show/hide player list (multiplayer only)
+        if (playerListWidget != null) {
+            if (Gdx.input.isKeyPressed(Input.Keys.TAB)) {
+                playerListWidget.setVisibility(EVisibility.VISIBLE);
+            } else {
+                playerListWidget.setVisibility(EVisibility.HIDDEN);
+            }
         }
 
         // GameWorld tick (fizyka, aktorzy, systemy Ashley)
