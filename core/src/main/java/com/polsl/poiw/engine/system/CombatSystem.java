@@ -7,8 +7,10 @@ import com.badlogic.gdx.math.Vector2;
 import com.polsl.poiw.engine.actor.Actor;
 import com.polsl.poiw.engine.component.CombatComponent;
 import com.polsl.poiw.engine.component.MovementComponent;
+import com.polsl.poiw.engine.component.PlayerToolComponent;
 import com.polsl.poiw.engine.component.TransformComponent;
 import com.polsl.poiw.gameplay.actor.AttackHitboxActor;
+import com.polsl.poiw.gameplay.tool.PlayerToolType;
 
 /**
  * System walki melee. Odpala atak po Command.SELECT, blokuje ruch na czas animacji
@@ -84,13 +86,15 @@ public class CombatSystem extends IteratingSystem {
         }
 
         AttackHitboxActor hitbox = new AttackHitboxActor();
+        PlayerToolComponent toolComponent = owner.getComponent(PlayerToolComponent.class);
+        PlayerToolType toolType = toolComponent != null ? toolComponent.getActiveTool() : PlayerToolType.SWORD;
         TMP_KNOCKBACK.set(switch (combat.getFacingDirection()) {
             case DOWN -> new Vector2(0f, -1f);
             case UP -> new Vector2(0f, 1f);
             case LEFT -> new Vector2(-1f, 0f);
             case RIGHT -> new Vector2(1f, 0f);
         });
-        hitbox.configure(owner.getActorId(), combat.rollDamage(), hitboxWidth, hitboxHeight,
+        hitbox.configure(owner.getActorId(), combat.rollDamage(), toolType, hitboxWidth, hitboxHeight,
             TMP_KNOCKBACK, combat.getHitboxLifetime());
         hitbox.setOwnerId(owner.getOwnerId());
 

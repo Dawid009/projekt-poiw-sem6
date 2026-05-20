@@ -12,6 +12,7 @@ import com.polsl.poiw.engine.collision.CollisionComponent;
 import com.polsl.poiw.engine.component.CombatComponent;
 import com.polsl.poiw.engine.collision.CollisionSystem;
 import com.polsl.poiw.engine.component.InventoryComponent;
+import com.polsl.poiw.engine.component.PlayerToolComponent;
 import com.polsl.poiw.engine.component.TransformComponent;
 import com.polsl.poiw.engine.gameframework.GameMode;
 import com.polsl.poiw.engine.gameframework.PlayerController;
@@ -25,6 +26,7 @@ import com.polsl.poiw.gameplay.actor.TiledVisualActor;
 import com.polsl.poiw.gameplay.actor.TrainingDummyActor;
 import com.polsl.poiw.gameplay.character.PlayerCharacter;
 import com.polsl.poiw.gameplay.gamemode.MainGameMode;
+import com.polsl.poiw.gameplay.tool.PlayerToolType;
 import com.polsl.poiw.engine.net.driver.ConnectionManager;
 import com.polsl.poiw.engine.net.driver.NetDriver;
 import com.polsl.poiw.engine.net.driver.PlayerConnection;
@@ -245,6 +247,8 @@ public class GameServer implements ApplicationListener {
             handleClientInput(connectionId, input);
         } else if (message instanceof NetworkProtocol.ClientInventoryAction inventoryAction) {
             handleClientInventoryAction(connectionId, inventoryAction);
+        } else if (message instanceof NetworkProtocol.ClientToolSelection toolSelection) {
+            handleClientToolSelection(connectionId, toolSelection);
         } else if (message instanceof NetworkProtocol.ChatMessage chat) {
             handleChatMessage(connectionId, chat);
         } else if (message instanceof NetworkProtocol.Ping ping) {
@@ -434,6 +438,33 @@ public class GameServer implements ApplicationListener {
             case USE -> inventory.useItem(request.itemId);
             case DROP -> dropInventoryItem(player, inventory, request.itemId);
         }
+    }
+
+    private void handleClientToolSelection(int connectionId, NetworkProtocol.ClientToolSelection request) {
+        if (request == null) {
+            return;
+        }
+
+        PlayerController controller = playerControllers.get(connectionId);
+        if (controller == null) {
+            return;
+        }
+
+        if (request.playerId > 0 && request.playerId != controller.getPlayerId()) {
+            Gdx.app.debug(TAG, "Ignoring tool selection with mismatched playerId from conn=" + connectionId);
+            return;
+        }
+
+        if (!(controller.getPossessedPawn() instanceof PlayerCharacter player)) {
+            return;
+        }
+
+        PlayerToolComponent toolComponent = player.getPlayerToolComponent();
+        if (toolComponent == null) {
+            return;
+        }
+
+        toolComponent.setActiveTool(PlayerToolType.fromOrdinal(request.toolOrdinal));
     }
 
     private void dropInventoryItem(PlayerCharacter player, InventoryComponent inventory, String itemId) {

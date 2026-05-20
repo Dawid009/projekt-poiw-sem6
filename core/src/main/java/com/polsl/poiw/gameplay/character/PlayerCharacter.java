@@ -11,6 +11,7 @@ import com.polsl.poiw.engine.collision.BoxCollisionComponent;
 import com.polsl.poiw.engine.collision.CollisionProfile;
 import com.polsl.poiw.engine.component.*;
 import com.polsl.poiw.engine.inventory.InventoryStack;
+import com.polsl.poiw.gameplay.tool.PlayerToolType;
 
 import java.util.List;
 
@@ -53,6 +54,7 @@ public class PlayerCharacter extends AbstractActor {
         addComponent(new HealthComponent(MAX_HEALTH, MAX_HEALTH));
         addComponent(new DamageReactionComponent());
         addComponent(new InventoryComponent());
+        addComponent(new PlayerToolComponent());
 
         float ppm = 16f;
         float collHalfW = 9f / 2f / ppm;
@@ -68,7 +70,7 @@ public class PlayerCharacter extends AbstractActor {
      * Konfiguruje gracza z podanym atlasem (klient).
      * Wywoływane po stworzeniu, ale przed beginPlay().
      */
-    public void configure(TextureAtlas atlas) {
+    public void configure(TextureAtlas atlas, TextureAtlas playerActionsAtlas) {
         TextureRegion region = atlas.findRegion(PLAYER_REGION);
         if (region == null) {
             throw new RuntimeException("Nie znaleziono regionu: " + PLAYER_REGION + " w atlasie");
@@ -84,7 +86,7 @@ public class PlayerCharacter extends AbstractActor {
 
 
         // Animacje idle/walk zależne od kierunku i ruchu
-        addComponent(new PlayerAnimationComponent(atlas));
+    addComponent(new PlayerAnimationComponent(atlas, playerActionsAtlas));
 
         // Movement component - opisuje aktualny ruch i jego parametry
         addComponent(new MovementComponent(PLAYER_SPEED));
@@ -94,6 +96,7 @@ public class PlayerCharacter extends AbstractActor {
         addComponent(new HealthComponent(MAX_HEALTH, MAX_HEALTH));
         addComponent(new DamageReactionComponent());
         addComponent(new InventoryComponent());
+        addComponent(new PlayerToolComponent());
 
         // Kolizja gracza — kształt z objects.tsx: x=11,y=18,w=9,h=5 px (sprite 32x32)
         float ppm = 16f;
@@ -164,5 +167,14 @@ public class PlayerCharacter extends AbstractActor {
     public List<InventoryStack> getInventoryItems() {
         InventoryComponent inventory = getInventoryComponent();
         return inventory != null ? inventory.getItemsSnapshot() : List.of();
+    }
+
+    public PlayerToolComponent getPlayerToolComponent() {
+        return getComponent(PlayerToolComponent.class);
+    }
+
+    public PlayerToolType getActiveTool() {
+        PlayerToolComponent toolComponent = getPlayerToolComponent();
+        return toolComponent != null ? toolComponent.getActiveTool() : PlayerToolType.SWORD;
     }
 }

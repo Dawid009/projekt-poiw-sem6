@@ -11,6 +11,8 @@ import com.polsl.poiw.engine.collision.OverlapListener;
 import com.polsl.poiw.engine.component.DamageReactionComponent;
 import com.polsl.poiw.engine.component.HealthComponent;
 import com.polsl.poiw.engine.component.TransformComponent;
+import com.polsl.poiw.gameplay.tool.PlayerToolType;
+import com.polsl.poiw.gameplay.tool.ToolCombatResolver;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -26,15 +28,18 @@ public class AttackHitboxActor extends AbstractActor implements OverlapListener 
 
     private int instigatorActorId;
     private int damage;
+    private PlayerToolType toolType = PlayerToolType.SWORD;
 
     public void configure(int instigatorActorId,
                           int damage,
+                          PlayerToolType toolType,
                           float width,
                           float height,
                           Vector2 knockbackDirection,
                           float lifeSpanSeconds) {
         this.instigatorActorId = instigatorActorId;
         this.damage = damage;
+        this.toolType = toolType != null ? toolType : PlayerToolType.SWORD;
         this.knockbackDirection.set(knockbackDirection != null ? knockbackDirection : Vector2.Zero);
 
         addComponent(new TransformComponent(
@@ -72,7 +77,12 @@ public class AttackHitboxActor extends AbstractActor implements OverlapListener 
             return;
         }
 
-        health.applyDamage(damage, getOwnerId());
+        int resolvedDamage = ToolCombatResolver.resolveDamage(toolType, other, damage);
+        if (resolvedDamage <= 0) {
+            return;
+        }
+
+        health.applyDamage(resolvedDamage, getOwnerId());
 
         DamageReactionComponent damageReaction = other.getComponent(DamageReactionComponent.class);
         if (damageReaction != null) {

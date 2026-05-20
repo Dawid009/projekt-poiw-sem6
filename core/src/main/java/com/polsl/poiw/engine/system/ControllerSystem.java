@@ -7,6 +7,7 @@ import com.polsl.poiw.engine.actor.NetRole;
 import com.polsl.poiw.engine.component.CombatComponent;
 import com.polsl.poiw.engine.component.ControllerComponent;
 import com.polsl.poiw.engine.component.MovementComponent;
+import com.polsl.poiw.engine.component.PlayerToolComponent;
 import com.polsl.poiw.engine.component.TransformComponent;
 import com.polsl.poiw.input.Command;
 
@@ -42,6 +43,8 @@ public class ControllerSystem extends IteratingSystem {
                 case LEFT -> moveEntity(entity, -1f, 0f);
                 case RIGHT -> moveEntity(entity, 1f, 0f);
                 case SELECT -> requestAttack(entity);
+                case TOOL_PREVIOUS -> cycleTool(entity, false);
+                case TOOL_NEXT -> cycleTool(entity, true);
                 case CANCEL -> {
                 }
             }
@@ -54,7 +57,7 @@ public class ControllerSystem extends IteratingSystem {
                 case DOWN -> moveEntity(entity, 0f, 1f);
                 case LEFT -> moveEntity(entity, 1f, 0f);
                 case RIGHT -> moveEntity(entity, -1f, 0f);
-                case SELECT, CANCEL -> {
+                case SELECT, CANCEL, TOOL_PREVIOUS, TOOL_NEXT -> {
                 }
             }
         }
@@ -78,6 +81,19 @@ public class ControllerSystem extends IteratingSystem {
         CombatComponent combat = CombatComponent.MAPPER.get(entity);
         if (combat != null) {
             combat.requestAttack();
+        }
+    }
+
+    private void cycleTool(Entity entity, boolean next) {
+        PlayerToolComponent toolComponent = PlayerToolComponent.MAPPER.get(entity);
+        if (toolComponent == null) {
+            return;
+        }
+
+        if (next) {
+            toolComponent.cycleNext();
+        } else {
+            toolComponent.cyclePrevious();
         }
     }
 }

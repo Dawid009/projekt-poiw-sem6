@@ -81,6 +81,16 @@ public class KeyboardController extends InputAdapter {
         return true;
     }
 
+    @Override
+    public boolean scrolled(float amountX, float amountY) {
+        if (amountY == 0f || activeState == null) {
+            return false;
+        }
+
+        activeState.keyDown(amountY > 0f ? Command.TOOL_NEXT : Command.TOOL_PREVIOUS);
+        return true;
+    }
+
     public ControllerState getActiveState() {
         return activeState;
     }

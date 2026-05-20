@@ -7,7 +7,9 @@ import com.polsl.poiw.engine.component.CombatComponent;
 import com.polsl.poiw.engine.component.DamageReactionComponent;
 import com.polsl.poiw.engine.component.MovementComponent;
 import com.polsl.poiw.engine.component.PlayerAnimationComponent;
+import com.polsl.poiw.engine.component.PlayerToolComponent;
 import com.polsl.poiw.engine.component.SpriteComponent;
+import com.polsl.poiw.gameplay.tool.PlayerToolType;
 
 /**
  * System animacji gracza — aktualizuje klatkę sprite'a na podstawie kierunku ruchu.
@@ -25,6 +27,8 @@ public class PlayerAnimationSystem extends IteratingSystem {
         PlayerAnimationComponent animation = PlayerAnimationComponent.MAPPER.get(entity);
         CombatComponent combat = CombatComponent.MAPPER.get(entity);
         DamageReactionComponent damageReaction = DamageReactionComponent.MAPPER.get(entity);
+        PlayerToolComponent toolComponent = PlayerToolComponent.MAPPER.get(entity);
+        PlayerToolType toolType = toolComponent != null ? toolComponent.getActiveTool() : PlayerToolType.SWORD;
 
         if (damageReaction != null && damageReaction.consumeReactionTrigger()) {
             animation.triggerDamageFlash();
@@ -45,7 +49,7 @@ public class PlayerAnimationSystem extends IteratingSystem {
         }
 
         if (combat.consumeAttackTrigger()) {
-            animation.startAttack(combat.getFacingDirection());
+            animation.startAttack(combat.getFacingDirection(), toolType);
         }
 
         boolean moving = movement != null

@@ -12,5 +12,7 @@ public enum Command {
     DOWN,
     UP,
     SELECT,
-    CANCEL
+    CANCEL,
+    TOOL_PREVIOUS,
+    TOOL_NEXT
 }

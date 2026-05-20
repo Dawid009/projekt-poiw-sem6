@@ -183,8 +183,9 @@ public class WorldContext implements Disposable {
                 TextureAtlas objectsAtlas = game.getAssetService().get(AtlasAsset.OBJECTS);
                 TextureAtlas creaturesAtlas = game.getAssetService().get(AtlasAsset.CREATURES);
                 TextureAtlas itemsAtlas = game.getAssetService().get(AtlasAsset.ITEMS);
+                TextureAtlas playerActionsAtlas = game.getAssetService().get(AtlasAsset.PLAYER_ACTIONS);
                 if (actor instanceof com.polsl.poiw.gameplay.character.PlayerCharacter pc) {
-                    pc.configure(objectsAtlas);
+                    pc.configure(objectsAtlas, playerActionsAtlas);
                 } else if (actor instanceof com.polsl.poiw.gameplay.actor.TrainingDummyActor trainingDummy) {
                     trainingDummy.configureFromReplication(objectsAtlas, initialProps);
                 } else if (actor instanceof com.polsl.poiw.gameplay.actor.AbstractCreatureActor creature) {

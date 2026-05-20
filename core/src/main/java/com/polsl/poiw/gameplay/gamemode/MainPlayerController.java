@@ -9,6 +9,7 @@ import com.polsl.poiw.engine.actor.Actor;
 import com.polsl.poiw.engine.auth.AuthService;
 import com.polsl.poiw.engine.binding.BindingHandle;
 import com.polsl.poiw.engine.component.InventoryComponent;
+import com.polsl.poiw.engine.component.PlayerToolComponent;
 import com.polsl.poiw.engine.component.TransformComponent;
 import com.polsl.poiw.engine.gameframework.PlayerController;
 import com.polsl.poiw.engine.ui.EAnchor;
@@ -19,12 +20,14 @@ import com.polsl.poiw.engine.ui.ProgressBarWidget;
 import com.polsl.poiw.engine.ui.SettingsPanelWidget;
 import com.polsl.poiw.engine.ui.StatsPanelWidget;
 import com.polsl.poiw.engine.ui.TextBlock;
+import com.polsl.poiw.engine.ui.ToolbeltWidget;
 import com.polsl.poiw.engine.world.GameWorld;
 import com.polsl.poiw.engine.inventory.InventoryStack;
 import com.polsl.poiw.engine.inventory.ItemDefinition;
 import com.polsl.poiw.gameplay.actor.ItemPickupActor;
 import com.polsl.poiw.gameplay.character.PlayerCharacter;
 import com.polsl.poiw.gameplay.item.GameplayItems;
+import com.polsl.poiw.gameplay.tool.PlayerToolType;
 import com.polsl.poiw.shared.protocol.NetworkProtocol;
 
 import java.util.HashMap;
@@ -40,13 +43,16 @@ public class MainPlayerController extends PlayerController {
     private TextBlock hpText;
     private ProgressBarWidget progressBar;
     private InventoryPanelWidget inventoryPanel;
+    private ToolbeltWidget toolbeltWidget;
     private PauseMenuWidget pauseMenu;
     private SettingsPanelWidget settingsPanel;
     private StatsPanelWidget statsPanel;
     private BindingHandle healthBinding;
     private BindingHandle maxHealthBinding;
     private BindingHandle inventoryBinding;
+    private BindingHandle toolBinding;
     private final Map<String, Integer> trackedInventoryQuantities = new HashMap<>();
+    private PlayerToolType lastObservedTool;
 
     /** Aktualne wartości do formatowania tekstu */
     private float currentHp = 0f;
@@ -92,6 +98,13 @@ public class MainPlayerController extends PlayerController {
             }
         });
         addWidgetToViewport(inventoryPanel);
+
+        toolbeltWidget = new ToolbeltWidget(getSkin(), getItemsAtlas());
+        toolbeltWidget.setAnchor(EAnchor.BOTTOM_RIGHT);
+        toolbeltWidget.setAlignment(EAnchor.BOTTOM_RIGHT);
+        toolbeltWidget.setOffset(-6f, 6f);
+        toolbeltWidget.setVisibility(EVisibility.HIDDEN);
+        addWidgetToViewport(toolbeltWidget);
 
         pauseMenu = new PauseMenuWidget(getSkin());
         pauseMenu.setAnchor(EAnchor.CENTER);
@@ -159,6 +172,14 @@ public class MainPlayerController extends PlayerController {
             inventoryPanel.setItems(initialItems);
             resetInventoryTracking(initialItems);
             inventoryBinding = player.getInventoryRevision().bind(revision -> handleInventoryChanged(player));
+            PlayerToolComponent toolComponent = player.getPlayerToolComponent();
+            if (toolComponent != null) {
+                lastObservedTool = null;
+                toolBinding = toolComponent.getActiveToolBinding().bind(this::handleToolChanged);
+            }
+            if (toolbeltWidget != null) {
+                toolbeltWidget.setVisibility(EVisibility.VISIBLE);
+            }
             updateStatsUiState();
         }
     }
@@ -177,10 +198,19 @@ public class MainPlayerController extends PlayerController {
             inventoryBinding.unbind();
             inventoryBinding = null;
         }
+        if (toolBinding != null) {
+            toolBinding.unbind();
+            toolBinding = null;
+        }
+        lastObservedTool = null;
         trackedInventoryQuantities.clear();
         if (inventoryPanel != null) {
             inventoryPanel.setItems(java.util.List.of());
             inventoryPanel.setVisibility(EVisibility.HIDDEN);
+        }
+        if (toolbeltWidget != null) {
+            toolbeltWidget.setVisibility(EVisibility.HIDDEN);
+            toolbeltWidget.setSelectedTool(PlayerToolType.SWORD);
         }
         if (pauseMenu != null) {
             pauseMenu.setVisibility(EVisibility.HIDDEN);
@@ -388,6 +418,41 @@ public class MainPlayerController extends PlayerController {
         request.playerId = getPlayerId();
         request.itemId = itemId;
         request.action = actionType;
+        gameInstance.getNetDriver().sendToServer(request, true);
+    }
+
+    private void handleToolChanged(PlayerToolType toolType) {
+        PlayerToolType resolvedTool = toolType != null ? toolType : PlayerToolType.SWORD;
+        if (toolbeltWidget != null) {
+            toolbeltWidget.setSelectedTool(resolvedTool);
+        }
+
+        if (lastObservedTool == null) {
+            lastObservedTool = resolvedTool;
+            return;
+        }
+
+        if (resolvedTool == lastObservedTool) {
+            return;
+        }
+
+        lastObservedTool = resolvedTool;
+        requestToolSelection(resolvedTool);
+    }
+
+    private void requestToolSelection(PlayerToolType toolType) {
+        if (toolType == null) {
+            return;
+        }
+
+        GameInstance gameInstance = getGameInstance();
+        if (gameInstance == null || !gameInstance.isClient() || gameInstance.getNetDriver() == null) {
+            return;
+        }
+
+        NetworkProtocol.ClientToolSelection request = new NetworkProtocol.ClientToolSelection();
+        request.playerId = getPlayerId();
+        request.toolOrdinal = toolType.ordinal();
         gameInstance.getNetDriver().sendToServer(request, true);
     }
 

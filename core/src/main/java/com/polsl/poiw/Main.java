@@ -124,9 +124,10 @@ public class Main extends Game {
         // Spawn gracza na pierwszej pozycji startowej z mapy
         Vector2 startPos = context.getTiledParser().getPlayerStartPosition(0);
         TextureAtlas atlas = assetService.get(AtlasAsset.OBJECTS);
+        TextureAtlas actionsAtlas = assetService.get(AtlasAsset.PLAYER_ACTIONS);
 
         PlayerCharacter player = new PlayerCharacter();
-        player.configure(atlas);
+        player.configure(atlas, actionsAtlas);
         context.getGameWorld().spawnActor(player, startPos);
         Gdx.app.debug("Main", "Gracz zespawnowany na: " + startPos);
 
