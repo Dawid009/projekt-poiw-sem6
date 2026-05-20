@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<tileset version="1.10" tiledversion="1.12.0" name="objects" tilewidth="96" tileheight="128" tilecount="62" columns="0">
+<tileset version="1.10" tiledversion="1.12.0" name="objects" tilewidth="96" tileheight="128" tilecount="63" columns="0">
  <grid orientation="orthogonal" width="1" height="1"/>
  <tile id="1" type="Object">
   <properties>
@@ -12,7 +12,7 @@
    <property name="lifeReg" type="float" value="0.25"/>
    <property name="speed" type="float" value="3.5"/>
   </properties>
-  <image source="objects/player.png" width="32" height="32"/>
+  <image source="../raw/player/player.png" width="32" height="32"/>
   <objectgroup draworder="index" id="2">
    <object id="1" x="11" y="18" width="9" height="5">
     <ellipse/>
@@ -40,31 +40,31 @@
   </objectgroup>
  </tile>
  <tile id="2" type="Prop">
-  <image source="objects/house.png" width="80" height="112"/>
+  <image source="../raw/objects/house/house.png" width="80" height="112"/>
   <objectgroup draworder="index" id="2">
    <object id="1" x="9.625" y="66.5" width="60.875" height="40"/>
   </objectgroup>
  </tile>
  <tile id="29" type="Prop">
-  <image source="objects/house_back.png" width="80" height="112"/>
+  <image source="../raw/objects/house/house_back.png" width="80" height="112"/>
   <objectgroup draworder="index" id="2">
    <object id="1" x="9.74432" y="66.1818" width="60.875" height="40"/>
   </objectgroup>
  </tile>
  <tile id="8" type="Prop">
-  <image source="objects/House_1_Wood_Base_Blue.png" width="96" height="128"/>
+  <image source="../raw/objects/house/house_blue.png" width="96" height="128"/>
   <objectgroup draworder="index" id="2">
    <object id="1" x="15.4545" y="72.5455" width="65.4545" height="41.8182"/>
   </objectgroup>
  </tile>
  <tile id="30" type="Prop">
-  <image source="objects/House_1_Wood_Base_Blue_Back.png" width="96" height="128"/>
+  <image source="../raw/objects/house/house_blue_back.png" width="96" height="128"/>
   <objectgroup draworder="index" id="2">
    <object id="1" x="15.2728" y="71.4545" width="65.4545" height="41.8182"/>
   </objectgroup>
  </tile>
  <tile id="4" type="Prop">
-  <image source="objects/chest.png" width="16" height="16"/>
+  <image source="../raw/objects/misc/chest.png" width="16" height="16"/>
   <objectgroup draworder="index" id="2">
    <object id="1" x="0" y="5.3125" width="16" height="8.6875"/>
   </objectgroup>
@@ -74,7 +74,7 @@
    <property name="is_stump" type="bool" value="false"/>
    <property name="tree_size" propertytype="TreeSize" value="Normal"/>
   </properties>
-  <image source="objects/oak_tree.png" width="41" height="63"/>
+  <image source="../raw/objects/trees/tree.png" width="41" height="63"/>
   <objectgroup draworder="index" id="2">
    <object id="2" x="15.9375" y="43.4063" width="10.1563" height="10.875"/>
   </objectgroup>
@@ -84,33 +84,40 @@
    <property name="is_stump" type="bool" value="false"/>
    <property name="tree_size" propertytype="TreeSize" value="Small"/>
   </properties>
-  <image source="objects/small_tree.png" width="32" height="48"/>
+  <image source="../raw/objects/trees/small_tree.png" width="32" height="48"/>
   <objectgroup draworder="index" id="2">
    <object id="1" x="13.8889" y="30.3778" width="4.22222" height="2.11111"/>
   </objectgroup>
  </tile>
- <tile id="17" type="Object">
+ <tile id="76" type="Tree">
   <properties>
-   <property name="bodyType" propertytype="BodyType" value="StaticBody"/>
+   <property name="is_stump" type="bool" value="true"/>
+   <property name="tree_size" propertytype="TreeSize" value="Normal"/>
   </properties>
-  <image source="objects/small_tree_cut.png" width="32" height="32"/>
+  <image source="../raw/objects/trees/tree_stump.png" width="41" height="41"/>
+  <objectgroup draworder="index" id="2">
+   <object id="1" x="15.9091" y="25.8182" width="10.0909" height="5.90909"/>
+  </objectgroup>
  </tile>
  <tile id="16" type="Tree">
   <properties>
    <property name="is_stump" type="bool" value="true"/>
    <property name="tree_size" propertytype="TreeSize" value="Small"/>
   </properties>
-  <image source="objects/tree_trunk.png" width="32" height="32"/>
-  <objectgroup draworder="index" id="2">
-   <object id="1" x="13.9778" y="14.4" width="4.02222" height="2.06667"/>
-  </objectgroup>
+  <image source="../raw/objects/trees/small_tree_stump.png" width="32" height="32"/>
+ </tile>
+ <tile id="10" type="Prop">
+  <image source="../raw/objects/trees/fallen_trunk.png" width="32" height="16"/>
+ </tile>
+ <tile id="77">
+  <image source="../raw/items/misc/tree_log.png" width="16" height="16"/>
  </tile>
  <tile id="6" type="Object">
   <properties>
    <property name="animation" value="IDLE"/>
    <property name="z" type="int" value="0"/>
   </properties>
-  <image source="objects/trap.png" width="16" height="16"/>
+  <image source="../raw/objects/trap/trap_off.png" width="16" height="16"/>
  </tile>
  <tile id="7" type="Object">
   <properties>
@@ -120,22 +127,19 @@
    <property name="life" type="int" value="99999"/>
    <property name="lifeReg" type="float" value="9999"/>
   </properties>
-  <image source="objects/training_dummy.png" width="32" height="32"/>
+  <image source="../raw/objects/training_dummy/training_dummy.png" width="32" height="32"/>
   <objectgroup draworder="index" id="2">
    <object id="1" x="11.0625" y="20.9565" width="9.875" height="7.04348"/>
   </objectgroup>
  </tile>
  <tile id="9" type="Prop">
-  <image source="objects/lantern.png" width="16" height="48"/>
+  <image source="../raw/objects/misc/lantern.png" width="16" height="48"/>
   <objectgroup draworder="index" id="2">
    <object id="1" x="4.95503" y="40.9416" width="7.05717" height="5.05513"/>
   </objectgroup>
  </tile>
- <tile id="10" type="Prop">
-  <image source="objects/fallen_trunk.png" width="32" height="16"/>
- </tile>
  <tile id="11" type="Prop">
-  <image source="objects/bridge_0.png" width="48" height="48"/>
+  <image source="../raw/objects/misc/bridge_0.png" width="48" height="48"/>
   <objectgroup draworder="index" id="2">
    <object id="2" x="8.78125" y="13.9688" width="30.0625" height="2.0625"/>
    <object id="5" x="9" y="33">
@@ -144,7 +148,7 @@
   </objectgroup>
  </tile>
  <tile id="12" type="Prop">
-  <image source="objects/bridge_2.png" width="48" height="48"/>
+  <image source="../raw/objects/misc/bridge_2.png" width="48" height="48"/>
   <objectgroup draworder="index" id="2">
    <object id="9" x="10.875" y="11.9375">
     <polygon points="0,0 0,4 3.25,4.125 3.25,24.25 -0.125,24.25 0.1875,28 5.125,26.9375 5.1875,-3 3.25,-2.9375 3.3125,-0.0625"/>
@@ -155,7 +159,7 @@
   </objectgroup>
  </tile>
  <tile id="13" type="Prop">
-  <image source="objects/bridge_1.png" width="48" height="48"/>
+  <image source="../raw/objects/misc/bridge_1.png" width="48" height="48"/>
   <objectgroup draworder="index" id="2">
    <object id="7" x="10.75" y="11.875">
     <polygon points="0,0 0,4 3.1875,4.0625 3.1875,24.3125 -0.1875,24.25 0,28.9375 2.0625,31 5.0625,28.9375 5.1875,-3 3.1875,-2.875 3.1875,-0.0625"/>
@@ -166,7 +170,7 @@
   </objectgroup>
  </tile>
  <tile id="20" type="Prop">
-  <image source="objects/bridge_4.png" width="48" height="48"/>
+  <image source="../raw/objects/misc/bridge_4.png" width="48" height="48"/>
   <objectgroup draworder="index" id="2">
    <object id="2" x="8.85938" y="14.0924" width="30.0625" height="2.0625"/>
    <object id="6" x="8.6875" y="33.0625">

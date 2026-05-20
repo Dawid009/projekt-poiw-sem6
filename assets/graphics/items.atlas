@@ -6,21 +6,21 @@ filter: Nearest, Nearest
 repeat: none
 coins/coin_bronze
   rotate: false
-  xy: 384, 12
+  xy: 404, 12
   size: 8, 8
   orig: 8, 8
   offset: 0, 0
   index: -1
 coins/coin_gold
   rotate: false
-  xy: 396, 12
+  xy: 416, 12
   size: 8, 8
   orig: 8, 8
   offset: 0, 0
   index: -1
 coins/coin_silver
   rotate: false
-  xy: 408, 12
+  xy: 428, 12
   size: 8, 8
   orig: 8, 8
   offset: 0, 0
@@ -62,7 +62,7 @@ food/steak_raw
   index: -1
 food/wheat
   rotate: false
-  xy: 364, 4
+  xy: 384, 4
   size: 16, 16
   orig: 16, 16
   offset: 0, 0
@@ -111,42 +111,49 @@ iron/item_iron_nuggets
   index: -1
 misc/shard_blue
   rotate: false
-  xy: 480, 12
+  xy: 500, 12
   size: 8, 8
   orig: 8, 8
   offset: 0, 0
   index: -1
+misc/tree_log
+  rotate: false
+  xy: 344, 4
+  size: 16, 16
+  orig: 16, 16
+  offset: 0, 0
+  index: -1
 potions/potion_blue
   rotate: false
-  xy: 420, 12
+  xy: 440, 12
   size: 8, 8
   orig: 8, 8
   offset: 0, 0
   index: -1
 potions/potion_green
   rotate: false
-  xy: 432, 12
+  xy: 452, 12
   size: 8, 8
   orig: 8, 8
   offset: 0, 0
   index: -1
 potions/potion_purple
   rotate: false
-  xy: 444, 12
+  xy: 464, 12
   size: 8, 8
   orig: 8, 8
   offset: 0, 0
   index: -1
 potions/potion_red
   rotate: false
-  xy: 456, 12
+  xy: 476, 12
   size: 8, 8
   orig: 8, 8
   offset: 0, 0
   index: -1
 potions/potion_yellow
   rotate: false
-  xy: 468, 12
+  xy: 488, 12
   size: 8, 8
   orig: 8, 8
   offset: 0, 0
@@ -195,7 +202,7 @@ tools/sword
   index: -1
 tools/watering_can
   rotate: false
-  xy: 344, 4
+  xy: 364, 4
   size: 16, 16
   orig: 16, 16
   offset: 0, 0

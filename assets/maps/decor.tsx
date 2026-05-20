@@ -35,15 +35,6 @@
    <property name="growth_stage" type="int" value="1"/>
   </properties>
  </tile>
- <tile id="14" type="Tree">
-  <properties>
-   <property name="is_stump" type="bool" value="true"/>
-   <property name="tree_size" propertytype="TreeSize" value="Normal"/>
-  </properties>
-  <objectgroup draworder="index" id="2">
-   <object id="2" x="3" y="8.0625" width="9.9375" height="5.125"/>
-  </objectgroup>
- </tile>
  <tile id="16">
   <objectgroup draworder="index" id="2">
    <object id="1" x="2.56522" y="8.52174">
