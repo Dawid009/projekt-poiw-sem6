@@ -3,7 +3,7 @@
  <image source="decor_tileset.png" width="112" height="192"/>
  <tile id="3">
   <objectgroup draworder="index" id="2">
-   <object id="1" x="7.86957" y="11.913" width="2.26087" height="2"/>
+   <object id="1" x="6.86957" y="11.9443" width="2.26087" height="2"/>
   </objectgroup>
  </tile>
  <tile id="5">
@@ -41,9 +41,7 @@
    <property name="tree_size" propertytype="TreeSize" value="Normal"/>
   </properties>
   <objectgroup draworder="index" id="2">
-   <object id="1" x="2" y="12.3478">
-    <polygon points="0,0 6.95652,1.04348 11.913,-0.913043 9.95652,-4.3913 2.04348,-4.47826"/>
-   </object>
+   <object id="2" x="3" y="8.0625" width="9.9375" height="5.125"/>
   </objectgroup>
  </tile>
  <tile id="16">

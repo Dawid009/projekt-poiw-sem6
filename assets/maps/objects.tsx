@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<tileset version="1.10" tiledversion="1.12.0" name="objects" tilewidth="96" tileheight="128" tilecount="58" columns="0">
+<tileset version="1.10" tiledversion="1.12.0" name="objects" tilewidth="96" tileheight="128" tilecount="62" columns="0">
  <grid orientation="orthogonal" width="1" height="1"/>
  <tile id="1" type="Object">
   <properties>
@@ -76,9 +76,7 @@
   </properties>
   <image source="objects/oak_tree.png" width="41" height="63"/>
   <objectgroup draworder="index" id="2">
-   <object id="1" x="13" y="54.1696">
-    <polygon points="0,0 6,0.830357 11,0.830357 16,-0.830357 16,-1.66071 14,-4.15179 13,-10.7946 3,-10.7946 3,-4.98214 2,-4.15179 1,-2.49107 0,-0.830357"/>
-   </object>
+   <object id="2" x="15.9375" y="43.4063" width="10.1563" height="10.875"/>
   </objectgroup>
  </tile>
  <tile id="18" type="Tree">
@@ -395,9 +393,7 @@
  <tile id="63">
   <image source="../raw/objects/misc/campfire_0.png" width="16" height="16"/>
   <objectgroup draworder="index" id="2">
-   <object id="1" x="8" y="15.75">
-    <polygon points="0,0 6.875,-2.5625 3.375,-6.625 -3.4375,-6.8125 -6.8125,-2.4375"/>
-   </object>
+   <object id="2" x="3.125" y="9.96875" width="9.6875" height="4.9375"/>
   </objectgroup>
   <animation>
    <frame tileid="63" duration="250"/>
@@ -413,5 +409,23 @@
  </tile>
  <tile id="70">
   <image source="../raw/objects/misc/wet_dirt.png" width="16" height="16"/>
+ </tile>
+ <tile id="72">
+  <image source="../raw/objects/misc/cow_poop_0.png" width="10" height="10"/>
+  <animation>
+   <frame tileid="72" duration="120"/>
+   <frame tileid="73" duration="120"/>
+   <frame tileid="74" duration="120"/>
+   <frame tileid="75" duration="120"/>
+  </animation>
+ </tile>
+ <tile id="73">
+  <image source="../raw/objects/misc/cow_poop_1.png" width="10" height="10"/>
+ </tile>
+ <tile id="74">
+  <image source="../raw/objects/misc/cow_poop_2.png" width="10" height="10"/>
+ </tile>
+ <tile id="75">
+  <image source="../raw/objects/misc/cow_poop_3.png" width="10" height="10"/>
  </tile>
 </tileset>
