@@ -12,6 +12,7 @@ import com.polsl.poiw.engine.collision.CollisionComponent;
 import com.polsl.poiw.engine.component.CombatComponent;
 import com.polsl.poiw.engine.collision.CollisionSystem;
 import com.polsl.poiw.engine.component.InventoryComponent;
+import com.polsl.poiw.engine.component.PlayerAssignedItemComponent;
 import com.polsl.poiw.engine.component.PlayerToolComponent;
 import com.polsl.poiw.engine.component.TransformComponent;
 import com.polsl.poiw.engine.gameframework.GameMode;
@@ -25,6 +26,7 @@ import com.polsl.poiw.gameplay.actor.ItemPickupActor;
 import com.polsl.poiw.gameplay.actor.TiledVisualActor;
 import com.polsl.poiw.gameplay.actor.TrainingDummyActor;
 import com.polsl.poiw.gameplay.character.PlayerCharacter;
+import com.polsl.poiw.gameplay.crop.CropPlantingService;
 import com.polsl.poiw.gameplay.gamemode.MainGameMode;
 import com.polsl.poiw.gameplay.tool.PlayerToolType;
 import com.polsl.poiw.engine.net.driver.ConnectionManager;
@@ -249,6 +251,8 @@ public class GameServer implements ApplicationListener {
             handleClientInventoryAction(connectionId, inventoryAction);
         } else if (message instanceof NetworkProtocol.ClientToolSelection toolSelection) {
             handleClientToolSelection(connectionId, toolSelection);
+        } else if (message instanceof NetworkProtocol.ClientAssignedItemUpdate assignedItemUpdate) {
+            handleClientAssignedItemUpdate(connectionId, assignedItemUpdate);
         } else if (message instanceof NetworkProtocol.ChatMessage chat) {
             handleChatMessage(connectionId, chat);
         } else if (message instanceof NetworkProtocol.Ping ping) {
@@ -435,7 +439,12 @@ public class GameServer implements ApplicationListener {
         }
 
         switch (request.action) {
-            case USE -> inventory.useItem(request.itemId);
+            case USE -> {
+                if (!CropPlantingService.tryPlant(player, request.itemId, gameWorld,
+                    tiledParser != null ? tiledParser.getCurrentMap() : null, true)) {
+                    inventory.useItem(request.itemId);
+                }
+            }
             case DROP -> dropInventoryItem(player, inventory, request.itemId);
         }
     }
@@ -465,6 +474,45 @@ public class GameServer implements ApplicationListener {
         }
 
         toolComponent.setActiveTool(PlayerToolType.fromOrdinal(request.toolOrdinal));
+    }
+
+    private void handleClientAssignedItemUpdate(int connectionId, NetworkProtocol.ClientAssignedItemUpdate request) {
+        if (request == null) {
+            return;
+        }
+
+        PlayerController controller = playerControllers.get(connectionId);
+        if (controller == null) {
+            return;
+        }
+
+        if (request.playerId > 0 && request.playerId != controller.getPlayerId()) {
+            Gdx.app.debug(TAG, "Ignoring assigned item update with mismatched playerId from conn=" + connectionId);
+            return;
+        }
+
+        if (!(controller.getPossessedPawn() instanceof PlayerCharacter player)) {
+            return;
+        }
+
+        PlayerAssignedItemComponent assignedItemComponent = player.getPlayerAssignedItemComponent();
+        InventoryComponent inventory = player.getInventoryComponent();
+        if (assignedItemComponent == null || inventory == null) {
+            return;
+        }
+
+        String requestedItemId = request.itemId != null ? request.itemId.trim() : "";
+        if (requestedItemId.isBlank()) {
+            assignedItemComponent.clearAssignedItem();
+            return;
+        }
+
+        if (inventory.getStack(requestedItemId) == null) {
+            Gdx.app.debug(TAG, "Ignoring assigned item update for missing inventory item: " + requestedItemId);
+            return;
+        }
+
+        assignedItemComponent.setAssignedItemId(requestedItemId);
     }
 
     private void dropInventoryItem(PlayerCharacter player, InventoryComponent inventory, String itemId) {

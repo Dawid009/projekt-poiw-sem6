@@ -54,6 +54,6 @@ public abstract class AbstractActorComponent implements ActorComponent {
     protected void markDirty(String propertyName) {
         if (!replicated) return;
         ReplicationInfo info = ReplicationInfo.scan(this.getClass());
-        info.forceDirty(propertyName);
+        info.forceDirty(this, propertyName);
     }
 }

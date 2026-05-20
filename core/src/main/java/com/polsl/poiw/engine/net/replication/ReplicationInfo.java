@@ -86,10 +86,10 @@ public class ReplicationInfo {
     }
 
     // forces dirty on a specific property (e.g. after markDirty("fieldName"))
-    public void forceDirty(String propertyName) {
+    public void forceDirty(Object instance, String propertyName) {
         for (ReplicatedProperty prop : properties) {
             if (prop.getFieldName().equals(propertyName)) {
-                prop.forceDirty();
+                prop.forceDirty(instance);
                 return;
             }
         }

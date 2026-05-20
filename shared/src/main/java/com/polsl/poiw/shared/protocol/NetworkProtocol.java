@@ -9,7 +9,7 @@ import java.util.Map;
 public final class NetworkProtocol {
 
     // wersja protokołu - musi być taka sama między klientem i serwerem
-    public static final int PROTOCOL_VERSION = 3;
+    public static final int PROTOCOL_VERSION = 4;
 
     // maksymalna długość wiadomości czatu
     public static final int MAX_CHAT_MESSAGE_LENGTH = 60;
@@ -106,6 +106,11 @@ public final class NetworkProtocol {
     public static class ClientToolSelection {
         public int playerId;
         public int toolOrdinal;
+    }
+
+    public static class ClientAssignedItemUpdate {
+        public int playerId;
+        public String itemId;
     }
 
     // serwer -> klient: korekta pozycji (np. po wykryciu desynchronizacji)

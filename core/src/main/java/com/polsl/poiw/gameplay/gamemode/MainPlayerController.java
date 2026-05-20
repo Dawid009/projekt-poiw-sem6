@@ -8,10 +8,15 @@ import com.polsl.poiw.GameInstance;
 import com.polsl.poiw.engine.actor.Actor;
 import com.polsl.poiw.engine.auth.AuthService;
 import com.polsl.poiw.engine.binding.BindingHandle;
+import com.polsl.poiw.engine.component.CombatComponent;
+import com.polsl.poiw.engine.component.ControllerComponent;
 import com.polsl.poiw.engine.component.InventoryComponent;
+import com.polsl.poiw.engine.component.PlayerAssignedItemComponent;
 import com.polsl.poiw.engine.component.PlayerToolComponent;
 import com.polsl.poiw.engine.component.TransformComponent;
 import com.polsl.poiw.engine.gameframework.PlayerController;
+import com.polsl.poiw.engine.inventory.InventoryStack;
+import com.polsl.poiw.engine.inventory.ItemDefinition;
 import com.polsl.poiw.engine.ui.EAnchor;
 import com.polsl.poiw.engine.ui.EVisibility;
 import com.polsl.poiw.engine.ui.InventoryPanelWidget;
@@ -22,10 +27,9 @@ import com.polsl.poiw.engine.ui.StatsPanelWidget;
 import com.polsl.poiw.engine.ui.TextBlock;
 import com.polsl.poiw.engine.ui.ToolbeltWidget;
 import com.polsl.poiw.engine.world.GameWorld;
-import com.polsl.poiw.engine.inventory.InventoryStack;
-import com.polsl.poiw.engine.inventory.ItemDefinition;
 import com.polsl.poiw.gameplay.actor.ItemPickupActor;
 import com.polsl.poiw.gameplay.character.PlayerCharacter;
+import com.polsl.poiw.gameplay.crop.CropPlantingService;
 import com.polsl.poiw.gameplay.item.GameplayItems;
 import com.polsl.poiw.gameplay.tool.PlayerToolType;
 import com.polsl.poiw.shared.protocol.NetworkProtocol;
@@ -39,6 +43,8 @@ import java.util.Map;
  * i binduje go do PropertyBinding z PlayerCharacter.
  */
 public class MainPlayerController extends PlayerController {
+    private static final int TOOL_SLOT_COUNT = PlayerToolType.values().length;
+    private static final int ASSIGNED_ITEM_SLOT_INDEX = TOOL_SLOT_COUNT;
 
     private TextBlock hpText;
     private ProgressBarWidget progressBar;
@@ -50,9 +56,12 @@ public class MainPlayerController extends PlayerController {
     private BindingHandle healthBinding;
     private BindingHandle maxHealthBinding;
     private BindingHandle inventoryBinding;
+    private BindingHandle assignedItemBinding;
     private BindingHandle toolBinding;
     private final Map<String, Integer> trackedInventoryQuantities = new HashMap<>();
     private PlayerToolType lastObservedTool;
+    private String assignedItemId = "";
+    private int selectedHotbarSlot = 0;
 
     /** Aktualne wartości do formatowania tekstu */
     private float currentHp = 0f;
@@ -60,7 +69,6 @@ public class MainPlayerController extends PlayerController {
 
     @Override
     protected void setupHUD() {
-        // TextBlock wyświetlający HP — lewy górny róg
         hpText = new TextBlock("HP: ---", getSkin());
         hpText.setAnchor(EAnchor.BOTTOM_CENTER);
         hpText.setAlignment(EAnchor.TOP_CENTER);
@@ -77,9 +85,7 @@ public class MainPlayerController extends PlayerController {
         progressBar.setVariable(true);
         progressBar.setValue(50f);
         progressBar.setBarSize(100f, 10f);
-
         progressBar.addChild(hpText);
-
         addWidgetToViewport(progressBar);
 
         inventoryPanel = new InventoryPanelWidget(getSkin(), getItemsAtlas());
@@ -95,6 +101,11 @@ public class MainPlayerController extends PlayerController {
             @Override
             public void onDropRequested(String itemId) {
                 dropSelectedItem(itemId);
+            }
+
+            @Override
+            public void onAssignRequested(String itemId) {
+                assignSelectedItem(itemId);
             }
         });
         addWidgetToViewport(inventoryPanel);
@@ -158,7 +169,6 @@ public class MainPlayerController extends PlayerController {
 
     @Override
     protected void onPossess(Actor pawn) {
-        // Binduj HP z PlayerCharacter do TextBlock
         if (pawn instanceof PlayerCharacter player) {
             healthBinding = player.getHealth().bind(val -> {
                 currentHp = val;
@@ -168,18 +178,28 @@ public class MainPlayerController extends PlayerController {
                 currentMaxHp = val;
                 updateHpText();
             });
+
             List<InventoryStack> initialItems = player.getInventoryItems();
             inventoryPanel.setItems(initialItems);
             resetInventoryTracking(initialItems);
             inventoryBinding = player.getInventoryRevision().bind(revision -> handleInventoryChanged(player));
+
+            PlayerAssignedItemComponent assignedItemComponent = player.getPlayerAssignedItemComponent();
+            if (assignedItemComponent != null) {
+                assignedItemBinding = assignedItemComponent.getAssignedItemIdBinding().bind(this::handleAssignedItemChanged);
+            }
+
             PlayerToolComponent toolComponent = player.getPlayerToolComponent();
             if (toolComponent != null) {
                 lastObservedTool = null;
                 toolBinding = toolComponent.getActiveToolBinding().bind(this::handleToolChanged);
             }
+
             if (toolbeltWidget != null) {
                 toolbeltWidget.setVisibility(EVisibility.VISIBLE);
+                toolbeltWidget.setSelectedSlot(selectedHotbarSlot);
             }
+            refreshAssignedItemSlot(player);
             updateStatsUiState();
         }
     }
@@ -198,19 +218,29 @@ public class MainPlayerController extends PlayerController {
             inventoryBinding.unbind();
             inventoryBinding = null;
         }
+        if (assignedItemBinding != null) {
+            assignedItemBinding.unbind();
+            assignedItemBinding = null;
+        }
         if (toolBinding != null) {
             toolBinding.unbind();
             toolBinding = null;
         }
+
         lastObservedTool = null;
+        assignedItemId = "";
+        selectedHotbarSlot = 0;
         trackedInventoryQuantities.clear();
+
         if (inventoryPanel != null) {
             inventoryPanel.setItems(java.util.List.of());
+            inventoryPanel.setHiddenItemId(null);
             inventoryPanel.setVisibility(EVisibility.HIDDEN);
         }
         if (toolbeltWidget != null) {
             toolbeltWidget.setVisibility(EVisibility.HIDDEN);
-            toolbeltWidget.setSelectedTool(PlayerToolType.SWORD);
+            toolbeltWidget.setAssignedItem(null);
+            toolbeltWidget.setSelectedSlot(selectedHotbarSlot);
         }
         if (pauseMenu != null) {
             pauseMenu.setVisibility(EVisibility.HIDDEN);
@@ -231,21 +261,30 @@ public class MainPlayerController extends PlayerController {
 
     @Override
     public void tick(float delta) {
-        super.tick(delta);
-
-        // Skip all key handling when chat input is active
         if (GameInstance.isChatInputActive()) {
+            clearPendingAttackState();
+            super.tick(delta);
             return;
         }
 
         handlePauseToggle();
-
         if (isOverlayVisible()) {
+            clearPendingAttackState();
+            super.tick(delta);
             return;
         }
 
         handleInventoryToggle();
-        handleDebugItemSpawn();
+        if (isInventoryInteractionActive()) {
+            clearPendingAttackState();
+            super.tick(delta);
+            return;
+        }
+
+        handleHotbarSelection();
+        handleToolAttack();
+        handleAssignedItemUse();
+        super.tick(delta);
     }
 
     private void updateHpText() {
@@ -255,7 +294,6 @@ public class MainPlayerController extends PlayerController {
             hpText.setText(hp + " / " + max);
             progressBar.setValue(hp);
 
-            // Kolor zależny od poziomu HP
             float ratio = currentMaxHp > 0 ? currentHp / currentMaxHp : 0f;
             if (ratio > 0.5f) {
                 hpText.setColor(Color.WHITE);
@@ -271,6 +309,7 @@ public class MainPlayerController extends PlayerController {
         List<InventoryStack> items = player.getInventoryItems();
         inventoryPanel.setItems(items);
         trackInventoryStats(items);
+        refreshAssignedItemSlot(player);
     }
 
     private void resetInventoryTracking(List<InventoryStack> items) {
@@ -336,30 +375,104 @@ public class MainPlayerController extends PlayerController {
         }
     }
 
-    private void handleDebugItemSpawn() {
-        if (!(getPossessedPawn() instanceof PlayerCharacter player) || !player.hasAuthority()) {
-            return;
-        }
-
-        spawnDebugItemIfPressed(player, Input.Keys.NUM_1, 0);
-        spawnDebugItemIfPressed(player, Input.Keys.NUM_2, 1);
-        spawnDebugItemIfPressed(player, Input.Keys.NUM_3, 2);
-        spawnDebugItemIfPressed(player, Input.Keys.NUM_4, 3);
-        spawnDebugItemIfPressed(player, Input.Keys.NUM_5, 4);
-        spawnDebugItemIfPressed(player, Input.Keys.NUM_6, 5);
-        spawnDebugItemIfPressed(player, Input.Keys.NUM_7, 6);
-        spawnDebugItemIfPressed(player, Input.Keys.NUM_8, 7);
-        spawnDebugItemIfPressed(player, Input.Keys.NUM_9, 8);
+    private boolean isInventoryInteractionActive() {
+        return inventoryPanel != null && inventoryPanel.isVisible();
     }
 
-    private void spawnDebugItemIfPressed(PlayerCharacter player, int keycode, int debugSlot) {
-        if (!Gdx.input.isKeyJustPressed(keycode)) {
+    private void clearPendingAttackState() {
+        if (!(getPossessedPawn() instanceof PlayerCharacter player)) {
             return;
         }
 
-        ItemDefinition item = GameplayItems.getDebugItem(debugSlot);
-        if (item != null) {
-            spawnItemNearPlayer(player, item, 1, 0.2f, 0.25f);
+        ControllerComponent controller = player.getComponent(ControllerComponent.class);
+        if (controller != null) {
+            controller.consumeAttackInputTrigger();
+        }
+
+        CombatComponent combat = player.getComponent(CombatComponent.class);
+        if (combat != null) {
+            combat.consumeAttackRequest();
+        }
+    }
+
+    private void handleHotbarSelection() {
+        if (Gdx.input == null || !(getPossessedPawn() instanceof PlayerCharacter player)) {
+            return;
+        }
+
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_1)) {
+            selectToolSlot(player, 0);
+        } else if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_2)) {
+            selectToolSlot(player, 1);
+        } else if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_3)) {
+            selectToolSlot(player, 2);
+        } else if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_4)) {
+            selectToolSlot(player, 3);
+        } else if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_5)) {
+            selectToolSlot(player, 4);
+        } else if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_6)) {
+            selectAssignedItemSlot();
+        }
+    }
+
+    private void handleToolAttack() {
+        if (Gdx.input == null || selectedHotbarSlot == ASSIGNED_ITEM_SLOT_INDEX
+            || !Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)
+            || isInventoryInteractionActive()) {
+            return;
+        }
+
+        if (!(getPossessedPawn() instanceof PlayerCharacter player)) {
+            return;
+        }
+
+        ControllerComponent controller = player.getComponent(ControllerComponent.class);
+        if (controller != null) {
+            controller.triggerAttackInput();
+        }
+
+        CombatComponent combat = player.getComponent(CombatComponent.class);
+        if (combat != null) {
+            combat.requestAttack();
+        }
+    }
+
+    private void handleAssignedItemUse() {
+        if (Gdx.input == null
+            || !Gdx.input.isButtonJustPressed(Input.Buttons.RIGHT)
+            || isInventoryInteractionActive()) {
+            return;
+        }
+
+        if (assignedItemId == null || assignedItemId.isBlank()) {
+            return;
+        }
+
+        if (getPossessedPawn() instanceof PlayerCharacter player) {
+            useAssignedItem(player);
+        }
+    }
+
+    private void selectToolSlot(PlayerCharacter player, int slotIndex) {
+        if (player == null || slotIndex < 0 || slotIndex >= TOOL_SLOT_COUNT) {
+            return;
+        }
+
+        selectedHotbarSlot = slotIndex;
+        if (toolbeltWidget != null) {
+            toolbeltWidget.setSelectedSlot(selectedHotbarSlot);
+        }
+
+        PlayerToolComponent toolComponent = player.getPlayerToolComponent();
+        if (toolComponent != null) {
+            toolComponent.setActiveTool(PlayerToolType.values()[slotIndex]);
+        }
+    }
+
+    private void selectAssignedItemSlot() {
+        selectedHotbarSlot = ASSIGNED_ITEM_SLOT_INDEX;
+        if (toolbeltWidget != null) {
+            toolbeltWidget.setSelectedSlot(selectedHotbarSlot);
         }
     }
 
@@ -370,6 +483,10 @@ public class MainPlayerController extends PlayerController {
 
         if (!player.hasAuthority()) {
             requestInventoryAction(itemId, NetworkProtocol.InventoryActionType.USE);
+            return;
+        }
+
+        if (CropPlantingService.tryPlant(player, itemId, getWorld(), getCurrentTiledMap(), false)) {
             return;
         }
 
@@ -404,6 +521,39 @@ public class MainPlayerController extends PlayerController {
         }
     }
 
+    private void assignSelectedItem(String itemId) {
+        if (itemId == null || itemId.isBlank() || !(getPossessedPawn() instanceof PlayerCharacter player)) {
+            return;
+        }
+
+        InventoryComponent inventory = player.getInventoryComponent();
+        if (inventory == null || inventory.getStack(itemId) == null) {
+            return;
+        }
+
+        assignedItemId = itemId;
+        refreshAssignedItemSlot(player);
+        selectAssignedItemSlot();
+
+        if (!player.hasAuthority()) {
+            requestAssignedItemUpdate(itemId);
+            return;
+        }
+
+        PlayerAssignedItemComponent assignedItemComponent = player.getPlayerAssignedItemComponent();
+        if (assignedItemComponent != null) {
+            assignedItemComponent.setAssignedItemId(itemId);
+        }
+    }
+
+    private void useAssignedItem(PlayerCharacter player) {
+        if (player == null || assignedItemId == null || assignedItemId.isBlank()) {
+            return;
+        }
+
+        useSelectedItem(assignedItemId);
+    }
+
     private void requestInventoryAction(String itemId, NetworkProtocol.InventoryActionType actionType) {
         if (itemId == null || itemId.isBlank() || actionType == null) {
             return;
@@ -421,10 +571,56 @@ public class MainPlayerController extends PlayerController {
         gameInstance.getNetDriver().sendToServer(request, true);
     }
 
+    private void requestAssignedItemUpdate(String itemId) {
+        GameInstance gameInstance = getGameInstance();
+        if (gameInstance == null || !gameInstance.isClient() || gameInstance.getNetDriver() == null) {
+            return;
+        }
+
+        NetworkProtocol.ClientAssignedItemUpdate request = new NetworkProtocol.ClientAssignedItemUpdate();
+        request.playerId = getPlayerId();
+        request.itemId = itemId;
+        gameInstance.getNetDriver().sendToServer(request, true);
+    }
+
+    private void handleAssignedItemChanged(String itemId) {
+        assignedItemId = itemId != null ? itemId.trim() : "";
+
+        if (getPossessedPawn() instanceof PlayerCharacter player) {
+            refreshAssignedItemSlot(player);
+        } else {
+            if (inventoryPanel != null) {
+                inventoryPanel.setHiddenItemId(null);
+            }
+            if (toolbeltWidget != null) {
+                toolbeltWidget.setAssignedItem(null);
+            }
+        }
+    }
+
+    private void refreshAssignedItemSlot(PlayerCharacter player) {
+        InventoryStack assignedStack = null;
+        if (player != null && assignedItemId != null && !assignedItemId.isBlank()) {
+            InventoryComponent inventory = player.getInventoryComponent();
+            if (inventory != null) {
+                assignedStack = inventory.getStack(assignedItemId);
+            }
+        }
+
+        if (inventoryPanel != null) {
+            inventoryPanel.setHiddenItemId(assignedStack != null ? assignedItemId : null);
+        }
+        if (toolbeltWidget != null) {
+            toolbeltWidget.setAssignedItem(assignedStack);
+            toolbeltWidget.setSelectedSlot(selectedHotbarSlot);
+        }
+    }
+
     private void handleToolChanged(PlayerToolType toolType) {
         PlayerToolType resolvedTool = toolType != null ? toolType : PlayerToolType.SWORD;
+        selectedHotbarSlot = resolvedTool.ordinal();
         if (toolbeltWidget != null) {
-            toolbeltWidget.setSelectedTool(resolvedTool);
+            toolbeltWidget.setSelectedSlot(selectedHotbarSlot);
         }
 
         if (lastObservedTool == null) {
@@ -489,12 +685,10 @@ public class MainPlayerController extends PlayerController {
             closeStatsPanel();
             return;
         }
-
         if (settingsPanel != null && settingsPanel.isVisible()) {
             closeSettingsToPauseMenu();
             return;
         }
-
         if (pauseMenu != null && pauseMenu.isVisible()) {
             hidePauseMenu();
             return;
@@ -556,7 +750,6 @@ public class MainPlayerController extends PlayerController {
                 if (statsPanel == null || !statsPanel.isAddedToViewport()) {
                     return;
                 }
-
                 statsPanel.setStats(stats);
             }
 
@@ -565,7 +758,6 @@ public class MainPlayerController extends PlayerController {
                 if (statsPanel == null || !statsPanel.isAddedToViewport()) {
                     return;
                 }
-
                 statsPanel.showError(message);
             }
         });
@@ -633,5 +825,16 @@ public class MainPlayerController extends PlayerController {
         if (gameInstance != null) {
             gameInstance.returnToMenu("Wyjscie do menu glownego");
         }
+    }
+
+    private com.badlogic.gdx.maps.tiled.TiledMap getCurrentTiledMap() {
+        GameInstance gameInstance = getGameInstance();
+        if (gameInstance == null || gameInstance.getLevelScreen() == null
+            || gameInstance.getLevelScreen().getActiveContext() == null
+            || gameInstance.getLevelScreen().getActiveContext().getTiledParser() == null) {
+            return null;
+        }
+
+        return gameInstance.getLevelScreen().getActiveContext().getTiledParser().getCurrentMap();
     }
 }

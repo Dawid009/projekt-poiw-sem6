@@ -19,7 +19,9 @@ import com.badlogic.gdx.utils.Align;
 import com.polsl.poiw.engine.inventory.InventoryStack;
 import com.polsl.poiw.engine.inventory.ItemDefinition;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class InventoryPanelWidget extends UserWidget {
 
@@ -40,6 +42,7 @@ public class InventoryPanelWidget extends UserWidget {
     public interface InventoryActionListener {
         void onUseRequested(String itemId);
         void onDropRequested(String itemId);
+        void onAssignRequested(String itemId);
     }
 
     private final Skin skin;
@@ -53,10 +56,12 @@ public class InventoryPanelWidget extends UserWidget {
     private final Cell<Label> tooltipDescCell;
     private final TextButton useButton;
     private final TextButton dropButton;
+    private final TextButton assignButton;
     private final Vector2 stagePoint = new Vector2();
 
     private List<InventoryStack> items = List.of();
     private String selectedItemId;
+    private String hiddenItemId;
     private InventoryActionListener actionListener;
 
     public InventoryPanelWidget(Skin skin, TextureAtlas itemsAtlas) {
@@ -95,13 +100,16 @@ public class InventoryPanelWidget extends UserWidget {
 
         this.useButton = new TextButton("Uzyj", UiSkinStyles.copyTextButtonStyle(skin, "default"));
         this.dropButton = new TextButton("Wyrzuc", UiSkinStyles.copyTextButtonStyle(skin, "default"));
+        this.assignButton = new TextButton("Przypisz", UiSkinStyles.copyTextButtonStyle(skin, "default"));
         this.useButton.getLabel().setFontScale(0.6f);
         this.dropButton.getLabel().setFontScale(0.6f);
+        this.assignButton.getLabel().setFontScale(0.6f);
 
         Table buttonRow = new Table();
         buttonRow.defaults().width(BUTTON_WIDTH).height(BUTTON_HEIGHT).padTop(1f);
         buttonRow.add(useButton).padRight(3f);
-        buttonRow.add(dropButton);
+        buttonRow.add(dropButton).padRight(3f);
+        buttonRow.add(assignButton);
 
         Table gridContainer = new Table();
         gridContainer.setBackground(skin.getDrawable("list"));
@@ -118,8 +126,8 @@ public class InventoryPanelWidget extends UserWidget {
 
         addActor(window);
         addActor(tooltipTable);
-        syncSize();
         wireButtons();
+        rebuildItems();
         setVisibility(EVisibility.HIDDEN);
     }
 
@@ -128,12 +136,31 @@ public class InventoryPanelWidget extends UserWidget {
     }
 
     public void setItems(List<InventoryStack> items) {
-        this.items = items != null ? List.copyOf(items) : List.of();
+        List<InventoryStack> normalizedItems = items != null ? List.copyOf(items) : List.of();
+        boolean itemsChanged = !areItemsEquivalent(this.items, normalizedItems);
+        this.items = normalizedItems;
 
         if (selectedItemId != null && getSelectedStack() == null) {
             selectedItemId = null;
+            itemsChanged = true;
         }
 
+        if (itemsChanged) {
+            rebuildItems();
+        } else {
+            updateActionButtons();
+        }
+    }
+
+    public void setHiddenItemId(String itemId) {
+        String normalizedItemId = itemId != null && !itemId.isBlank() ? itemId : null;
+        if (Objects.equals(hiddenItemId, normalizedItemId)) {
+            return;
+        }
+        if (normalizedItemId != null && normalizedItemId.equals(selectedItemId)) {
+            selectedItemId = null;
+        }
+        hiddenItemId = normalizedItemId;
         rebuildItems();
     }
 
@@ -160,15 +187,25 @@ public class InventoryPanelWidget extends UserWidget {
             }
         });
 
+        assignButton.addListener(new ClickListener() {
+            @Override
+            public void clicked(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y) {
+                if (actionListener != null && selectedItemId != null) {
+                    actionListener.onAssignRequested(selectedItemId);
+                }
+            }
+        });
+
         updateActionButtons();
     }
 
     private void rebuildItems() {
         itemsTable.clearChildren();
+        List<InventoryStack> visibleItems = getVisibleItems();
 
         int slotCount = MIN_VISIBLE_SLOTS;
         for (int index = 0; index < slotCount; index++) {
-            InventoryStack stack = index < items.size() ? items.get(index) : null;
+            InventoryStack stack = index < visibleItems.size() ? visibleItems.get(index) : null;
             itemsTable.add(createSlot(stack))
                 .size(SLOT_SIZE, SLOT_SIZE)
                 .pad(SLOT_PADDING);
@@ -218,9 +255,11 @@ public class InventoryPanelWidget extends UserWidget {
 
         button.addListener(new ClickListener() {
             @Override
-            public void clicked(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y) {
+            public boolean touchDown(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y,
+                                     int pointer, int buttonCode) {
                 selectedItemId = definition.getItemId();
                 rebuildItems();
+                return true;
             }
 
             @Override
@@ -327,6 +366,7 @@ public class InventoryPanelWidget extends UserWidget {
 
         useButton.setDisabled(!canUse);
         dropButton.setDisabled(!canDrop);
+        assignButton.setDisabled(!canDrop);
     }
 
     private InventoryStack getSelectedStack() {
@@ -340,6 +380,52 @@ public class InventoryPanelWidget extends UserWidget {
             }
         }
         return null;
+    }
+
+    private List<InventoryStack> getVisibleItems() {
+        if (hiddenItemId == null || hiddenItemId.isBlank()) {
+            return items;
+        }
+
+        List<InventoryStack> visibleItems = new ArrayList<>(items.size());
+        for (InventoryStack stack : items) {
+            if (stack == null || stack.getDefinition() == null) {
+                continue;
+            }
+            if (hiddenItemId.equals(stack.getDefinition().getItemId())) {
+                continue;
+            }
+            visibleItems.add(stack);
+        }
+        return visibleItems;
+    }
+
+    private boolean areItemsEquivalent(List<InventoryStack> left, List<InventoryStack> right) {
+        if (left == right) {
+            return true;
+        }
+        if (left == null || right == null || left.size() != right.size()) {
+            return false;
+        }
+
+        for (int index = 0; index < left.size(); index++) {
+            InventoryStack leftStack = left.get(index);
+            InventoryStack rightStack = right.get(index);
+            if (leftStack == rightStack) {
+                continue;
+            }
+            if (leftStack == null || rightStack == null) {
+                return false;
+            }
+            if (leftStack.getQuantity() != rightStack.getQuantity()) {
+                return false;
+            }
+            if (!Objects.equals(leftStack.getDefinition().getItemId(), rightStack.getDefinition().getItemId())) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private void syncSize() {

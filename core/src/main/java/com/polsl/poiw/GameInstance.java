@@ -351,6 +351,7 @@ public class GameInstance {
 
     public LevelRegistry getLevelRegistry() { return levelRegistry; }
     public String getCurrentLevelId() { return currentLevelId; }
+    public LevelScreen getLevelScreen() { return levelScreen; }
     public AuthService getAuthService() { return authService; }
 
     /** Aktywny WorldContext (z LevelScreen) */

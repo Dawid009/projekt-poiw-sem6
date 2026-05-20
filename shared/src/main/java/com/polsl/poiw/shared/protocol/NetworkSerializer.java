@@ -45,6 +45,7 @@ public final class NetworkSerializer {
         kryo.register(NetworkProtocol.InventoryActionType.class);
         kryo.register(NetworkProtocol.ClientInventoryAction.class);
         kryo.register(NetworkProtocol.ClientToolSelection.class);
+        kryo.register(NetworkProtocol.ClientAssignedItemUpdate.class);
         kryo.register(NetworkProtocol.ServerPositionCorrection.class);
 
         // RPC

@@ -34,11 +34,6 @@ public class ClientReplicationHandler {
 
     // processes actor spawn from the server.
     public void handleActorSpawn(NetworkProtocol.ActorSpawn spawn) {
-        Gdx.app.log(TAG, "handleActorSpawn: actorId=" + spawn.actorId
-            + " class=" + spawn.actorClass
-            + " owner=" + spawn.ownerId
-            + " localPlayer=" + localPlayerId
-            + " pos=(" + spawn.x + "," + spawn.y + ")");
         // check if exists
         if (gameWorld.getActorById(spawn.actorId) != null) {
             Gdx.app.debug(TAG, "Actor " + spawn.actorId + " already exists, skipping spawn");
@@ -82,9 +77,6 @@ public class ClientReplicationHandler {
 
     public void handleBatchUpdate(NetworkProtocol.BatchReplicationUpdate batch) {
         if (batch.updates == null) return;
-
-        Gdx.app.debug(TAG, "handleBatchUpdate: " + batch.updates.length
-            + " updates, serverTime=" + batch.serverTime + " tick=" + batch.serverTick);
 
         for (NetworkProtocol.ReplicationUpdate update : batch.updates) {
             handleReplicationUpdate(update, batch.serverTime);

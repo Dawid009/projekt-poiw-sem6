@@ -96,6 +96,7 @@ public class InventoryComponent extends AbstractActorComponent {
         }
 
         if (removed > 0) {
+            clearAssignedItemIfMissing(itemId);
             syncReplicatedStacks();
             broadcastChange();
         }
@@ -246,6 +247,17 @@ public class InventoryComponent extends AbstractActorComponent {
             }
         }
         return null;
+    }
+
+    private void clearAssignedItemIfMissing(String itemId) {
+        if (itemId == null || itemId.isBlank() || findFirstRecord(itemId) != null || getOwner() == null) {
+            return;
+        }
+
+        PlayerAssignedItemComponent assignedItemComponent = getOwner().getComponent(PlayerAssignedItemComponent.class);
+        if (assignedItemComponent != null && itemId.equals(assignedItemComponent.getAssignedItemId())) {
+            assignedItemComponent.clearAssignedItem();
+        }
     }
 
     private static final class InventoryRecord {

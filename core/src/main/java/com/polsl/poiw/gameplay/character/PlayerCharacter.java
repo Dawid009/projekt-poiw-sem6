@@ -55,6 +55,7 @@ public class PlayerCharacter extends AbstractActor {
         addComponent(new DamageReactionComponent());
         addComponent(new InventoryComponent());
         addComponent(new PlayerToolComponent());
+        addComponent(new PlayerAssignedItemComponent());
 
         float ppm = 16f;
         float collHalfW = 9f / 2f / ppm;
@@ -86,7 +87,7 @@ public class PlayerCharacter extends AbstractActor {
 
 
         // Animacje idle/walk zależne od kierunku i ruchu
-    addComponent(new PlayerAnimationComponent(atlas, playerActionsAtlas));
+        addComponent(new PlayerAnimationComponent(atlas, playerActionsAtlas));
 
         // Movement component - opisuje aktualny ruch i jego parametry
         addComponent(new MovementComponent(PLAYER_SPEED));
@@ -97,6 +98,7 @@ public class PlayerCharacter extends AbstractActor {
         addComponent(new DamageReactionComponent());
         addComponent(new InventoryComponent());
         addComponent(new PlayerToolComponent());
+        addComponent(new PlayerAssignedItemComponent());
 
         // Kolizja gracza — kształt z objects.tsx: x=11,y=18,w=9,h=5 px (sprite 32x32)
         float ppm = 16f;
@@ -176,5 +178,9 @@ public class PlayerCharacter extends AbstractActor {
     public PlayerToolType getActiveTool() {
         PlayerToolComponent toolComponent = getPlayerToolComponent();
         return toolComponent != null ? toolComponent.getActiveTool() : PlayerToolType.SWORD;
+    }
+
+    public PlayerAssignedItemComponent getPlayerAssignedItemComponent() {
+        return getComponent(PlayerAssignedItemComponent.class);
     }
 }
