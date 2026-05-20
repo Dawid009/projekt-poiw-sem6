@@ -42,6 +42,7 @@ import static com.polsl.poiw.engine.tiled.TiledConstants.*;
 public class ServerTiledObjectFactory implements TiledObjectFactory {
 
     private static final String TAG = "ServerTiledObjectFactory";
+    private static final int MAX_TILE_SCAN_GID = 4096;
 
     private final GameWorld gameWorld;
     private TiledMap currentMap;
@@ -245,9 +246,11 @@ public class ServerTiledObjectFactory implements TiledObjectFactory {
         if (treeKind != null) {
             float treeHealth = getFloatProperty(tileData.properties(), "life", treeKind.getMaxHealth());
             TreeActor tree = new TreeActor();
-            int stumpTileGid = getIntProperty(tileData.properties(), "stump_tile_gid", 17);
-            float stumpWidth = getFloatProperty(tileData.properties(), "stump_width", treeKind == TreeKind.SMALL ? 1.5f : 2f);
-            float stumpHeight = getFloatProperty(tileData.properties(), "stump_height", treeKind == TreeKind.SMALL ? 1.5f : 2f);
+            TreeStumpData defaultStump = resolveDefaultTreeStumpData(treeKind);
+            int stumpTileGid = getIntProperty(tileData.properties(), "stump_tile_gid",
+                defaultStump != null ? defaultStump.tileGid() : defaultTreeStumpTileGid(treeKind));
+            float stumpWidth = getFloatProperty(tileData.properties(), "stump_width", defaultStump != null ? defaultStump.width() : defaultTreeStumpSize(treeKind));
+            float stumpHeight = getFloatProperty(tileData.properties(), "stump_height", defaultStump != null ? defaultStump.height() : defaultTreeStumpSize(treeKind));
             tree.setTreeKind(treeKind);
             tree.setStumpTileGid(stumpTileGid);
             tree.setStumpSize(stumpWidth, stumpHeight);
@@ -485,8 +488,58 @@ public class ServerTiledObjectFactory implements TiledObjectFactory {
             return null;
         }
 
+        if (Boolean.TRUE.equals(tileData.properties().get("is_stump"))) {
+            return null;
+        }
+
         Object treeType = tileData.properties().get("tree_type");
-        return TreeKind.fromMetadata(treeType instanceof String value ? value : null);
+        Object treeSize = tileData.properties().get("tree_size");
+        return TreeKind.fromProperties(
+            treeType instanceof String value ? value : null,
+            treeSize instanceof String value ? value : null
+        );
+    }
+
+    private TreeStumpData resolveDefaultTreeStumpData(TreeKind treeKind) {
+        if (currentMap == null || treeKind == null || tmxLoader == null) {
+            return null;
+        }
+
+        for (int gid = 1; gid <= MAX_TILE_SCAN_GID; gid++) {
+            HeadlessTmxLoader.TileData candidate = tmxLoader.getTileData(gid);
+            if (!isMatchingTreeStumpTile(candidate, treeKind)) {
+                continue;
+            }
+
+            return new TreeStumpData(gid, candidate.imageW() / PPM, candidate.imageH() / PPM);
+        }
+
+        return null;
+    }
+
+    private boolean isMatchingTreeStumpTile(HeadlessTmxLoader.TileData tileData, TreeKind treeKind) {
+        if (tileData == null || treeKind == null || !"Tree".equalsIgnoreCase(tileData.type())) {
+            return false;
+        }
+
+        if (!Boolean.TRUE.equals(tileData.properties().get("is_stump"))) {
+            return false;
+        }
+
+        Object treeType = tileData.properties().get("tree_type");
+        Object treeSize = tileData.properties().get("tree_size");
+        return TreeKind.fromProperties(
+            treeType instanceof String value ? value : null,
+            treeSize instanceof String value ? value : null
+        ) == treeKind;
+    }
+
+    private float defaultTreeStumpSize(TreeKind treeKind) {
+        return treeKind == TreeKind.SMALL ? 32f / PPM : 41f / PPM;
+    }
+
+    private int defaultTreeStumpTileGid(TreeKind treeKind) {
+        return treeKind == TreeKind.SMALL ? 17 : 77;
     }
 
     private CropData getCropData(int gid, HeadlessTmxLoader.TileData tileData, String layerName) {
@@ -569,6 +622,8 @@ public class ServerTiledObjectFactory implements TiledObjectFactory {
             ));
         }
     }
+
+    private record TreeStumpData(int tileGid, float width, float height) {}
 
     private record CropData(CropKind kind,
                             int growthStage,

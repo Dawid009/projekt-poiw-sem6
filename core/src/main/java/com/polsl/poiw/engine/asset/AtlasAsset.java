@@ -7,7 +7,7 @@ public enum AtlasAsset implements Asset<TextureAtlas> {
     OBJECTS("objects.atlas"),
     CREATURES("creatures.atlas"),
     ITEMS("items.atlas"),
-    PLAYER_ACTIONS("player_actions.atlas");
+    PLAYER_ACTIONS("player.atlas");
 
     private final AssetDescriptor<TextureAtlas> descriptor;
 

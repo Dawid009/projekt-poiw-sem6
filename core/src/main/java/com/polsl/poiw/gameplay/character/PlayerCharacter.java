@@ -28,7 +28,7 @@ public class PlayerCharacter extends AbstractActor {
     private static final float MAX_HEALTH = 100f;
 
     /** Klucz regionu w atlasie */
-    private static final String PLAYER_REGION = "player/idle_down";
+    private static final String PLAYER_REGION = "player";
 
     /** Rozmiar sprite'a w pikselach (32x32) */
     private static final float SPRITE_PX = 32f;
@@ -72,7 +72,8 @@ public class PlayerCharacter extends AbstractActor {
      * Wywoływane po stworzeniu, ale przed beginPlay().
      */
     public void configure(TextureAtlas atlas, TextureAtlas playerActionsAtlas) {
-        TextureRegion region = atlas.findRegion(PLAYER_REGION);
+        TextureAtlas playerAtlas = resolvePlayerAtlas(atlas, playerActionsAtlas);
+        TextureRegion region = playerAtlas != null ? playerAtlas.findRegion(PLAYER_REGION) : null;
         if (region == null) {
             throw new RuntimeException("Nie znaleziono regionu: " + PLAYER_REGION + " w atlasie");
         }
@@ -87,7 +88,8 @@ public class PlayerCharacter extends AbstractActor {
 
 
         // Animacje idle/walk zależne od kierunku i ruchu
-        addComponent(new PlayerAnimationComponent(atlas, playerActionsAtlas));
+        TextureAtlas actionAtlas = playerActionsAtlas != null ? playerActionsAtlas : playerAtlas;
+        addComponent(new PlayerAnimationComponent(playerAtlas, actionAtlas));
 
         // Movement component - opisuje aktualny ruch i jego parametry
         addComponent(new MovementComponent(PLAYER_SPEED));
@@ -114,6 +116,16 @@ public class PlayerCharacter extends AbstractActor {
         if (transform != null) {
             transform.setSortOffsetY(sizeH / 2f + offsetY - collHalfH);
         }
+    }
+
+    private TextureAtlas resolvePlayerAtlas(TextureAtlas preferredAtlas, TextureAtlas fallbackAtlas) {
+        if (preferredAtlas != null && preferredAtlas.findRegion(PLAYER_REGION) != null) {
+            return preferredAtlas;
+        }
+        if (fallbackAtlas != null && fallbackAtlas.findRegion(PLAYER_REGION) != null) {
+            return fallbackAtlas;
+        }
+        return preferredAtlas != null ? preferredAtlas : fallbackAtlas;
     }
 
     @Override

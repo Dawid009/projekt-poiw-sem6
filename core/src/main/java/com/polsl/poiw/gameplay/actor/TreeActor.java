@@ -11,6 +11,11 @@ import com.polsl.poiw.engine.component.TransformComponent;
 import com.polsl.poiw.gameplay.item.GameplayItems;
 
 public class TreeActor extends AbstractTiledTargetActor {
+	private static final int SMALL_STUMP_TILE_GID = 17;
+	private static final int NORMAL_STUMP_TILE_GID = 77;
+	private static final float SMALL_STUMP_SIZE = 32f / 16f;
+	private static final float NORMAL_STUMP_SIZE = 41f / 16f;
+
 	private static final float HIT_SWAY_DURATION = 0.18f;
 	private static final float HIT_SWAY_ROTATION = 4.5f;
 	private static final float FALL_DURATION = 0.42f;
@@ -93,13 +98,14 @@ public class TreeActor extends AbstractTiledTargetActor {
 	}
 
 	private void applyDefaultStumpData(TreeKind treeKind) {
-		this.stumpTileGid = 17;
 		if (treeKind == TreeKind.SMALL) {
-			this.stumpWidth = 1.5f;
-			this.stumpHeight = 1.5f;
+			this.stumpTileGid = SMALL_STUMP_TILE_GID;
+			this.stumpWidth = SMALL_STUMP_SIZE;
+			this.stumpHeight = SMALL_STUMP_SIZE;
 		} else {
-			this.stumpWidth = 2f;
-			this.stumpHeight = 2f;
+			this.stumpTileGid = NORMAL_STUMP_TILE_GID;
+			this.stumpWidth = NORMAL_STUMP_SIZE;
+			this.stumpHeight = NORMAL_STUMP_SIZE;
 		}
 	}
 

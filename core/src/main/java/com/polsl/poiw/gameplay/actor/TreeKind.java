@@ -28,6 +28,16 @@ public enum TreeKind {
         return maxLogs;
     }
 
+    public static TreeKind fromProperties(String treeTypeValue, String treeSizeValue) {
+        if (treeTypeValue != null && !treeTypeValue.isBlank()) {
+            return fromMetadata(treeTypeValue);
+        }
+        if (treeSizeValue != null && treeSizeValue.equalsIgnoreCase("small")) {
+            return SMALL;
+        }
+        return OAK;
+    }
+
     public static TreeKind fromMetadata(String metadataValue) {
         if (metadataValue != null) {
             for (TreeKind kind : values()) {

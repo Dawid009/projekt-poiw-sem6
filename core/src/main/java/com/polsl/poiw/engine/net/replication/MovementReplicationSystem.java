@@ -3,8 +3,10 @@ package com.polsl.poiw.engine.net.replication;
 import com.badlogic.ashley.core.EntitySystem;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.physics.box2d.Body;
+import com.badlogic.gdx.physics.box2d.BodyDef;
 import com.polsl.poiw.engine.actor.Actor;
 import com.polsl.poiw.engine.collision.CollisionComponent;
+import com.polsl.poiw.engine.component.MovementComponent;
 import com.polsl.poiw.engine.net.driver.NetDriver;
 import com.polsl.poiw.engine.world.GameWorld;
 import com.polsl.poiw.shared.protocol.NetworkProtocol;
@@ -49,10 +51,12 @@ public class MovementReplicationSystem extends EntitySystem {
         for (Actor actor : gameWorld.getAllActors()) {
             if (!actor.isReplicated()) continue;
 
+            CollisionComponent collision = actor.getComponentByType(CollisionComponent.class);
+            if (!shouldReplicateMovement(actor, collision)) continue;
+
             float posX, posY, velX = 0f, velY = 0f;
 
             // use body position (post-physics, authoritative)
-            CollisionComponent collision = actor.getComponentByType(CollisionComponent.class);
             if (collision != null && collision.getBody() != null) {
                 Body body = collision.getBody();
                 posX = body.getPosition().x;
@@ -88,6 +92,18 @@ public class MovementReplicationSystem extends EntitySystem {
             // UDP — unreliable, latest-wins
             netDriver.sendToAllClients(batch, false);
         }
+    }
+
+    private boolean shouldReplicateMovement(Actor actor, CollisionComponent collision) {
+        if (actor.getComponent(MovementComponent.class) != null) {
+            return true;
+        }
+
+        if (collision == null || collision.getBody() == null) {
+            return false;
+        }
+
+        return collision.getBody().getType() != BodyDef.BodyType.StaticBody;
     }
 
     public void setReplicationRate(float hz) {

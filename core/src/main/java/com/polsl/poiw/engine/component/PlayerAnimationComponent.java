@@ -51,14 +51,14 @@ public class PlayerAnimationComponent extends AbstractActorComponent {
     private float attackVisualRemaining = 0f;
 
     public PlayerAnimationComponent(TextureAtlas atlas, TextureAtlas playerActionsAtlas) {
-        this.idleDown = createLoopAnimation(atlas, "player/idle_down", IDLE_FRAME_DURATION);
-        this.idleLeft = createLoopAnimation(atlas, "player/idle_left", IDLE_FRAME_DURATION);
-        this.idleRight = createLoopAnimation(atlas, "player/idle_right", IDLE_FRAME_DURATION);
-        this.idleUp = createLoopAnimation(atlas, "player/idle_up", IDLE_FRAME_DURATION);
-        this.walkDown = createLoopAnimation(atlas, "player/walk_down", WALK_FRAME_DURATION);
-        this.walkLeft = createLoopAnimation(atlas, "player/walk_left", WALK_FRAME_DURATION);
-        this.walkRight = createLoopAnimation(atlas, "player/walk_right", WALK_FRAME_DURATION);
-        this.walkUp = createLoopAnimation(atlas, "player/walk_up", WALK_FRAME_DURATION);
+        this.idleDown = createLoopAnimation(atlas, "player_idle/idle_down", IDLE_FRAME_DURATION);
+        this.idleLeft = createLoopAnimation(atlas, "player_idle/idle_left", IDLE_FRAME_DURATION);
+        this.idleRight = createLoopAnimation(atlas, "player_idle/idle_right", IDLE_FRAME_DURATION);
+        this.idleUp = createLoopAnimation(atlas, "player_idle/idle_up", IDLE_FRAME_DURATION);
+        this.walkDown = createLoopAnimation(atlas, "player_walk/walk_down", WALK_FRAME_DURATION);
+        this.walkLeft = createLoopAnimation(atlas, "player_walk/walk_left", WALK_FRAME_DURATION);
+        this.walkRight = createLoopAnimation(atlas, "player_walk/walk_right", WALK_FRAME_DURATION);
+        this.walkUp = createLoopAnimation(atlas, "player_walk/walk_up", WALK_FRAME_DURATION);
         buildAttackAnimations(playerActionsAtlas);
     }
 

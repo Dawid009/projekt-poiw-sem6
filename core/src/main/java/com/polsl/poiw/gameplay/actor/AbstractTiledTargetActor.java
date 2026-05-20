@@ -233,15 +233,29 @@ public abstract class AbstractTiledTargetActor extends AbstractActor {
 
         float spawnX = transform.getPosition().x + (transform.getSize().x - width) * 0.5f;
         float spawnY = transform.getPosition().y;
+        BoxCollisionComponent sourceCollision = getComponent(BoxCollisionComponent.class);
+        Vector2 resolvedCollOffset = collOffset != null ? collOffset : Vector2.Zero;
+        if (sourceCollision != null) {
+            float sourceBaseCenterX = transform.getPosition().x + transform.getSize().x * 0.5f + sourceCollision.getOffset().x;
+            float sourceBaseY = transform.getPosition().y + transform.getSize().y * 0.5f + sourceCollision.getOffset().y
+                - sourceCollision.getHalfHeight();
+            if (collHalfW > 0f && collHalfH > 0f) {
+                spawnX = sourceBaseCenterX - width * 0.5f - resolvedCollOffset.x;
+                spawnY = sourceBaseY + collHalfH - height * 0.5f - resolvedCollOffset.y;
+            } else {
+                spawnX = sourceBaseCenterX - width * 0.5f;
+                spawnY = sourceBaseY;
+            }
+        }
 
         TiledVisualActor decoration = new TiledVisualActor();
         if (isReplicated()) {
             decoration.configureServer(tileGid, width, height, sortOffsetY, zOrder,
-                collHalfW, collHalfH, collOffset);
+                collHalfW, collHalfH, resolvedCollOffset);
             decoration.setReplicated(true);
         } else {
             decoration.configure(getTiledMap(), tileGid, resolveTileRegion(getTiledMap(), tileGid),
-                width, height, sortOffsetY, zOrder, collHalfW, collHalfH, collOffset);
+                width, height, sortOffsetY, zOrder, collHalfW, collHalfH, resolvedCollOffset);
         }
         getWorld().spawnActor(decoration, new Vector2(spawnX, spawnY));
     }

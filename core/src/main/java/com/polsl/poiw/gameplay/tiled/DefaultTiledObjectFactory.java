@@ -10,6 +10,7 @@ import com.badlogic.gdx.maps.objects.PolygonMapObject;
 import com.badlogic.gdx.maps.objects.RectangleMapObject;
 import com.badlogic.gdx.maps.tiled.objects.TiledMapTileMapObject;
 import com.badlogic.gdx.maps.tiled.TiledMapTile;
+import com.badlogic.gdx.maps.tiled.TiledMapTileSet;
 import com.badlogic.gdx.math.Ellipse;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
@@ -58,6 +59,7 @@ import static com.polsl.poiw.engine.tiled.TiledConstants.*;
 public class DefaultTiledObjectFactory implements TiledObjectFactory {
 
     private static final String TAG = "TiledObjectFactory";
+    private static final int MAX_TILE_SCAN_GID = 4096;
 
     private final GameWorld gameWorld;
     private final TextureAtlas objectsAtlas;
@@ -290,9 +292,11 @@ public class DefaultTiledObjectFactory implements TiledObjectFactory {
 
             float maxHealth = getFloatProperty(tile, "life", treeKind.getMaxHealth());
             TreeActor tree = new TreeActor();
-            int stumpTileGid = getIntProperty(tile, "stump_tile_gid", 17);
-            float stumpWidth = getFloatProperty(tile, "stump_width", treeKind == TreeKind.SMALL ? 1.5f : 2f);
-            float stumpHeight = getFloatProperty(tile, "stump_height", treeKind == TreeKind.SMALL ? 1.5f : 2f);
+            TreeStumpData defaultStump = resolveDefaultTreeStumpData(treeKind);
+            int stumpTileGid = getIntProperty(tile, "stump_tile_gid",
+                defaultStump != null ? defaultStump.tileGid() : defaultTreeStumpTileGid(treeKind));
+            float stumpWidth = getFloatProperty(tile, "stump_width", defaultStump != null ? defaultStump.width() : defaultTreeStumpSize(treeKind));
+            float stumpHeight = getFloatProperty(tile, "stump_height", defaultStump != null ? defaultStump.height() : defaultTreeStumpSize(treeKind));
             tree.setTreeKind(treeKind);
             tree.setStumpTileGid(stumpTileGid);
             tree.setStumpSize(stumpWidth, stumpHeight);
@@ -509,8 +513,62 @@ public class DefaultTiledObjectFactory implements TiledObjectFactory {
             return null;
         }
 
+        Boolean isStump = tile.getProperties().get("is_stump", Boolean.class);
+        if (Boolean.TRUE.equals(isStump)) {
+            return null;
+        }
+
         String treeType = tile.getProperties().get("tree_type", String.class);
-        return TreeKind.fromMetadata(treeType);
+        String treeSize = tile.getProperties().get("tree_size", String.class);
+        return TreeKind.fromProperties(treeType, treeSize);
+    }
+
+    private TreeStumpData resolveDefaultTreeStumpData(TreeKind treeKind) {
+        if (currentMap == null || treeKind == null) {
+            return null;
+        }
+
+        for (int gid = 1; gid <= MAX_TILE_SCAN_GID; gid++) {
+            TiledMapTile candidate = currentMap.getTileSets().getTile(gid);
+            if (!isMatchingTreeStumpTile(candidate, treeKind)) {
+                continue;
+            }
+
+            TextureRegion region = candidate.getTextureRegion();
+            float width = region != null ? region.getRegionWidth() / PPM : defaultTreeStumpSize(treeKind);
+            float height = region != null ? region.getRegionHeight() / PPM : defaultTreeStumpSize(treeKind);
+            return new TreeStumpData(gid, width, height);
+        }
+
+        return null;
+    }
+
+    private boolean isMatchingTreeStumpTile(TiledMapTile tile, TreeKind treeKind) {
+        if (tile == null || treeKind == null) {
+            return false;
+        }
+
+        String type = tile.getProperties().get("type", String.class);
+        if (type == null || !"Tree".equalsIgnoreCase(type)) {
+            return false;
+        }
+
+        Boolean isStump = tile.getProperties().get("is_stump", Boolean.class);
+        if (!Boolean.TRUE.equals(isStump)) {
+            return false;
+        }
+
+        String treeType = tile.getProperties().get("tree_type", String.class);
+        String treeSize = tile.getProperties().get("tree_size", String.class);
+        return TreeKind.fromProperties(treeType, treeSize) == treeKind;
+    }
+
+    private float defaultTreeStumpSize(TreeKind treeKind) {
+        return treeKind == TreeKind.SMALL ? 32f / PPM : 41f / PPM;
+    }
+
+    private int defaultTreeStumpTileGid(TreeKind treeKind) {
+        return treeKind == TreeKind.SMALL ? 17 : 77;
     }
 
     private CropData getCropData(TiledMapTile tile, String layerName) {
@@ -568,6 +626,8 @@ public class DefaultTiledObjectFactory implements TiledObjectFactory {
 
     /** Dane kolizji — halfW, halfH, offset od centrum body */
     private record CollisionData(float halfW, float halfH, float offsetX, float offsetY) {}
+
+    private record TreeStumpData(int tileGid, float width, float height) {}
 
     private record CropData(CropKind kind,
                             int growthStage,

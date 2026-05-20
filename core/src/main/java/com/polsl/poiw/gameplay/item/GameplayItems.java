@@ -223,7 +223,7 @@ public final class GameplayItems {
         ItemType.MATERIAL,
         "Drewno",
         "Surowy kloc drewna.",
-        null,
+        "misc/tree_log",
         new Color(0.56f, 0.36f, 0.18f, 1f),
         ItemQuality.COMMON,
         50
