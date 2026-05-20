@@ -6,6 +6,7 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.math.Vector2;
 import com.polsl.poiw.GameInstance;
 import com.polsl.poiw.engine.actor.Actor;
+import com.polsl.poiw.engine.auth.AuthService;
 import com.polsl.poiw.engine.binding.BindingHandle;
 import com.polsl.poiw.engine.component.InventoryComponent;
 import com.polsl.poiw.engine.component.TransformComponent;
@@ -16,6 +17,7 @@ import com.polsl.poiw.engine.ui.InventoryPanelWidget;
 import com.polsl.poiw.engine.ui.PauseMenuWidget;
 import com.polsl.poiw.engine.ui.ProgressBarWidget;
 import com.polsl.poiw.engine.ui.SettingsPanelWidget;
+import com.polsl.poiw.engine.ui.StatsPanelWidget;
 import com.polsl.poiw.engine.ui.TextBlock;
 import com.polsl.poiw.engine.world.GameWorld;
 import com.polsl.poiw.engine.inventory.InventoryStack;
@@ -24,6 +26,10 @@ import com.polsl.poiw.gameplay.actor.ItemPickupActor;
 import com.polsl.poiw.gameplay.character.PlayerCharacter;
 import com.polsl.poiw.gameplay.item.GameplayItems;
 import com.polsl.poiw.shared.protocol.NetworkProtocol;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Controller gracza — tworzy HUD z wyświetlaniem HP
@@ -36,9 +42,11 @@ public class MainPlayerController extends PlayerController {
     private InventoryPanelWidget inventoryPanel;
     private PauseMenuWidget pauseMenu;
     private SettingsPanelWidget settingsPanel;
+    private StatsPanelWidget statsPanel;
     private BindingHandle healthBinding;
     private BindingHandle maxHealthBinding;
     private BindingHandle inventoryBinding;
+    private final Map<String, Integer> trackedInventoryQuantities = new HashMap<>();
 
     /** Aktualne wartości do formatowania tekstu */
     private float currentHp = 0f;
@@ -100,6 +108,11 @@ public class MainPlayerController extends PlayerController {
             }
 
             @Override
+            public void onStatsRequested() {
+                openStatsPanel();
+            }
+
+            @Override
             public void onQuitRequested() {
                 quitToMainMenu();
             }
@@ -111,6 +124,23 @@ public class MainPlayerController extends PlayerController {
         settingsPanel.setAlignment(EAnchor.CENTER);
         settingsPanel.setCloseAction(this::closeSettingsToPauseMenu);
         addWidgetToViewport(settingsPanel);
+
+        statsPanel = new StatsPanelWidget(getSkin());
+        statsPanel.setAnchor(EAnchor.CENTER);
+        statsPanel.setAlignment(EAnchor.CENTER);
+        statsPanel.setActionListener(new StatsPanelWidget.StatsPanelActionListener() {
+            @Override
+            public void onRefreshRequested() {
+                refreshStatsPanel();
+            }
+
+            @Override
+            public void onCloseRequested() {
+                closeStatsPanel();
+            }
+        });
+        addWidgetToViewport(statsPanel);
+        updateStatsUiState();
     }
 
     @Override
@@ -125,7 +155,11 @@ public class MainPlayerController extends PlayerController {
                 currentMaxHp = val;
                 updateHpText();
             });
-            inventoryBinding = player.getInventoryRevision().bind(revision -> inventoryPanel.setItems(player.getInventoryItems()));
+            List<InventoryStack> initialItems = player.getInventoryItems();
+            inventoryPanel.setItems(initialItems);
+            resetInventoryTracking(initialItems);
+            inventoryBinding = player.getInventoryRevision().bind(revision -> handleInventoryChanged(player));
+            updateStatsUiState();
         }
     }
 
@@ -143,6 +177,7 @@ public class MainPlayerController extends PlayerController {
             inventoryBinding.unbind();
             inventoryBinding = null;
         }
+        trackedInventoryQuantities.clear();
         if (inventoryPanel != null) {
             inventoryPanel.setItems(java.util.List.of());
             inventoryPanel.setVisibility(EVisibility.HIDDEN);
@@ -152,6 +187,9 @@ public class MainPlayerController extends PlayerController {
         }
         if (settingsPanel != null) {
             settingsPanel.setVisibility(EVisibility.HIDDEN);
+        }
+        if (statsPanel != null) {
+            statsPanel.setVisibility(EVisibility.HIDDEN);
         }
     }
 
@@ -197,6 +235,64 @@ public class MainPlayerController extends PlayerController {
                 hpText.setColor(Color.RED);
             }
         }
+    }
+
+    private void handleInventoryChanged(PlayerCharacter player) {
+        List<InventoryStack> items = player.getInventoryItems();
+        inventoryPanel.setItems(items);
+        trackInventoryStats(items);
+    }
+
+    private void resetInventoryTracking(List<InventoryStack> items) {
+        trackedInventoryQuantities.clear();
+        trackedInventoryQuantities.putAll(buildInventoryQuantityMap(items));
+    }
+
+    private void trackInventoryStats(List<InventoryStack> items) {
+        Map<String, Integer> currentQuantities = buildInventoryQuantityMap(items);
+        int collectedCrops = computePositiveDelta(currentQuantities, GameplayItems.ITEM_CARROT.getItemId())
+            + computePositiveDelta(currentQuantities, GameplayItems.ITEM_WHEAT.getItemId());
+        int collectedResources = computePositiveDelta(currentQuantities, GameplayItems.IRON_ORE.getItemId())
+            + computePositiveDelta(currentQuantities, GameplayItems.GOLD_ORE.getItemId());
+
+        trackedInventoryQuantities.clear();
+        trackedInventoryQuantities.putAll(currentQuantities);
+
+        GameInstance gameInstance = getGameInstance();
+        AuthService authService = gameInstance != null ? gameInstance.getAuthService() : null;
+        if (authService == null) {
+            return;
+        }
+
+        if (collectedCrops > 0) {
+            authService.recordCollectedCrops(collectedCrops);
+        }
+        if (collectedResources > 0) {
+            authService.recordCollectedResources(collectedResources);
+        }
+    }
+
+    private int computePositiveDelta(Map<String, Integer> currentQuantities, String itemId) {
+        int previous = trackedInventoryQuantities.getOrDefault(itemId, 0);
+        int current = currentQuantities.getOrDefault(itemId, 0);
+        return Math.max(0, current - previous);
+    }
+
+    private Map<String, Integer> buildInventoryQuantityMap(List<InventoryStack> items) {
+        Map<String, Integer> quantities = new HashMap<>();
+        if (items == null) {
+            return quantities;
+        }
+
+        for (InventoryStack stack : items) {
+            if (stack == null || stack.getDefinition() == null) {
+                continue;
+            }
+
+            quantities.merge(stack.getDefinition().getItemId(), stack.getQuantity(), Integer::sum);
+        }
+
+        return quantities;
     }
 
     private void handleInventoryToggle() {
@@ -324,6 +420,11 @@ public class MainPlayerController extends PlayerController {
             return;
         }
 
+        if (statsPanel != null && statsPanel.isVisible()) {
+            closeStatsPanel();
+            return;
+        }
+
         if (settingsPanel != null && settingsPanel.isVisible()) {
             closeSettingsToPauseMenu();
             return;
@@ -339,12 +440,98 @@ public class MainPlayerController extends PlayerController {
 
     private boolean isOverlayVisible() {
         return (pauseMenu != null && pauseMenu.isVisible())
-            || (settingsPanel != null && settingsPanel.isVisible());
+            || (settingsPanel != null && settingsPanel.isVisible())
+            || (statsPanel != null && statsPanel.isVisible());
+    }
+
+    private void openStatsPanel() {
+        if (statsPanel == null) {
+            return;
+        }
+
+        if (inventoryPanel != null) {
+            inventoryPanel.setVisibility(EVisibility.HIDDEN);
+        }
+        if (pauseMenu != null) {
+            pauseMenu.setVisibility(EVisibility.HIDDEN);
+        }
+        if (settingsPanel != null) {
+            settingsPanel.setVisibility(EVisibility.HIDDEN);
+        }
+
+        statsPanel.setVisibility(EVisibility.VISIBLE);
+        refreshStatsPanel();
+    }
+
+    private void closeStatsPanel() {
+        if (statsPanel != null) {
+            statsPanel.setVisibility(EVisibility.HIDDEN);
+        }
+        if (pauseMenu != null && isStatsAvailable()) {
+            pauseMenu.setVisibility(EVisibility.VISIBLE);
+        }
+    }
+
+    private void refreshStatsPanel() {
+        if (statsPanel == null) {
+            return;
+        }
+
+        GameInstance gameInstance = getGameInstance();
+        AuthService authService = gameInstance != null ? gameInstance.getAuthService() : null;
+        if (authService == null || !authService.isAuthenticated() || authService.isOfflineSession()) {
+            statsPanel.showError("Statystyki sa dostepne tylko po zalogowaniu.");
+            return;
+        }
+
+        statsPanel.showLoading();
+        authService.fetchCurrentStats(new AuthService.StatsResultListener() {
+            @Override
+            public void onSuccess(AuthService.PlayerStatsSnapshot stats) {
+                if (statsPanel == null || !statsPanel.isAddedToViewport()) {
+                    return;
+                }
+
+                statsPanel.setStats(stats);
+            }
+
+            @Override
+            public void onFailure(String message) {
+                if (statsPanel == null || !statsPanel.isAddedToViewport()) {
+                    return;
+                }
+
+                statsPanel.showError(message);
+            }
+        });
+    }
+
+    private void updateStatsUiState() {
+        boolean statsAvailable = isStatsAvailable();
+        if (pauseMenu != null) {
+            pauseMenu.setStatsVisible(statsAvailable);
+        }
+        if (!statsAvailable && statsPanel != null) {
+            statsPanel.setVisibility(EVisibility.HIDDEN);
+        }
+    }
+
+    private boolean isStatsAvailable() {
+        GameInstance gameInstance = getGameInstance();
+        if (gameInstance == null) {
+            return false;
+        }
+
+        AuthService authService = gameInstance.getAuthService();
+        return authService != null && authService.isAuthenticated() && !authService.isOfflineSession();
     }
 
     private void showPauseMenu() {
         if (inventoryPanel != null) {
             inventoryPanel.setVisibility(EVisibility.HIDDEN);
+        }
+        if (statsPanel != null) {
+            statsPanel.setVisibility(EVisibility.HIDDEN);
         }
         if (pauseMenu != null) {
             pauseMenu.setVisibility(EVisibility.VISIBLE);

@@ -18,6 +18,7 @@ import com.polsl.poiw.engine.ui.EAnchor;
 import com.polsl.poiw.engine.ui.EVisibility;
 import com.polsl.poiw.engine.ui.FullscreenBackgroundRenderer;
 import com.polsl.poiw.engine.ui.SettingsPanelWidget;
+import com.polsl.poiw.engine.ui.StatsPanelWidget;
 import com.polsl.poiw.engine.ui.UiSkinStyles;
 import com.polsl.poiw.engine.ui.UserWidget;
 import com.polsl.poiw.shared.protocol.NetworkProtocol;
@@ -39,6 +40,8 @@ public class MenuPlayerController extends PlayerController {
     private static final float PANEL_BUTTON_HEIGHT = 12f;
     private static final float PANEL_FIELD_WIDTH = 55f;
     private static final float PANEL_FIELD_HEIGHT = 12f;
+    private static final float MENU_STATS_BUTTON_WIDTH = 55f;
+    private static final float MENU_STATS_BUTTON_HEIGHT = 12f;
 
     private UserWidget menuContainer;
     private UserWidget multiplayerPanel;
@@ -54,7 +57,11 @@ public class MenuPlayerController extends PlayerController {
     private Cell<Label> accountTimeCell;
     private Table accountTable;
     private TextButton connectButton;
+    private TextButton menuStatsButton;
+    private Cell<TextButton> menuStatsButtonCell;
+    private Window menuWindow;
     private SettingsPanelWidget settingsPanel;
+    private StatsPanelWidget statsPanel;
 
     @Override
     protected void setupHUD() {
@@ -66,7 +73,7 @@ public class MenuPlayerController extends PlayerController {
         menuContainer = new UserWidget();
         menuContainer.setAnchor(EAnchor.CENTER);
         menuContainer.setAlignment(EAnchor.CENTER);
-        Window menuWindow = new Window("Gra 2D", skin, "atlas");
+        menuWindow = new Window("Gra 2D", skin, "atlas");
         menuWindow.setMovable(false);
         UiSkinStyles.centerWindowTitle(menuWindow);
 
@@ -99,6 +106,16 @@ public class MenuPlayerController extends PlayerController {
             }
         });
         menuContent.add(optionsButton).row();
+
+        menuStatsButton = createMenuButton(skin, "Staty", MENU_STATS_BUTTON_WIDTH, MENU_STATS_BUTTON_HEIGHT);
+        menuStatsButton.addListener(new ClickListener() {
+            @Override
+            public void clicked(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y) {
+                openStatsPanel();
+            }
+        });
+        menuStatsButtonCell = menuContent.add(menuStatsButton).padBottom(1f);
+        menuContent.row();
 
         TextButton quitButton = createMenuButton(skin, "Wyjdz", MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT);
         quitButton.addListener(new ClickListener() {
@@ -252,7 +269,24 @@ public class MenuPlayerController extends PlayerController {
         });
         addWidgetToViewport(authPanel);
 
+        statsPanel = new StatsPanelWidget(skin);
+        statsPanel.setAnchor(EAnchor.CENTER);
+        statsPanel.setAlignment(EAnchor.CENTER);
+        statsPanel.setActionListener(new StatsPanelWidget.StatsPanelActionListener() {
+            @Override
+            public void onRefreshRequested() {
+                refreshStatsPanel();
+            }
+
+            @Override
+            public void onCloseRequested() {
+                closeStatsPanel();
+            }
+        });
+        addWidgetToViewport(statsPanel);
+
         refreshAccountInfo();
+        updateStatsUiState();
         if (getGameInstance().getAuthService().isAuthenticated()) {
             showMainMenu();
         } else {
@@ -302,6 +336,7 @@ public class MenuPlayerController extends PlayerController {
     }
 
     private void openMultiplayerPanel() {
+        closeStatsPanel();
         menuContainer.setVisibility(EVisibility.COLLAPSED);
         if (offlineOverlay != null) {
             offlineOverlay.setVisibility(EVisibility.COLLAPSED);
@@ -388,6 +423,7 @@ public class MenuPlayerController extends PlayerController {
             return;
         }
 
+        closeStatsPanel();
         settingsPanel.refreshFromAppliedSettings();
         settingsPanel.setVisibility(EVisibility.VISIBLE);
         menuContainer.setVisibility(EVisibility.HIDDEN);
@@ -467,6 +503,7 @@ public class MenuPlayerController extends PlayerController {
     }
 
     private void showMainMenu() {
+        closeStatsPanelInternal();
         if (authPanel != null) {
             authPanel.setVisibility(EVisibility.COLLAPSED);
         }
@@ -484,9 +521,11 @@ public class MenuPlayerController extends PlayerController {
         }
         menuContainer.setVisibility(EVisibility.VISIBLE);
         refreshAccountInfo();
+        updateStatsUiState();
     }
 
     private void showAuthPanel(String statusText, Color statusColor) {
+        closeStatsPanelInternal();
         menuContainer.setVisibility(EVisibility.COLLAPSED);
         if (accountOverlay != null) {
             accountOverlay.setVisibility(EVisibility.COLLAPSED);
@@ -511,6 +550,91 @@ public class MenuPlayerController extends PlayerController {
             }
             authPanel.setVisibility(EVisibility.VISIBLE);
         }
+    }
+
+    private void openStatsPanel() {
+        if (!isStatsAvailable() || statsPanel == null) {
+            return;
+        }
+
+        menuContainer.setVisibility(EVisibility.HIDDEN);
+        if (accountOverlay != null) {
+            accountOverlay.setVisibility(EVisibility.HIDDEN);
+        }
+        statsPanel.setVisibility(EVisibility.VISIBLE);
+        refreshStatsPanel();
+    }
+
+    private void closeStatsPanel() {
+        closeStatsPanelInternal();
+        if (isStatsAvailable()) {
+            showMainMenu();
+        }
+    }
+
+    private void closeStatsPanelInternal() {
+        if (statsPanel != null) {
+            statsPanel.setVisibility(EVisibility.HIDDEN);
+        }
+    }
+
+    private void refreshStatsPanel() {
+        if (statsPanel == null) {
+            return;
+        }
+
+        AuthService authService = getGameInstance().getAuthService();
+        if (authService == null || !authService.isAuthenticated() || authService.isOfflineSession()) {
+            statsPanel.showError("Statystyki sa dostepne tylko po zalogowaniu.");
+            return;
+        }
+
+        statsPanel.showLoading();
+        authService.fetchCurrentStats(new AuthService.StatsResultListener() {
+            @Override
+            public void onSuccess(AuthService.PlayerStatsSnapshot stats) {
+                if (statsPanel == null || !statsPanel.isAddedToViewport()) {
+                    return;
+                }
+
+                statsPanel.setStats(stats);
+            }
+
+            @Override
+            public void onFailure(String message) {
+                if (statsPanel == null || !statsPanel.isAddedToViewport()) {
+                    return;
+                }
+
+                statsPanel.showError(message);
+            }
+        });
+    }
+
+    private void updateStatsUiState() {
+        boolean statsAvailable = isStatsAvailable();
+        if (menuStatsButton != null) {
+            menuStatsButton.setVisible(statsAvailable);
+            menuStatsButton.setDisabled(!statsAvailable);
+        }
+        if (menuStatsButtonCell != null) {
+            menuStatsButtonCell.height(statsAvailable ? MENU_STATS_BUTTON_HEIGHT : 0f);
+            menuStatsButtonCell.padBottom(statsAvailable ? 1f : 0f);
+        }
+        if (menuWindow != null && menuContainer != null) {
+            menuWindow.pack();
+            menuWindow.setSize(menuWindow.getPrefWidth(), menuWindow.getPrefHeight());
+            menuContainer.setSize(menuWindow.getWidth(), menuWindow.getHeight());
+            menuContainer.updateLayout();
+        }
+        if (!statsAvailable) {
+            closeStatsPanelInternal();
+        }
+    }
+
+    private boolean isStatsAvailable() {
+        AuthService authService = getGameInstance().getAuthService();
+        return authService != null && authService.isAuthenticated() && !authService.isOfflineSession();
     }
 
     private void refreshAccountInfo() {

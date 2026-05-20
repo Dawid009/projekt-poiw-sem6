@@ -4,6 +4,11 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Net;
 import com.badlogic.gdx.Preferences;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
+
 public class AuthService {
 
     private static final String PREFS_NAME = "poiw-auth";
@@ -12,6 +17,7 @@ public class AuthService {
     private static final String KEY_EMAIL = "email";
     private static final String DEFAULT_BASE_URL = "http://localhost:8080";
     private static final float REFRESH_INTERVAL_SECONDS = 60f;
+    private static final float STATS_FLUSH_INTERVAL_SECONDS = 10f;
 
     private String rememberedLogin;
     private String rememberedPassword;
@@ -21,6 +27,11 @@ public class AuthService {
     private float refreshTimer;
     private float playtimeAccumulator;
     private boolean refreshInFlight;
+    private final StatsDelta pendingStats = new StatsDelta();
+    private final List<Runnable> postFlushCallbacks = new ArrayList<>();
+    private float statsFlushTimer;
+    private boolean statsFlushInFlight;
+    private int pendingStatsUserId = -1;
 
     public AuthService() {
         loadRememberedCredentials();
@@ -41,6 +52,12 @@ public class AuthService {
         if (refreshTimer >= REFRESH_INTERVAL_SECONDS && !refreshInFlight) {
             refreshTimer -= REFRESH_INTERVAL_SECONDS;
             sendRefresh(activeSession.userId);
+        }
+
+        statsFlushTimer += delta;
+        if (statsFlushTimer >= STATS_FLUSH_INTERVAL_SECONDS && !statsFlushInFlight) {
+            statsFlushTimer -= STATS_FLUSH_INTERVAL_SECONDS;
+            flushPendingStats(null);
         }
     }
 
@@ -74,9 +91,8 @@ public class AuthService {
 
     public SessionSnapshot startOfflineSession() {
         activeSession = new ActiveSession(-1, "", "offline", 0L, true);
-        refreshTimer = 0f;
-        playtimeAccumulator = 0f;
-        refreshInFlight = false;
+        resetSessionTimers();
+        resetStatsTransportState();
         return snapshot();
     }
 
@@ -110,9 +126,14 @@ public class AuthService {
                     return;
                 }
 
+                if (pendingStatsUserId >= 0 && pendingStatsUserId != userId) {
+                    clearPendingStats();
+                }
+
                 activeSession = new ActiveSession(userId, resolvedEmail, username, playtime, false);
-                refreshTimer = 0f;
-                playtimeAccumulator = 0f;
+                resetSessionTimers();
+                resetStatsTransportState();
+                recordGameEntry();
                 rememberSuccessfulLogin(username, normalizedPassword, resolvedEmail);
                 postSuccess(listener, snapshot());
             }
@@ -163,10 +184,83 @@ public class AuthService {
         ActiveSession sessionToClose = activeSession;
         boolean offlineSession = sessionToClose != null && sessionToClose.offline;
 
+        if (sessionToClose == null || offlineSession) {
+            finishLogout(sessionToClose, onComplete);
+            return;
+        }
+
+        flushPendingStats(() -> finishLogout(sessionToClose, onComplete));
+    }
+
+    public void recordTreeCut() {
+        queueStatsDelta(0, 0, 0, 0, 1, 0, 0);
+    }
+
+    public void recordEnemyKill() {
+        queueStatsDelta(0, 0, 1, 0, 0, 0, 0);
+    }
+
+    public void recordAnimalKill() {
+        queueStatsDelta(0, 0, 0, 1, 0, 0, 0);
+    }
+
+    public void recordCollectedResources(int quantity) {
+        if (quantity > 0) {
+            queueStatsDelta(0, 0, 0, 0, 0, quantity, 0);
+        }
+    }
+
+    public void recordCollectedCrops(int quantity) {
+        if (quantity > 0) {
+            queueStatsDelta(0, 0, 0, 0, 0, 0, quantity);
+        }
+    }
+
+    public void fetchCurrentStats(StatsResultListener listener) {
+        ActiveSession session = activeSession;
+        if (session == null || session.offline) {
+            postStatsFailure(listener, "Statystyki sa dostepne tylko dla zalogowanego konta.");
+            return;
+        }
+
+        flushPendingStats(() -> sendGet("/stats/" + urlEncode(session.username), new ResponseHandler() {
+            @Override
+            public void onResponse(int statusCode, String responseBody) {
+                if (statusCode < 200 || statusCode >= 300) {
+                    postStatsFailure(listener, extractError(responseBody, "Nie udalo sie pobrac statystyk."));
+                    return;
+                }
+
+                PlayerStatsSnapshot stats = parsePlayerStats(responseBody);
+                if (stats == null) {
+                    postStatsFailure(listener, "Backend zwrocil niepelne statystyki.");
+                    return;
+                }
+
+                postStatsSuccess(listener, stats);
+            }
+
+            @Override
+            public void onFailure(String message) {
+                postStatsFailure(listener, message);
+            }
+        }));
+    }
+
+    public boolean hasPendingStats() {
+        return !pendingStats.isEmpty();
+    }
+
+    private void recordGameEntry() {
+        queueStatsDelta(0, 1, 0, 0, 0, 0, 0);
+        flushPendingStats(null);
+    }
+
+    private void finishLogout(ActiveSession sessionToClose, Runnable onComplete) {
+        boolean offlineSession = sessionToClose != null && sessionToClose.offline;
         activeSession = null;
-        refreshTimer = 0f;
-        playtimeAccumulator = 0f;
-        refreshInFlight = false;
+        resetSessionTimers();
+        resetStatsTransportState();
         if (!offlineSession) {
             clearRememberedCredentials();
         }
@@ -195,6 +289,158 @@ public class AuthService {
         });
     }
 
+    private void queueStatsDelta(int points,
+                                 int entryCount,
+                                 int enemyKills,
+                                 int animalKills,
+                                 int treesCut,
+                                 int collectedResources,
+                                 int collectedCrops) {
+        ActiveSession session = activeSession;
+        if (session == null || session.offline) {
+            return;
+        }
+
+        if (pendingStatsUserId >= 0 && pendingStatsUserId != session.userId) {
+            clearPendingStats();
+        }
+
+        pendingStatsUserId = session.userId;
+        pendingStats.add(points, entryCount, enemyKills, animalKills, treesCut, collectedResources, collectedCrops);
+    }
+
+    private void flushPendingStats(Runnable afterFlush) {
+        if (afterFlush != null) {
+            postFlushCallbacks.add(afterFlush);
+        }
+
+        ActiveSession session = activeSession;
+        if (session == null || session.offline) {
+            runPostFlushCallbacks();
+            return;
+        }
+        if (pendingStats.isEmpty()) {
+            runPostFlushCallbacks();
+            return;
+        }
+        if (pendingStatsUserId >= 0 && pendingStatsUserId != session.userId) {
+            runPostFlushCallbacks();
+            return;
+        }
+        if (statsFlushInFlight) {
+            return;
+        }
+
+        statsFlushInFlight = true;
+        StatsDelta statsToSend = pendingStats.copy();
+        int userId = session.userId;
+        String body = buildStatsUpdateBody(userId, statsToSend);
+        sendPost("/scores", body, new ResponseHandler() {
+            @Override
+            public void onResponse(int statusCode, String responseBody) {
+                statsFlushInFlight = false;
+                if (isSuccess(statusCode, responseBody)) {
+                    if (pendingStatsUserId == userId) {
+                        pendingStats.subtract(statsToSend);
+                        if (pendingStats.isEmpty()) {
+                            pendingStatsUserId = -1;
+                        }
+                    }
+                } else {
+                    Gdx.app.error("AuthService", "Stats backend failed: "
+                        + extractError(responseBody, "stats flush error"));
+                }
+
+                if (!pendingStats.isEmpty() && !postFlushCallbacks.isEmpty()) {
+                    flushPendingStats(null);
+                    return;
+                }
+
+                runPostFlushCallbacks();
+            }
+
+            @Override
+            public void onFailure(String message) {
+                statsFlushInFlight = false;
+                Gdx.app.error("AuthService", "Stats request failed: " + message);
+                runPostFlushCallbacks();
+            }
+        });
+    }
+
+    private String buildStatsUpdateBody(int userId, StatsDelta stats) {
+        return "{\"id\":" + userId +
+            ",\"punkty\":" + stats.points +
+            ",\"iloscWejsc\":" + stats.entryCount +
+            ",\"iloscZabitychwPrzeciwnikow\":" + stats.enemyKills +
+            ",\"iloscZabitychwZwierzat\":" + stats.animalKills +
+            ",\"iloscScietychDrzew\":" + stats.treesCut +
+            ",\"iloscZebranychSurowcow\":" + stats.collectedResources +
+            ",\"iloscZebranychPlonow\":" + stats.collectedCrops +
+            "}";
+    }
+
+    private PlayerStatsSnapshot parsePlayerStats(String json) {
+        Integer userId = extractInt(json, "id");
+        String username = extractString(json, "nazwa");
+        Integer points = extractInt(json, "punkty");
+        Integer entryCount = extractInt(json, "iloscWejsc");
+        Integer enemyKills = extractInt(json, "iloscZabitychwPrzeciwnikow");
+        Integer animalKills = extractInt(json, "iloscZabitychwZwierzat");
+        Integer treesCut = extractInt(json, "iloscScietychDrzew");
+        Integer collectedResources = extractInt(json, "iloscZebranychSurowcow");
+        Integer collectedCrops = extractInt(json, "iloscZebranychPlonow");
+
+        if (userId == null || username == null || points == null || entryCount == null
+            || enemyKills == null || animalKills == null || treesCut == null
+            || collectedResources == null || collectedCrops == null) {
+            return null;
+        }
+
+        return new PlayerStatsSnapshot(
+            userId,
+            username,
+            points,
+            entryCount,
+            enemyKills,
+            animalKills,
+            treesCut,
+            collectedResources,
+            collectedCrops
+        );
+    }
+
+    private void clearPendingStats() {
+        pendingStats.clear();
+        pendingStatsUserId = -1;
+    }
+
+    private void resetSessionTimers() {
+        refreshTimer = 0f;
+        playtimeAccumulator = 0f;
+        refreshInFlight = false;
+    }
+
+    private void resetStatsTransportState() {
+        statsFlushTimer = 0f;
+        statsFlushInFlight = false;
+        postFlushCallbacks.clear();
+    }
+
+    private void runPostFlushCallbacks() {
+        if (postFlushCallbacks.isEmpty()) {
+            return;
+        }
+
+        List<Runnable> callbacks = new ArrayList<>(postFlushCallbacks);
+        postFlushCallbacks.clear();
+        for (Runnable callback : callbacks) {
+            if (callback != null) {
+                callback.run();
+            }
+        }
+    }
+
     private void sendRefresh(int userId) {
         refreshInFlight = true;
         String body = "{\"id\":" + userId + "}";
@@ -217,11 +463,21 @@ public class AuthService {
     }
 
     private void sendPost(String path, String body, ResponseHandler handler) {
-        Net.HttpRequest request = new Net.HttpRequest(Net.HttpMethods.POST);
+        sendRequest(Net.HttpMethods.POST, path, body, handler);
+    }
+
+    private void sendGet(String path, ResponseHandler handler) {
+        sendRequest(Net.HttpMethods.GET, path, null, handler);
+    }
+
+    private void sendRequest(String method, String path, String body, ResponseHandler handler) {
+        Net.HttpRequest request = new Net.HttpRequest(method);
         request.setUrl(resolveBaseUrl() + path);
         request.setHeader("Content-Type", "application/json; charset=UTF-8");
         request.setHeader("Accept", "application/json");
-        request.setContent(body);
+        if (body != null) {
+            request.setContent(body);
+        }
         request.setTimeOut(5000);
 
         Gdx.net.sendHttpRequest(request, new Net.HttpResponseListener() {
@@ -245,6 +501,10 @@ public class AuthService {
                 Gdx.app.postRunnable(() -> handler.onFailure("Zadanie HTTP zostalo anulowane."));
             }
         });
+    }
+
+    private String urlEncode(String value) {
+        return URLEncoder.encode(value == null ? "" : value, StandardCharsets.UTF_8);
     }
 
     private SessionSnapshot snapshot() {
@@ -291,6 +551,18 @@ public class AuthService {
     }
 
     private void postFailure(AuthResultListener listener, String message) {
+        if (listener != null) {
+            listener.onFailure(message);
+        }
+    }
+
+    private void postStatsSuccess(StatsResultListener listener, PlayerStatsSnapshot snapshot) {
+        if (listener != null) {
+            listener.onSuccess(snapshot);
+        }
+    }
+
+    private void postStatsFailure(StatsResultListener listener, String message) {
         if (listener != null) {
             listener.onFailure(message);
         }
@@ -449,10 +721,26 @@ public class AuthService {
         void onFailure(String message);
     }
 
+    public interface StatsResultListener {
+        void onSuccess(PlayerStatsSnapshot stats);
+        void onFailure(String message);
+    }
+
     public record RememberedCredentials(String login, String password, String email) {
     }
 
     public record SessionSnapshot(int userId, String email, String username, long playtimeSeconds) {
+    }
+
+    public record PlayerStatsSnapshot(int userId,
+                                      String username,
+                                      int points,
+                                      int entryCount,
+                                      int enemyKills,
+                                      int animalKills,
+                                      int treesCut,
+                                      int collectedResources,
+                                      int collectedCrops) {
     }
 
     private interface ResponseHandler {
@@ -473,6 +761,78 @@ public class AuthService {
             this.username = username;
             this.playtimeSeconds = playtimeSeconds;
             this.offline = offline;
+        }
+    }
+
+    private static final class StatsDelta {
+        private int points;
+        private int entryCount;
+        private int enemyKills;
+        private int animalKills;
+        private int treesCut;
+        private int collectedResources;
+        private int collectedCrops;
+
+        private void add(int points,
+                         int entryCount,
+                         int enemyKills,
+                         int animalKills,
+                         int treesCut,
+                         int collectedResources,
+                         int collectedCrops) {
+            this.points += Math.max(0, points);
+            this.entryCount += Math.max(0, entryCount);
+            this.enemyKills += Math.max(0, enemyKills);
+            this.animalKills += Math.max(0, animalKills);
+            this.treesCut += Math.max(0, treesCut);
+            this.collectedResources += Math.max(0, collectedResources);
+            this.collectedCrops += Math.max(0, collectedCrops);
+        }
+
+        private void subtract(StatsDelta other) {
+            if (other == null) {
+                return;
+            }
+
+            points = Math.max(0, points - other.points);
+            entryCount = Math.max(0, entryCount - other.entryCount);
+            enemyKills = Math.max(0, enemyKills - other.enemyKills);
+            animalKills = Math.max(0, animalKills - other.animalKills);
+            treesCut = Math.max(0, treesCut - other.treesCut);
+            collectedResources = Math.max(0, collectedResources - other.collectedResources);
+            collectedCrops = Math.max(0, collectedCrops - other.collectedCrops);
+        }
+
+        private StatsDelta copy() {
+            StatsDelta copy = new StatsDelta();
+            copy.points = points;
+            copy.entryCount = entryCount;
+            copy.enemyKills = enemyKills;
+            copy.animalKills = animalKills;
+            copy.treesCut = treesCut;
+            copy.collectedResources = collectedResources;
+            copy.collectedCrops = collectedCrops;
+            return copy;
+        }
+
+        private boolean isEmpty() {
+            return points == 0
+                && entryCount == 0
+                && enemyKills == 0
+                && animalKills == 0
+                && treesCut == 0
+                && collectedResources == 0
+                && collectedCrops == 0;
+        }
+
+        private void clear() {
+            points = 0;
+            entryCount = 0;
+            enemyKills = 0;
+            animalKills = 0;
+            treesCut = 0;
+            collectedResources = 0;
+            collectedCrops = 0;
         }
     }
 }

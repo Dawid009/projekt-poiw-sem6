@@ -72,7 +72,7 @@ public class AttackHitboxActor extends AbstractActor implements OverlapListener 
             return;
         }
 
-        health.applyDamage(damage);
+        health.applyDamage(damage, getOwnerId());
 
         DamageReactionComponent damageReaction = other.getComponent(DamageReactionComponent.class);
         if (damageReaction != null) {

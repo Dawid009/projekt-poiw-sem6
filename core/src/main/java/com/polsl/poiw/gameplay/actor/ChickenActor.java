@@ -1,5 +1,6 @@
 package com.polsl.poiw.gameplay.actor;
 
+import com.polsl.poiw.engine.auth.GameplayStatsBridge;
 import com.polsl.poiw.gameplay.item.GameplayItems;
 
 public class ChickenActor extends AbstractCreatureActor {
@@ -26,5 +27,10 @@ public class ChickenActor extends AbstractCreatureActor {
     @Override
     protected void onBeforeDestroy() {
         spawnItemDrops(GameplayItems.CHICKEN_RAW, 1, 1);
+    }
+
+    @Override
+    protected void onDeathObserved() {
+        GameplayStatsBridge.recordAnimalKill(this);
     }
 }

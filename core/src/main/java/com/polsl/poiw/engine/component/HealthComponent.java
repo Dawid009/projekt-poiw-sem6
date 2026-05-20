@@ -19,6 +19,9 @@ public class HealthComponent extends AbstractActorComponent {
     @RepNotify("onMaxHealthChanged")
     private float maxHealth;
 
+    @Replicated
+    private int lastDamageOwnerId;
+
     /** observable property — bridge do UI (aktualizowane przez @RepNotify na kliencie) */
     private final transient PropertyBinding<Float> healthProperty;
     private final transient PropertyBinding<Float> maxHealthProperty;
@@ -31,6 +34,7 @@ public class HealthComponent extends AbstractActorComponent {
         setReplicated(true);
         this.maxHealth = maxHealth;
         this.currentHealth = currentHealth;
+        this.lastDamageOwnerId = -1;
         this.healthProperty = new PropertyBinding<>(currentHealth);
         this.maxHealthProperty = new PropertyBinding<>(maxHealth);
     }
@@ -41,7 +45,12 @@ public class HealthComponent extends AbstractActorComponent {
      * zadaje obrażenia — tylko na serwerze (authority)
      */
     public void applyDamage(float amount) {
+        applyDamage(amount, -1);
+    }
+
+    public void applyDamage(float amount, int damageOwnerId) {
         if (getOwner() != null && !getOwner().hasAuthority()) return;
+        setLastDamageOwnerId(damageOwnerId);
         setCurrentHealth(Math.max(0f, currentHealth - amount));
     }
 
@@ -71,6 +80,11 @@ public class HealthComponent extends AbstractActorComponent {
         maxHealthProperty.set(value);
     }
 
+    private void setLastDamageOwnerId(int value) {
+        this.lastDamageOwnerId = value;
+        markDirty("lastDamageOwnerId");
+    }
+
     // ===== @RepNotify callbacks (called on client after replication apply) =====
 
     @SuppressWarnings("unused")
@@ -87,6 +101,7 @@ public class HealthComponent extends AbstractActorComponent {
 
     public float getCurrentHealth() { return currentHealth; }
     public float getMaxHealth() { return maxHealth; }
+    public int getLastDamageOwnerId() { return lastDamageOwnerId; }
 
     /** observable HP — binduj do UI */
     public PropertyBinding<Float> getHealthProperty() { return healthProperty; }

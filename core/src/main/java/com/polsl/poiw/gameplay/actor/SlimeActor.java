@@ -1,5 +1,6 @@
 package com.polsl.poiw.gameplay.actor;
 
+import com.polsl.poiw.engine.auth.GameplayStatsBridge;
 import com.polsl.poiw.gameplay.item.GameplayItems;
 
 public class SlimeActor extends AbstractCreatureActor {
@@ -28,5 +29,10 @@ public class SlimeActor extends AbstractCreatureActor {
         spawnItemDrops(GameplayItems.COIN_GOLD, 1, 1);
         spawnItemDrops(GameplayItems.COIN_SILVER, 1, 3);
         spawnItemDrops(GameplayItems.COIN_BRONZE, 1, 5);
+    }
+
+    @Override
+    protected void onDeathObserved() {
+        GameplayStatsBridge.recordEnemyKill(this);
     }
 }

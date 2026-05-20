@@ -4,6 +4,7 @@ import com.badlogic.gdx.math.Interpolation;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector2;
 import com.polsl.poiw.engine.collision.BoxCollisionComponent;
+import com.polsl.poiw.engine.auth.GameplayStatsBridge;
 import com.polsl.poiw.engine.component.DamageReactionComponent;
 import com.polsl.poiw.engine.component.HealthComponent;
 import com.polsl.poiw.engine.component.TransformComponent;
@@ -27,6 +28,7 @@ public class TreeActor extends AbstractTiledTargetActor {
 	private boolean pivotConfigured;
 	private boolean falling;
 	private boolean destroyQueued;
+	private boolean destructionStatsHandled;
 	private float swayTimer;
 	private float swayDirection = 1f;
 	private float fallTimer;
@@ -138,6 +140,10 @@ public class TreeActor extends AbstractTiledTargetActor {
 			swayTimer = 0f;
 			fallTimer = 0f;
 			fallDirection = computeFallDirection();
+			if (!destructionStatsHandled) {
+				destructionStatsHandled = true;
+				GameplayStatsBridge.recordTreeCut(this);
+			}
 		}
 
 		fallTimer = Math.min(FALL_DURATION, fallTimer + delta);

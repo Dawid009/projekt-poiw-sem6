@@ -18,6 +18,7 @@ import com.polsl.poiw.engine.component.KnockbackComponent;
 import com.polsl.poiw.engine.component.MovementComponent;
 import com.polsl.poiw.engine.component.SpriteComponent;
 import com.polsl.poiw.engine.component.TransformComponent;
+import com.polsl.poiw.engine.auth.GameplayStatsBridge;
 import com.polsl.poiw.engine.inventory.ItemDefinition;
 
 import java.util.HashMap;
@@ -50,6 +51,7 @@ public abstract class AbstractCreatureActor extends AbstractActor {
     private boolean homeInitialized;
     private boolean hasTarget;
     private boolean deathHandled;
+    private boolean deathStatsHandled;
     private float idleRemaining;
     private float movementAttemptTimer;
 
@@ -139,6 +141,10 @@ public abstract class AbstractCreatureActor extends AbstractActor {
 
         HealthComponent health = getComponent(HealthComponent.class);
         if (health != null && !health.isAlive()) {
+            if (!deathStatsHandled) {
+                deathStatsHandled = true;
+                onDeathObserved();
+            }
             if (hasAuthority() && !deathHandled) {
                 deathHandled = true;
                 onBeforeDestroy();
@@ -173,6 +179,9 @@ public abstract class AbstractCreatureActor extends AbstractActor {
     }
 
     protected void onBeforeDestroy() {
+    }
+
+    protected void onDeathObserved() {
     }
 
     protected final void spawnItemDrops(ItemDefinition itemDefinition, int minCount, int maxCount) {

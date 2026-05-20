@@ -92,6 +92,7 @@ public class CombatSystem extends IteratingSystem {
         });
         hitbox.configure(owner.getActorId(), combat.rollDamage(), hitboxWidth, hitboxHeight,
             TMP_KNOCKBACK, combat.getHitboxLifetime());
+        hitbox.setOwnerId(owner.getOwnerId());
 
         TMP_SPAWN.set(centerX - hitboxWidth * 0.5f, centerY - hitboxHeight * 0.5f);
         owner.getWorld().spawnActor(hitbox, TMP_SPAWN);

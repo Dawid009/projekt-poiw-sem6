@@ -1,5 +1,6 @@
 package com.polsl.poiw.gameplay.actor;
 
+import com.polsl.poiw.engine.auth.GameplayStatsBridge;
 import com.polsl.poiw.gameplay.item.GameplayItems;
 
 public class SkeletonActor extends AbstractCreatureActor {
@@ -32,5 +33,10 @@ public class SkeletonActor extends AbstractCreatureActor {
     protected void onBeforeDestroy() {
         spawnItemDrops(GameplayItems.COIN_SILVER, 1, 3);
         spawnItemDrops(GameplayItems.COIN_BRONZE, 1, 5);
+    }
+
+    @Override
+    protected void onDeathObserved() {
+        GameplayStatsBridge.recordEnemyKill(this);
     }
 }
