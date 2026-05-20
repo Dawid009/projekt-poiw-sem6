@@ -25,11 +25,11 @@
                 15,
                 5
             ],
-            "scale": 2,
-            "selectedLayer": 4,
+            "scale": 3,
+            "selectedLayer": 5,
             "viewCenter": {
-                "x": 482.5,
-                "y": 817.75
+                "x": 649.3333333333333,
+                "y": 499.5
             }
         },
         "objects.tsx": {
@@ -43,8 +43,8 @@
             "scaleInEditor": 1
         }
     },
-    "frame.defaultDuration": 250,
-    "last.imagePath": "G:/studia/Poiw (sem6)/Projekt/assets/raw/objects/misc",
+    "frame.defaultDuration": 120,
+    "last.imagePath": "C:/studia/Poiw (sem6)/projekt-poiw-sem6/assets/raw/items/misc",
     "openFiles": [
         "mainmap.tmx",
         "objects.tsx",

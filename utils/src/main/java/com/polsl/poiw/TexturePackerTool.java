@@ -5,9 +5,9 @@ import com.badlogic.gdx.tools.texturepacker.TexturePacker;
 public class TexturePackerTool {
 
     public static void main(String[] args) {
-        String inputDir = "assets/raw/objects";
+        String inputDir = "assets/raw/creatures";
         String outputDir = "assets/graphics";
-        String packFileName = "objects";
+        String packFileName = "creatures";
 
         TexturePacker.process(inputDir, outputDir, packFileName);
     }
