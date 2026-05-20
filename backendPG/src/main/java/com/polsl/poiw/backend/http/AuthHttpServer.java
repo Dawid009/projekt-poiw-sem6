@@ -281,30 +281,23 @@ public class AuthHttpServer {
         writeJson(exchange, 200, odpowiedz);
     }
 
-    // Buduje JSON ze statystykami gracza na podstawie tabeli PUNKTY.
+    // Buduje JSON ze statystykami gracza na podstawie tabeli PUNKTY (relacja 1:1).
     private String buildStatystykiJson(String nazwaGracza) {
-        java.util.List<Punkty> wyniki = PunktyService.getScoresByPlayer(nazwaGracza);
-        int liczbaGier = wyniki.size();
-        int najlepszyWynik = wyniki.stream().mapToInt(Punkty::getPunkty).max().orElse(0);
-        long sumaWynikow = wyniki.stream().mapToLong(Punkty::getPunkty).sum();
-
-        StringBuilder sb = new StringBuilder();
-        sb.append("{\"liczbaGier\":").append(liczbaGier)
-          .append(",\"najlepszyWynik\":").append(najlepszyWynik)
-          .append(",\"sumaWynikow\":").append(sumaWynikow)
-          .append(",\"wyniki\":[");
-
-        for (int i = 0; i < wyniki.size(); i++) {
-            Punkty p = wyniki.get(i);
-            if (i > 0) sb.append(",");
-            sb.append("{\"punkty\":").append(p.getPunkty())
-              .append(",\"data\":\"")
-              .append(escapeJson(p.getCreatedAt()))
-              .append("\"}")
-            ;
+        Punkty stats = PunktyService.getStatsByPlayerName(nazwaGracza);
+        if (stats == null) {
+            return "{\"punkty\":0,\"iloscWejsc\":0,\"iloscZabitychwPrzeciwnikow\":0," +
+                   "\"iloscZabitychwZwierzat\":0,\"iloscScietychDrzew\":0," +
+                   "\"iloscZebranychSurowcow\":0,\"iloscZebranychPlonow\":0}";
         }
-        sb.append("]}");
-        return sb.toString();
+        return "{" +
+            "\"punkty\":" + stats.getPunkty() + "," +
+            "\"iloscWejsc\":" + stats.getIloscWejsc() + "," +
+            "\"iloscZabitychwPrzeciwnikow\":" + stats.getIloscZabitychwPrzeciwnikow() + "," +
+            "\"iloscZabitychwZwierzat\":" + stats.getIloscZabitychwZwierzat() + "," +
+            "\"iloscScietychDrzew\":" + stats.getIloscScietychDrzew() + "," +
+            "\"iloscZebranychSurowcow\":" + stats.getIloscZebranychSurowcow() + "," +
+            "\"iloscZebranychPlonow\":" + stats.getIloscZebranychPlonow() +
+            "}";
     }
 
     // Wczytuje pelna tresc ciala zadania HTTP jako UTF-8.

@@ -47,6 +47,9 @@ public class BackendLauncher {
             System.out.println("\nHTTP endpoint uruchomiony na porcie " + port + ":");
             System.out.println("  GET  http://localhost:" + port + "/scores");
             System.out.println("  GET  http://localhost:" + port + "/scores/{nazwaGracza}");
+            System.out.println("  POST http://localhost:" + port + "/scores");
+            System.out.println("  GET  http://localhost:" + port + "/stats");
+            System.out.println("  GET  http://localhost:" + port + "/stats/{nazwaGracza}");
             System.out.println("  POST http://localhost:" + port + "/auth/register");
             System.out.println("  POST http://localhost:" + port + "/auth/login");
             System.out.println("  POST http://localhost:" + port + "/auth/logout");

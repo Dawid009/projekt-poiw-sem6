@@ -39,13 +39,6 @@ public class DatabaseConfig {
     }
 
     public static void initializeDatabase() {
-        String createPunktySQL = "CREATE TABLE IF NOT EXISTS PUNKTY (" +
-                                 "id SERIAL PRIMARY KEY, " +
-                                 "\"nazwaGracza\" VARCHAR(255) NOT NULL, " +
-                                 "\"punkty\" INT DEFAULT 0, " +
-                                 "\"dataUtworzenia\" TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
-                                 ");";
-
         // Tabela kont graczy — email unikalny, haslo hashowane SHA-256 z sola
         String createGraczeSQL = "CREATE TABLE IF NOT EXISTS GRACZE (" +
                                  "id SERIAL PRIMARY KEY, " +
@@ -66,10 +59,35 @@ public class DatabaseConfig {
             "ALTER TABLE GRACZE ADD CONSTRAINT gracze_nazwa_unique UNIQUE (nazwa); " +
             "END IF; END $$;";
 
+        // Migracja: usuwa stara tabele PUNKTY jesli ma nieaktualna strukture (kolumna graczId lub nazwaGracza)
+        String migrujDropStarejPunktySQL = "DO $$ BEGIN " +
+            "IF EXISTS (SELECT 1 FROM information_schema.columns " +
+            "           WHERE table_schema = 'public' AND table_name = 'punkty' " +
+            "           AND column_name IN ('graczId', 'nazwaGracza')) THEN " +
+            "DROP TABLE PUNKTY; " +
+            "END IF; END $$;";
+
+        // Tabela statystyk — relacja 1:1 z GRACZE (id = id gracza)
+        String createPunktySQL = "CREATE TABLE IF NOT EXISTS PUNKTY (" +
+                                 "id INT PRIMARY KEY REFERENCES GRACZE(id), " +
+                                 "nazwa VARCHAR(100) NOT NULL, " +
+                                 "\"punkty\" INT DEFAULT 0, " +
+                                 "\"iloscWejsc\" INT DEFAULT 0, " +
+                                 "\"iloscZabitychwPrzeciwnikow\" INT DEFAULT 0, " +
+                                 "\"iloscZabitychwZwierzat\" INT DEFAULT 0, " +
+                                 "\"iloscScietychDrzew\" INT DEFAULT 0, " +
+                                 "\"iloscZebranychSurowcow\" INT DEFAULT 0, " +
+                                 "\"iloscZebranychPlonow\" INT DEFAULT 0" +
+                                 ");";
+
+        // Inicjalizacja brakujacych wierszy PUNKTY dla juz istniejacych graczy
+        String initBrakujacychPunktySQL = "INSERT INTO PUNKTY (id, nazwa) " +
+            "SELECT g.id, g.nazwa FROM GRACZE g " +
+            "WHERE NOT EXISTS (SELECT 1 FROM PUNKTY p WHERE p.id = g.id);";
+
         try (Connection conn = getConnection();
              Statement stmt = conn.createStatement()) {
 
-            stmt.execute(createPunktySQL);
             stmt.execute(createGraczeSQL);
             stmt.execute(migrujCzasWGrzeSQL);
             try {
@@ -77,6 +95,10 @@ public class DatabaseConfig {
             } catch (SQLException eMigr) {
                 System.err.println("Migracja unique nazwy: " + eMigr.getMessage());
             }
+            stmt.execute(migrujDropStarejPunktySQL); // usuwa stara PUNKTY z graczId/nazwaGracza
+            stmt.execute(createPunktySQL);           // tworzy nowa PUNKTY (1:1 z GRACZE)
+            stmt.execute(initBrakujacychPunktySQL);  // uzupelnia wiersze dla istniejacych graczy
+
             System.out.println("Baza danych utworzona albo zaaktualizowana");
 
         } catch (SQLException e) {

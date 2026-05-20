@@ -3,6 +3,7 @@ package com.polsl.poiw.backend.service;
 import com.polsl.poiw.backend.auth.PasswordHasher;
 import com.polsl.poiw.backend.config.DatabaseConfig;
 import com.polsl.poiw.backend.model.Gracz;
+import com.polsl.poiw.backend.service.PunktyService;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -55,6 +56,8 @@ public class UzytkownikService {
                 if (klucze.next()) {
                     int id = klucze.getInt(1);
                     System.out.println("Zarejestrowano gracza: " + nazwa + " (" + email + ") - ID: " + id);
+                    // Tworzy wiersz statystyk w tabeli PUNKTY (relacja 1:1)
+                    PunktyService.initPunktyGracza(id, nazwa.trim());
                     return id;
                 }
             }
