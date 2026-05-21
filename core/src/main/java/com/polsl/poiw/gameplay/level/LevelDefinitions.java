@@ -8,6 +8,7 @@ import com.polsl.poiw.engine.level.WorldType;
 import com.polsl.poiw.gameplay.gamemode.MainGameMode;
 import com.polsl.poiw.gameplay.gamemode.MainPlayerController;
 import com.polsl.poiw.gameplay.gamemode.MenuPlayerController;
+import com.polsl.poiw.gameplay.gamemode.SaveSlotsPlayerController;
 
 /**
  * Rejestracja wszystkich poziomów dostępnych w grze.
@@ -19,6 +20,9 @@ public final class LevelDefinitions {
 
     /** ID poziomu gry */
     public static final String GAME = "game";
+
+    /** ID ekranu wyboru slotu zapisu */
+    public static final String SAVE_SLOTS = "save_slots";
 
     private LevelDefinitions() {
     }
@@ -34,6 +38,15 @@ public final class LevelDefinitions {
                 .displayName("Menu główne")
                 .worldType(WorldType.UI_ONLY)
                 .controller(MenuPlayerController.class)
+                .inputMode(InputMode.MOUSE_ONLY)
+                .build()
+        );
+
+        registry.register(
+            LevelDefinition.builder(SAVE_SLOTS)
+                .displayName("Wybór zapisu")
+                .worldType(WorldType.UI_ONLY)
+                .controller(SaveSlotsPlayerController.class)
                 .inputMode(InputMode.MOUSE_ONLY)
                 .build()
         );

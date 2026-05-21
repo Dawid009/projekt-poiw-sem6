@@ -37,6 +37,7 @@ import com.polsl.poiw.input.GameControllerState;
 import com.polsl.poiw.input.KeyboardController;
 import com.polsl.poiw.gameplay.actor.ItemPickupActor;
 import com.polsl.poiw.gameplay.actor.TiledVisualActor;
+import com.polsl.poiw.gameplay.level.LevelDefinitions;
 
 /**
  * WorldContext — aktywna instancja poziomu.
@@ -554,6 +555,12 @@ public class WorldContext implements Disposable {
         }
 
         delta = Math.min(delta, 1f / 30f);
+
+        if (game.getGameInstance().isSinglePlayer()
+            && LevelDefinitions.GAME.equals(levelDef.getLevelId())
+            && game.getGameInstance().getSinglePlayerSaveService().hasActiveSlot()) {
+            game.getGameInstance().getSinglePlayerSaveService().addPlayTime(delta);
+        }
 
         // update network clock
         if (networkClock != null) {

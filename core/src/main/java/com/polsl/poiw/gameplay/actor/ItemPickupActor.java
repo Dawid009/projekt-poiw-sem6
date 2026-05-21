@@ -22,6 +22,7 @@ import com.polsl.poiw.engine.component.PickupCollectAnimationComponent;
 import com.polsl.poiw.engine.component.SpriteComponent;
 import com.polsl.poiw.engine.component.TransformComponent;
 import com.polsl.poiw.engine.inventory.ItemDefinition;
+import com.polsl.poiw.engine.save.SaveGameData;
 import com.polsl.poiw.gameplay.character.PlayerCharacter;
 import com.polsl.poiw.gameplay.item.GameplayItems;
 
@@ -245,6 +246,21 @@ public class ItemPickupActor extends AbstractActor implements OverlapListener {
 
     public int getQuantity() {
         return quantity;
+    }
+
+    public SaveGameData.ItemPickupData buildSaveData() {
+        SaveGameData.ItemPickupData data = new SaveGameData.ItemPickupData();
+        TransformComponent transform = getComponent(TransformComponent.class);
+        data.itemId = itemDefinition != null ? itemDefinition.getItemId() : "";
+        data.quantity = quantity;
+        if (transform != null) {
+            data.x = transform.getPosition().x;
+            data.y = transform.getPosition().y;
+        } else {
+            data.x = getPosition().x;
+            data.y = getPosition().y;
+        }
+        return data;
     }
 
     private TextureRegion findItemRegion(TextureAtlas itemsAtlas, ItemDefinition definition) {

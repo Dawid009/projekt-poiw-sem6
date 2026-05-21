@@ -5,6 +5,8 @@ import com.badlogic.gdx.maps.tiled.TiledMap;
 import com.badlogic.gdx.math.Vector2;
 import com.polsl.poiw.engine.collision.BoxCollisionComponent;
 import com.polsl.poiw.engine.component.HealthComponent;
+import com.polsl.poiw.engine.component.TransformComponent;
+import com.polsl.poiw.engine.save.SaveGameData;
 import com.polsl.poiw.gameplay.item.GameplayItems;
 
 import java.util.Map;
@@ -125,6 +127,56 @@ public class CropActor extends AbstractTiledTargetActor {
 
     public CropKind getCropKind() {
         return cropKind;
+    }
+
+    public int getGrowthStage() {
+        refreshGrowthStageFromTile();
+        return growthStage;
+    }
+
+    public float getGrowthIntervalSeconds() {
+        return growthIntervalSeconds;
+    }
+
+    public float getGrowthTimer() {
+        return growthTimer;
+    }
+
+    public void setGrowthTimer(float growthTimer) {
+        this.growthTimer = Math.max(0f, growthTimer);
+    }
+
+    public SaveGameData.CropData buildSaveData() {
+        SaveGameData.CropData data = new SaveGameData.CropData();
+        TransformComponent transform = getComponent(TransformComponent.class);
+        BoxCollisionComponent collision = getComponent(BoxCollisionComponent.class);
+        HealthComponent health = getComponent(HealthComponent.class);
+
+        refreshGrowthStageFromTile();
+        data.cropKind = cropKind != null ? cropKind.name() : "";
+        data.tileGid = getTileGid();
+        data.growthStage = growthStage;
+        data.growthIntervalSeconds = growthIntervalSeconds;
+        data.growthTimer = growthTimer;
+        if (transform != null) {
+            data.x = transform.getPosition().x;
+            data.y = transform.getPosition().y;
+            data.sizeW = transform.getSize().x;
+            data.sizeH = transform.getSize().y;
+            data.sortOffsetY = transform.getSortOffsetY();
+            data.zOrder = transform.getZOrder();
+        }
+        if (collision != null) {
+            data.collHalfW = collision.getHalfWidth();
+            data.collHalfH = collision.getHalfHeight();
+            data.collOffsetX = collision.getOffset().x;
+            data.collOffsetY = collision.getOffset().y;
+        }
+        if (health != null) {
+            data.maxHealth = health.getMaxHealth();
+            data.currentHealth = health.getCurrentHealth();
+        }
+        return data;
     }
 
     @Override

@@ -219,6 +219,16 @@ public class GameWorld {
         return Collections.unmodifiableCollection(actors.values());
     }
 
+    public void flushDeferredChanges() {
+        if (updating) {
+            return;
+        }
+
+        flushPendingDestroy();
+        flushPendingSpawn();
+        flushPendingDestroy();
+    }
+
     // ===== Dostęp do systemów =====
 
     public void addSystem(com.badlogic.ashley.core.EntitySystem system) {

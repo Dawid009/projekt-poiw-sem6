@@ -8,6 +8,7 @@ import com.polsl.poiw.engine.auth.GameplayStatsBridge;
 import com.polsl.poiw.engine.component.DamageReactionComponent;
 import com.polsl.poiw.engine.component.HealthComponent;
 import com.polsl.poiw.engine.component.TransformComponent;
+import com.polsl.poiw.engine.save.SaveGameData;
 import com.polsl.poiw.gameplay.item.GameplayItems;
 
 public class TreeActor extends AbstractTiledTargetActor {
@@ -192,5 +193,41 @@ public class TreeActor extends AbstractTiledTargetActor {
 	private void resetPose(TransformComponent transform) {
 		transform.getPosition().set(restPosition);
 		transform.setRotationDeg(0f);
+	}
+
+	public SaveGameData.TreeData buildSaveData() {
+		SaveGameData.TreeData data = new SaveGameData.TreeData();
+		TransformComponent transform = getComponent(TransformComponent.class);
+		BoxCollisionComponent collision = getComponent(BoxCollisionComponent.class);
+		HealthComponent health = getComponent(HealthComponent.class);
+
+		data.treeKind = treeKind.name();
+		data.tileGid = getTileGid();
+		if (transform != null) {
+			data.x = transform.getPosition().x;
+			data.y = transform.getPosition().y;
+			data.sizeW = transform.getSize().x;
+			data.sizeH = transform.getSize().y;
+			data.sortOffsetY = transform.getSortOffsetY();
+			data.zOrder = transform.getZOrder();
+		}
+		if (collision != null) {
+			data.collHalfW = collision.getHalfWidth();
+			data.collHalfH = collision.getHalfHeight();
+			data.collOffsetX = collision.getOffset().x;
+			data.collOffsetY = collision.getOffset().y;
+		}
+		if (health != null) {
+			data.maxHealth = health.getMaxHealth();
+			data.currentHealth = health.getCurrentHealth();
+		}
+		data.stumpTileGid = stumpTileGid;
+		data.stumpWidth = stumpWidth;
+		data.stumpHeight = stumpHeight;
+		data.stumpCollHalfW = stumpCollHalfW;
+		data.stumpCollHalfH = stumpCollHalfH;
+		data.stumpCollOffsetX = stumpCollOffset.x;
+		data.stumpCollOffsetY = stumpCollOffset.y;
+		return data;
 	}
 }

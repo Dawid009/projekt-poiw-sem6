@@ -12,6 +12,7 @@ import com.polsl.poiw.engine.collision.CollisionProfile;
 import com.polsl.poiw.engine.component.SpriteComponent;
 import com.polsl.poiw.engine.component.TileVisualStateComponent;
 import com.polsl.poiw.engine.component.TransformComponent;
+import com.polsl.poiw.engine.save.SaveGameData;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -115,6 +116,32 @@ public class TiledVisualActor extends AbstractActor {
         }
 
         return properties;
+    }
+
+    public SaveGameData.VisualData buildSaveData() {
+        SaveGameData.VisualData data = new SaveGameData.VisualData();
+        TransformComponent transform = getComponent(TransformComponent.class);
+        TileVisualStateComponent tileVisual = getComponent(TileVisualStateComponent.class);
+        BoxCollisionComponent collision = getComponent(BoxCollisionComponent.class);
+
+        if (tileVisual != null) {
+            data.tileGid = tileVisual.getTileGid();
+        }
+        if (transform != null) {
+            data.x = transform.getPosition().x;
+            data.y = transform.getPosition().y;
+            data.sizeW = transform.getSize().x;
+            data.sizeH = transform.getSize().y;
+            data.sortOffsetY = transform.getSortOffsetY();
+            data.zOrder = transform.getZOrder();
+        }
+        if (collision != null) {
+            data.collHalfW = collision.getHalfWidth();
+            data.collHalfH = collision.getHalfHeight();
+            data.collOffsetX = collision.getOffset().x;
+            data.collOffsetY = collision.getOffset().y;
+        }
+        return data;
     }
 
     @Override

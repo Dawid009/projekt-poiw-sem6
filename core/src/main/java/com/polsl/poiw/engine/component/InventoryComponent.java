@@ -5,6 +5,7 @@ import com.polsl.poiw.engine.net.Replicated;
 import com.polsl.poiw.engine.binding.PropertyBinding;
 import com.polsl.poiw.engine.inventory.InventoryStack;
 import com.polsl.poiw.engine.inventory.ItemDefinition;
+import com.polsl.poiw.engine.save.SaveGameData;
 import com.polsl.poiw.gameplay.item.GameplayItems;
 
 import java.util.ArrayList;
@@ -153,6 +154,42 @@ public class InventoryComponent extends AbstractActorComponent {
             snapshot.add(new InventoryStack(record.definition, record.quantity));
         }
         return snapshot;
+    }
+
+    public List<SaveGameData.InventoryEntryData> buildSaveEntries() {
+        List<SaveGameData.InventoryEntryData> entries = new ArrayList<>();
+        for (InventoryRecord record : stacks) {
+            if (record.definition == null || record.quantity <= 0) {
+                continue;
+            }
+
+            SaveGameData.InventoryEntryData entry = new SaveGameData.InventoryEntryData();
+            entry.itemId = record.definition.getItemId();
+            entry.quantity = record.quantity;
+            entries.add(entry);
+        }
+        return entries;
+    }
+
+    public void restoreSaveEntries(List<SaveGameData.InventoryEntryData> entries) {
+        stacks.clear();
+        if (entries != null) {
+            for (SaveGameData.InventoryEntryData entry : entries) {
+                if (entry == null || entry.itemId == null || entry.itemId.isBlank() || entry.quantity <= 0) {
+                    continue;
+                }
+
+                ItemDefinition definition = GameplayItems.findById(entry.itemId);
+                if (definition == null) {
+                    continue;
+                }
+
+                stacks.add(new InventoryRecord(definition, entry.quantity));
+            }
+        }
+
+        syncReplicatedStacks();
+        broadcastChange();
     }
 
     public PropertyBinding<Integer> getRevisionBinding() {

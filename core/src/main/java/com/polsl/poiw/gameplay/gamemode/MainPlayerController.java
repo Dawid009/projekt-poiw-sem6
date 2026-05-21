@@ -43,6 +43,7 @@ import java.util.Map;
  * i binduje go do PropertyBinding z PlayerCharacter.
  */
 public class MainPlayerController extends PlayerController {
+    private static final float SAVE_STATUS_DURATION_SECONDS = 2.2f;
     private static final int TOOL_SLOT_COUNT = PlayerToolType.values().length;
     private static final int ASSIGNED_ITEM_SLOT_INDEX = TOOL_SLOT_COUNT;
 
@@ -51,6 +52,7 @@ public class MainPlayerController extends PlayerController {
     private InventoryPanelWidget inventoryPanel;
     private ToolbeltWidget toolbeltWidget;
     private PauseMenuWidget pauseMenu;
+    private TextBlock saveStatusText;
     private SettingsPanelWidget settingsPanel;
     private StatsPanelWidget statsPanel;
     private BindingHandle healthBinding;
@@ -62,6 +64,7 @@ public class MainPlayerController extends PlayerController {
     private PlayerToolType lastObservedTool;
     private String assignedItemId = "";
     private int selectedHotbarSlot = 0;
+    private float saveStatusTimer;
 
     /** Aktualne wartości do formatowania tekstu */
     private float currentHp = 0f;
@@ -127,6 +130,11 @@ public class MainPlayerController extends PlayerController {
             }
 
             @Override
+            public void onSaveRequested() {
+                saveGameProgress();
+            }
+
+            @Override
             public void onOptionsRequested() {
                 openSettingsFromPauseMenu();
             }
@@ -141,7 +149,18 @@ public class MainPlayerController extends PlayerController {
                 quitToMainMenu();
             }
         });
+        pauseMenu.setSaveVisible(getGameInstance() != null && getGameInstance().isSinglePlayer());
         addWidgetToViewport(pauseMenu);
+
+        saveStatusText = new TextBlock("Zapisano gre", getSkin());
+        saveStatusText.setAnchor(EAnchor.TOP_CENTER);
+        saveStatusText.setAlignment(EAnchor.TOP_CENTER);
+        saveStatusText.setOffset(0f, -14f);
+        saveStatusText.setColor(new Color(0.75f, 1f, 0.75f, 1f));
+        saveStatusText.setFontScale(0.9f);
+        saveStatusText.setVariable(true);
+        saveStatusText.setVisibility(EVisibility.HIDDEN);
+        addWidgetToViewport(saveStatusText);
 
         settingsPanel = new SettingsPanelWidget(getSkin());
         settingsPanel.setAnchor(EAnchor.CENTER);
@@ -251,6 +270,10 @@ public class MainPlayerController extends PlayerController {
         if (statsPanel != null) {
             statsPanel.setVisibility(EVisibility.HIDDEN);
         }
+        if (saveStatusText != null) {
+            saveStatusText.setVisibility(EVisibility.HIDDEN);
+        }
+        saveStatusTimer = 0f;
     }
 
     @Override
@@ -261,6 +284,8 @@ public class MainPlayerController extends PlayerController {
 
     @Override
     public void tick(float delta) {
+        updateSaveStatus(delta);
+
         if (GameInstance.isChatInputActive()) {
             clearPendingAttackState();
             super.tick(delta);
@@ -285,6 +310,28 @@ public class MainPlayerController extends PlayerController {
         handleToolAttack();
         handleAssignedItemUse();
         super.tick(delta);
+    }
+
+    private void updateSaveStatus(float delta) {
+        if (saveStatusText == null || !saveStatusText.isVisible() || delta <= 0f) {
+            return;
+        }
+
+        saveStatusTimer = Math.max(0f, saveStatusTimer - delta);
+        if (saveStatusTimer <= 0f) {
+            saveStatusText.setVisibility(EVisibility.HIDDEN);
+        }
+    }
+
+    private void showSaveStatus(String text, Color color) {
+        if (saveStatusText == null) {
+            return;
+        }
+
+        saveStatusText.setText(text);
+        saveStatusText.setColor(color);
+        saveStatusText.setVisibility(EVisibility.VISIBLE);
+        saveStatusTimer = SAVE_STATUS_DURATION_SECONDS;
     }
 
     private void updateHpText() {
@@ -824,6 +871,23 @@ public class MainPlayerController extends PlayerController {
         GameInstance gameInstance = getGameInstance();
         if (gameInstance != null) {
             gameInstance.returnToMenu("Wyjscie do menu glownego");
+        }
+    }
+
+    private void saveGameProgress() {
+        GameInstance gameInstance = getGameInstance();
+        if (gameInstance == null || !gameInstance.isSinglePlayer()) {
+            return;
+        }
+
+        boolean saved = gameInstance.getSinglePlayerSaveService().saveCurrentGame(gameInstance.getActiveWorldContext());
+        if (saved) {
+            Gdx.app.log("MainPlayerController", "Zapisano postep gry do slotu #"
+                + (gameInstance.getSinglePlayerSaveService().getActiveSlotIndex() + 1));
+            showSaveStatus("Zapisano gre", new Color(0.75f, 1f, 0.75f, 1f));
+        } else {
+            Gdx.app.error("MainPlayerController", "Nie udalo sie zapisac postepu gry");
+            showSaveStatus("Blad zapisu", new Color(1f, 0.7f, 0.7f, 1f));
         }
     }
 

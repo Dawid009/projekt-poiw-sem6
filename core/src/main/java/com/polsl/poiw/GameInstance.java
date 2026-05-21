@@ -8,6 +8,7 @@ import com.polsl.poiw.engine.level.LevelRegistry;
 import com.polsl.poiw.engine.level.LevelScreen;
 import com.polsl.poiw.engine.level.WorldContext;
 import com.polsl.poiw.engine.net.driver.NetDriver;
+import com.polsl.poiw.engine.save.SinglePlayerSaveService;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -32,6 +33,7 @@ public class GameInstance {
     private static final String TAG = "GameInstance";
 
     private final AuthService authService = new AuthService();
+    private final SinglePlayerSaveService singlePlayerSaveService = new SinglePlayerSaveService();
 
     // ===== Konfiguracja sesji =====
 
@@ -333,6 +335,7 @@ public class GameInstance {
     public void returnToMenu(String reason) {
         Gdx.app.log(TAG, "Powrót do menu: " + reason);
         sessionState = SessionState.DISCONNECTED;
+        singlePlayerSaveService.endActiveSession();
         if (netDriver != null) {
             netDriver.dispose();
             netDriver = null;
@@ -353,6 +356,7 @@ public class GameInstance {
     public String getCurrentLevelId() { return currentLevelId; }
     public LevelScreen getLevelScreen() { return levelScreen; }
     public AuthService getAuthService() { return authService; }
+    public SinglePlayerSaveService getSinglePlayerSaveService() { return singlePlayerSaveService; }
 
     /** Aktywny WorldContext (z LevelScreen) */
     public WorldContext getActiveWorldContext() {

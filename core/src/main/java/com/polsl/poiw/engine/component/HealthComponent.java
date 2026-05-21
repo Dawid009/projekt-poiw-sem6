@@ -66,6 +66,14 @@ public class HealthComponent extends AbstractActorComponent {
         return currentHealth > 0f;
     }
 
+    public void restoreState(float maxHealth, float currentHealth) {
+        float normalizedMaxHealth = Math.max(1f, maxHealth);
+        float normalizedCurrentHealth = Math.max(0f, Math.min(normalizedMaxHealth, currentHealth));
+        setMaxHealth(normalizedMaxHealth);
+        setCurrentHealth(normalizedCurrentHealth);
+        setLastDamageOwnerId(-1);
+    }
+
     // ===== Settery (dirty tracking) =====
 
     private void setCurrentHealth(float value) {

@@ -4,13 +4,16 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.physics.box2d.Body;
 import com.polsl.poiw.Main;
 import com.polsl.poiw.engine.actor.AbstractActor;
 import com.polsl.poiw.engine.binding.PropertyBinding;
 import com.polsl.poiw.engine.collision.BoxCollisionComponent;
+import com.polsl.poiw.engine.collision.CollisionComponent;
 import com.polsl.poiw.engine.collision.CollisionProfile;
 import com.polsl.poiw.engine.component.*;
 import com.polsl.poiw.engine.inventory.InventoryStack;
+import com.polsl.poiw.engine.save.SaveGameData;
 import com.polsl.poiw.gameplay.tool.PlayerToolType;
 
 import java.util.List;
@@ -194,5 +197,83 @@ public class PlayerCharacter extends AbstractActor {
 
     public PlayerAssignedItemComponent getPlayerAssignedItemComponent() {
         return getComponent(PlayerAssignedItemComponent.class);
+    }
+
+    public SaveGameData.PlayerData buildSaveData() {
+        SaveGameData.PlayerData data = new SaveGameData.PlayerData();
+        TransformComponent transform = getComponent(TransformComponent.class);
+        HealthComponent health = getComponent(HealthComponent.class);
+        InventoryComponent inventory = getInventoryComponent();
+        PlayerToolComponent toolComponent = getPlayerToolComponent();
+        PlayerAssignedItemComponent assignedItemComponent = getPlayerAssignedItemComponent();
+
+        if (transform != null) {
+            data.x = transform.getPosition().x;
+            data.y = transform.getPosition().y;
+        } else {
+            data.x = getPosition().x;
+            data.y = getPosition().y;
+        }
+        if (health != null) {
+            data.maxHealth = health.getMaxHealth();
+            data.currentHealth = health.getCurrentHealth();
+        }
+        data.activeToolOrdinal = toolComponent != null ? toolComponent.getActiveTool().ordinal() : PlayerToolType.SWORD.ordinal();
+        data.assignedItemId = assignedItemComponent != null ? assignedItemComponent.getAssignedItemId() : "";
+        if (inventory != null) {
+            data.inventory = inventory.buildSaveEntries();
+        }
+        return data;
+    }
+
+    public void applySaveData(SaveGameData.PlayerData data) {
+        if (data == null) {
+            return;
+        }
+
+        setWorldPosition(data.x, data.y);
+
+        HealthComponent health = getComponent(HealthComponent.class);
+        if (health != null) {
+            float maxHealth = data.maxHealth > 0f ? data.maxHealth : MAX_HEALTH;
+            float currentHealth = Math.max(0f, Math.min(maxHealth, data.currentHealth));
+            health.restoreState(maxHealth, currentHealth);
+        }
+
+        InventoryComponent inventory = getInventoryComponent();
+        if (inventory != null) {
+            inventory.restoreSaveEntries(data.inventory);
+        }
+
+        PlayerToolComponent toolComponent = getPlayerToolComponent();
+        if (toolComponent != null) {
+            toolComponent.setActiveTool(PlayerToolType.fromOrdinal(data.activeToolOrdinal));
+        }
+
+        PlayerAssignedItemComponent assignedItemComponent = getPlayerAssignedItemComponent();
+        if (assignedItemComponent != null) {
+            assignedItemComponent.setAssignedItemId(data.assignedItemId);
+        }
+    }
+
+    private void setWorldPosition(float x, float y) {
+        TransformComponent transform = getComponent(TransformComponent.class);
+        if (transform != null) {
+            transform.getPosition().set(x, y);
+        } else {
+            setPosition(x, y);
+        }
+
+        CollisionComponent collision = getComponentByType(CollisionComponent.class);
+        if (collision == null || collision.getBody() == null) {
+            return;
+        }
+
+        Vector2 size = transform != null ? transform.getSize() : new Vector2(SPRITE_PX * Main.UNIT_SCALE, SPRITE_PX * Main.UNIT_SCALE);
+        Body body = collision.getBody();
+        body.setTransform(x + size.x * 0.5f, y + size.y * 0.5f, 0f);
+        body.setLinearVelocity(0f, 0f);
+        collision.capturePreviousBodyPosition();
+        collision.captureCurrentBodyPosition();
     }
 }

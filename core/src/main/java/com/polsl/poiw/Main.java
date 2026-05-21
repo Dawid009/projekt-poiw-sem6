@@ -16,6 +16,7 @@ import com.polsl.poiw.engine.asset.AssetService;
 import com.polsl.poiw.engine.asset.AtlasAsset;
 import com.polsl.poiw.engine.level.LevelScreen;
 import com.polsl.poiw.engine.level.WorldContext;
+import com.polsl.poiw.engine.save.SinglePlayerSaveService;
 import com.polsl.poiw.engine.settings.GraphicsSettingsService;
 import com.polsl.poiw.gameplay.actor.TriggerActor;
 import com.polsl.poiw.gameplay.character.PlayerCharacter;
@@ -121,8 +122,10 @@ public class Main extends Game {
             return;
         }
 
+        SinglePlayerSaveService saveService = gameInstance.getSinglePlayerSaveService();
+
         // Spawn gracza na pierwszej pozycji startowej z mapy
-        Vector2 startPos = context.getTiledParser().getPlayerStartPosition(0);
+        Vector2 startPos = saveService.resolvePlayerSpawn(context.getTiledParser().getPlayerStartPosition(0));
         TextureAtlas atlas = assetService.get(AtlasAsset.OBJECTS);
         TextureAtlas actionsAtlas = assetService.get(AtlasAsset.PLAYER_ACTIONS);
 
@@ -133,6 +136,7 @@ public class Main extends Game {
 
         // Possess — controller przejmuje kontrolę nad graczem
         context.getPlayerController().possess(player);
+        saveService.applyPendingSave(context, player, assetService);
 
         // Testowy trigger obrażeń — 2 metry na prawo od gracza
         //TODO: the damage from the trigger seems to be dealt by client, server currently disallows health modification from client

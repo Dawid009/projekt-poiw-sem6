@@ -16,6 +16,7 @@ public class PauseMenuWidget extends UserWidget {
 
     public interface PauseMenuActionListener {
         void onResumeRequested();
+        void onSaveRequested();
         void onOptionsRequested();
         void onStatsRequested();
         void onQuitRequested();
@@ -23,8 +24,11 @@ public class PauseMenuWidget extends UserWidget {
 
     private PauseMenuActionListener actionListener;
     private final Window window;
+    private final Cell<TextButton> saveButtonCell;
     private final Cell<TextButton> statsButtonCell;
     private final Cell<TextButton> quitButtonCell;
+    private boolean saveVisible = true;
+    private boolean statsVisible;
 
     public PauseMenuWidget(Skin skin) {
         super();
@@ -34,6 +38,7 @@ public class PauseMenuWidget extends UserWidget {
 
         var compactButtonStyle = UiSkinStyles.copyCompactTextButtonStyle(skin, "atlas", "font", 16f, 14f, CONTENT_FONT_SCALE);
         TextButton resumeButton = new TextButton("Wznow", compactButtonStyle);
+        TextButton saveButton = new TextButton("Zapisz", compactButtonStyle);
         TextButton optionsButton = new TextButton("Opcje", compactButtonStyle);
         TextButton statsButton = new TextButton("Staty", compactButtonStyle);
         TextButton quitButton = new TextButton("Wyjdz", compactButtonStyle);
@@ -41,6 +46,8 @@ public class PauseMenuWidget extends UserWidget {
         Table content = new Table();
         content.defaults().width(BUTTON_WIDTH).height(BUTTON_HEIGHT);
         content.add(resumeButton).padBottom(1.5f).row();
+        saveButtonCell = content.add(saveButton).padBottom(1.5f);
+        content.row();
         content.add(optionsButton).row();
         statsButtonCell = content.add(statsButton).padTop(1.5f);
         content.row();
@@ -58,6 +65,15 @@ public class PauseMenuWidget extends UserWidget {
             public void clicked(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y) {
                 if (actionListener != null) {
                     actionListener.onResumeRequested();
+                }
+            }
+        });
+
+        saveButton.addListener(new ClickListener() {
+            @Override
+            public void clicked(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y) {
+                if (actionListener != null) {
+                    actionListener.onSaveRequested();
                 }
             }
         });
@@ -97,6 +113,7 @@ public class PauseMenuWidget extends UserWidget {
     }
 
     public void setStatsVisible(boolean visible) {
+        statsVisible = visible;
         TextButton statsButton = statsButtonCell != null ? statsButtonCell.getActor() : null;
         if (statsButton != null) {
             statsButton.setVisible(visible);
@@ -106,8 +123,26 @@ public class PauseMenuWidget extends UserWidget {
             statsButtonCell.height(visible ? BUTTON_HEIGHT : 0f);
             statsButtonCell.padTop(visible ? 1.5f : 0f);
         }
+        syncButtonSpacing();
+    }
+
+    public void setSaveVisible(boolean visible) {
+        saveVisible = visible;
+        TextButton saveButton = saveButtonCell != null ? saveButtonCell.getActor() : null;
+        if (saveButton != null) {
+            saveButton.setVisible(visible);
+            saveButton.setDisabled(!visible);
+        }
+        if (saveButtonCell != null) {
+            saveButtonCell.height(visible ? BUTTON_HEIGHT : 0f);
+            saveButtonCell.padBottom(visible ? 1.5f : 0f);
+        }
+        syncButtonSpacing();
+    }
+
+    private void syncButtonSpacing() {
         if (quitButtonCell != null) {
-            quitButtonCell.padTop(visible ? 3f : 1.5f);
+            quitButtonCell.padTop((saveVisible || statsVisible) ? 3f : 1.5f);
         }
         syncSize();
     }

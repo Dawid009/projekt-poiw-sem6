@@ -6,6 +6,7 @@ import com.polsl.poiw.engine.collision.BoxCollisionComponent;
 import com.polsl.poiw.engine.component.DamageReactionComponent;
 import com.polsl.poiw.engine.component.HealthComponent;
 import com.polsl.poiw.engine.component.TransformComponent;
+import com.polsl.poiw.engine.save.SaveGameData;
 
 public class MineableActor extends AbstractTiledTargetActor {
 	private static final float HIT_SWAY_DURATION = 0.16f;
@@ -105,5 +106,36 @@ public class MineableActor extends AbstractTiledTargetActor {
 	private void applyPose(TransformComponent transform, float rotationDeg) {
 		transform.getPosition().set(restPosition);
 		transform.setRotationDeg(rotationDeg);
+	}
+
+	public SaveGameData.MineableData buildSaveData() {
+		SaveGameData.MineableData data = new SaveGameData.MineableData();
+		TransformComponent transform = getComponent(TransformComponent.class);
+		BoxCollisionComponent collision = getComponent(BoxCollisionComponent.class);
+		HealthComponent health = getComponent(HealthComponent.class);
+
+		data.mineableKind = mineableKind.name();
+		data.tileGid = getTileGid();
+		if (transform != null) {
+			data.x = transform.getPosition().x;
+			data.y = transform.getPosition().y;
+			data.sizeW = transform.getSize().x;
+			data.sizeH = transform.getSize().y;
+			data.sortOffsetY = transform.getSortOffsetY();
+			data.zOrder = transform.getZOrder();
+		}
+		if (collision != null) {
+			data.collHalfW = collision.getHalfWidth();
+			data.collHalfH = collision.getHalfHeight();
+			data.collOffsetX = collision.getOffset().x;
+			data.collOffsetY = collision.getOffset().y;
+		}
+		if (health != null) {
+			data.maxHealth = health.getMaxHealth();
+			data.currentHealth = health.getCurrentHealth();
+		}
+		data.minDropCount = minDropCount;
+		data.maxDropCount = maxDropCount;
+		return data;
 	}
 }

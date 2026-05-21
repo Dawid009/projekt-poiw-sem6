@@ -21,6 +21,7 @@ import com.polsl.poiw.engine.ui.SettingsPanelWidget;
 import com.polsl.poiw.engine.ui.StatsPanelWidget;
 import com.polsl.poiw.engine.ui.UiSkinStyles;
 import com.polsl.poiw.engine.ui.UserWidget;
+import com.polsl.poiw.gameplay.level.LevelDefinitions;
 import com.polsl.poiw.shared.protocol.NetworkProtocol;
 
 /**
@@ -318,11 +319,11 @@ public class MenuPlayerController extends PlayerController {
 
 
     private void onPlayClicked() {
-        Gdx.app.debug(TAG, "Play → single-player");
+        Gdx.app.debug(TAG, "Play → save slots");
         GameInstance gi = getGameInstance();
         if (gi != null) {
             gi.setMode(GameInstance.Mode.SINGLE_PLAYER);
-            gi.travel("game");
+            gi.travel(LevelDefinitions.SAVE_SLOTS);
         }
     }
 

@@ -20,6 +20,7 @@ import com.polsl.poiw.engine.component.SpriteComponent;
 import com.polsl.poiw.engine.component.TransformComponent;
 import com.polsl.poiw.engine.auth.GameplayStatsBridge;
 import com.polsl.poiw.engine.inventory.ItemDefinition;
+import com.polsl.poiw.engine.save.SaveGameData;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -184,6 +185,35 @@ public abstract class AbstractCreatureActor extends AbstractActor {
     protected void onDeathObserved() {
     }
 
+    public SaveGameData.CreatureData buildSaveData() {
+        SaveGameData.CreatureData data = new SaveGameData.CreatureData();
+        TransformComponent transform = getComponent(TransformComponent.class);
+        BoxCollisionComponent collision = getComponent(BoxCollisionComponent.class);
+        HealthComponent health = getComponent(HealthComponent.class);
+        CreatureKind creatureKind = resolveCreatureKind();
+
+        data.creatureKind = creatureKind != null ? creatureKind.name() : "";
+        if (transform != null) {
+            data.x = transform.getPosition().x;
+            data.y = transform.getPosition().y;
+            data.sizeW = transform.getSize().x;
+            data.sizeH = transform.getSize().y;
+            data.sortOffsetY = transform.getSortOffsetY();
+            data.zOrder = transform.getZOrder();
+        }
+        if (collision != null) {
+            data.collHalfW = collision.getHalfWidth();
+            data.collHalfH = collision.getHalfHeight();
+            data.collOffsetX = collision.getOffset().x;
+            data.collOffsetY = collision.getOffset().y;
+        }
+        if (health != null) {
+            data.maxHealth = health.getMaxHealth();
+            data.currentHealth = health.getCurrentHealth();
+        }
+        return data;
+    }
+
     protected final void spawnItemDrops(ItemDefinition itemDefinition, int minCount, int maxCount) {
         if (getWorld() == null || itemDefinition == null || maxCount <= 0) {
             return;
@@ -345,6 +375,28 @@ public abstract class AbstractCreatureActor extends AbstractActor {
         }
 
         return new Vector2(transform.getPosition()).add(transform.getSize().x * 0.5f, transform.getSize().y * 0.5f);
+    }
+
+    private CreatureKind resolveCreatureKind() {
+        if (this instanceof CowActor) {
+            return CreatureKind.COW;
+        }
+        if (this instanceof PigActor) {
+            return CreatureKind.PIG;
+        }
+        if (this instanceof SheepActor) {
+            return CreatureKind.SHEEP;
+        }
+        if (this instanceof ChickenActor) {
+            return CreatureKind.CHICKEN;
+        }
+        if (this instanceof SkeletonActor) {
+            return CreatureKind.SKELETON;
+        }
+        if (this instanceof SlimeActor) {
+            return CreatureKind.SLIME;
+        }
+        return null;
     }
 
     private float getFloat(Map<String, Object> properties, String key, float defaultValue) {
