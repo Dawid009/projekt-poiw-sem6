@@ -70,6 +70,10 @@ public class CombatSystem extends IteratingSystem {
         }
     }
 
+    /**
+     * Tworzy hitbox w stronę ostatniego kierunku ataku.
+     * Pozycja jest lekko odsunięta od środka postaci, żeby zasięg zgadzał się z assetami.
+     */
     private void spawnAttackHitbox(Actor owner, TransformComponent transform, CombatComponent combat) {
         float hitboxWidth = combat.getHitboxWidth();
         float hitboxHeight = combat.getHitboxHeight();

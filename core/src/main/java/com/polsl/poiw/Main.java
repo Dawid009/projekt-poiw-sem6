@@ -112,8 +112,9 @@ public class Main extends Game {
     }
 
     /**
-     * Konfiguracja poziomu gry — spawn gracza i testowy trigger obrażeń.
+        * Konfiguracja poziomu gry — spawn gracza i testowy trigger obrażeń.
      * W multiplayer: serwer kontroluje spawn gracza (nie tworzymy lokalnie).
+        * W singleplayerze ta metoda umie też podnieść stan z wybranego save'a.
      */
     private void setupGameLevel(WorldContext context) {
         // in multiplayer server spawns the pawn - client waits for ActorSpawn

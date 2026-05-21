@@ -7,6 +7,10 @@ import com.badlogic.gdx.scenes.scene2d.ui.Window;
 import com.badlogic.gdx.scenes.scene2d.ui.Cell;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 
+/**
+ * Małe menu pauzy używane w trakcie gry.
+ * Pokazuje tylko akcje, które mają sens w danym trybie.
+ */
 public class PauseMenuWidget extends UserWidget {
 
     private static final float CONTENT_FONT_SCALE = 0.5f;
@@ -14,6 +18,7 @@ public class PauseMenuWidget extends UserWidget {
     private static final float BUTTON_HEIGHT = 18f;
     private static final float CONTENT_PADDING = 2.5f;
 
+    /** Zdarzenia wysyłane do kontrolera po kliknięciu przycisków menu. */
     public interface PauseMenuActionListener {
         void onResumeRequested();
         void onSaveRequested();
@@ -112,6 +117,7 @@ public class PauseMenuWidget extends UserWidget {
         this.actionListener = actionListener;
     }
 
+    /** Pokazuje lub ukrywa przycisk statystyk bez rozwalania układu okna. */
     public void setStatsVisible(boolean visible) {
         statsVisible = visible;
         TextButton statsButton = statsButtonCell != null ? statsButtonCell.getActor() : null;
@@ -126,6 +132,7 @@ public class PauseMenuWidget extends UserWidget {
         syncButtonSpacing();
     }
 
+    /** Pokazuje lub ukrywa przycisk zapisu, np. poza singleplayerem. */
     public void setSaveVisible(boolean visible) {
         saveVisible = visible;
         TextButton saveButton = saveButtonCell != null ? saveButtonCell.getActor() : null;

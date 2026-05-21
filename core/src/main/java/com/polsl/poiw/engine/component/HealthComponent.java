@@ -66,6 +66,7 @@ public class HealthComponent extends AbstractActorComponent {
         return currentHealth > 0f;
     }
 
+    /** Przywraca pełny stan zdrowia z zapisu bez zostawiania starego źródła obrażeń. */
     public void restoreState(float maxHealth, float currentHealth) {
         float normalizedMaxHealth = Math.max(1f, maxHealth);
         float normalizedCurrentHealth = Math.max(0f, Math.min(normalizedMaxHealth, currentHealth));

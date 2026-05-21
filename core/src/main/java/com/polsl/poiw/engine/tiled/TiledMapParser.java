@@ -181,6 +181,10 @@ public class TiledMapParser {
         Gdx.app.debug("TiledMapParser", "Water collision: " + count + " static bodies");
     }
 
+    /**
+     * Szuka kolizji zapisanej w objectgroup poszczególnych kafelków.
+     * To obsługuje np. płot albo klif, gdy blokowanie jest wpisane w sam tile, a nie w osobną warstwę.
+     */
     private void parseTileLayerCollision(TiledMap map) {
         int count = 0;
 
@@ -213,6 +217,9 @@ public class TiledMapParser {
         Gdx.app.debug("TiledMapParser", "Tile collision: " + count + " static bodies");
     }
 
+    /**
+     * Buduje kolizję dla dekoracji z warstw tła, jeśli ich tile ma blokujący objectgroup.
+     */
     private void parseStaticBackgroundObjectCollision(TiledMap map) {
         int count = 0;
 
@@ -299,6 +306,9 @@ public class TiledMapParser {
         shape.dispose();
     }
 
+    /**
+     * Zamienia collision objectgroup z jednego tile'a na statyczne body w świecie.
+     */
     private int createTileCollisionBodies(TiledMapTile tile,
                                           float worldXpx,
                                           float worldYpx,
@@ -501,6 +511,9 @@ public class TiledMapParser {
         }
     }
 
+    /**
+     * Odfiltrowuje warstwy techniczne, żeby do fabryki trafiały tylko obiekty gameplay.
+     */
     private boolean isParsableObjectLayer(MapLayer layer) {
         if (layer == null || layer instanceof TiledMapTileLayer) return false;
         if (layer.getObjects().getCount() == 0) return false;
@@ -513,6 +526,7 @@ public class TiledMapParser {
         return playerStartPositions.get(playerIndex % playerStartPositions.size());
     }
 
+    /** Zwraca wszystkie znalezione pozycje startowe bez możliwości ich modyfikacji. */
     public List<Vector2> getAllPlayerStartPositions() {
         return Collections.unmodifiableList(playerStartPositions);
     }

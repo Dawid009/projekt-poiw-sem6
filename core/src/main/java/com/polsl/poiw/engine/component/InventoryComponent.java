@@ -156,6 +156,7 @@ public class InventoryComponent extends AbstractActorComponent {
         return snapshot;
     }
 
+    /** Zamienia zawartość inventory na prostą listę wpisów do save'a. */
     public List<SaveGameData.InventoryEntryData> buildSaveEntries() {
         List<SaveGameData.InventoryEntryData> entries = new ArrayList<>();
         for (InventoryRecord record : stacks) {
@@ -171,6 +172,7 @@ public class InventoryComponent extends AbstractActorComponent {
         return entries;
     }
 
+    /** Odtwarza inventory z danych save'a i od razu odświeża replikację oraz UI. */
     public void restoreSaveEntries(List<SaveGameData.InventoryEntryData> entries) {
         stacks.clear();
         if (entries != null) {

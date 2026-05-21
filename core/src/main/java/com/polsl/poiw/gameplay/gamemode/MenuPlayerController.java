@@ -155,8 +155,8 @@ public class MenuPlayerController extends PlayerController {
         });
 
         accountTable.add(accountNameLabel).padBottom(1f).row();
-    accountTimeCell = accountTable.add(accountTimeLabel).padBottom(1.5f);
-    accountTable.row();
+        accountTimeCell = accountTable.add(accountTimeLabel).padBottom(1.5f);
+        accountTable.row();
         accountTable.add(logoutButton).width(ACCOUNT_BUTTON_WIDTH).height(ACCOUNT_BUTTON_HEIGHT).left();
         accountTable.pack();
 

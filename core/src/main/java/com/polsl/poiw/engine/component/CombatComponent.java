@@ -89,10 +89,12 @@ public class CombatComponent extends AbstractActorComponent {
         );
     }
 
+    /** Tworzy pasywny target, który może przyjmować obrażenia, ale sam nie atakuje. */
     public static CombatComponent createPassiveTarget() {
         return new CombatComponent(false, 0, 0, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f);
     }
 
+    /** Zgłasza chęć ataku, która zostanie obsłużona później przez system walki. */
     public void requestAttack() {
         if (attackEnabled) {
             attackRequested = true;
@@ -109,6 +111,7 @@ public class CombatComponent extends AbstractActorComponent {
         return attackEnabled && !attacking && cooldownRemaining <= 0f;
     }
 
+    /** Startuje atak i uzbraja licznik używany do jednorazowego spawnu hitboxa. */
     public void startAttack() {
         attackCounter += 1;
         markDirty("attackCounter");
@@ -117,6 +120,7 @@ public class CombatComponent extends AbstractActorComponent {
         cooldownRemaining = attackCooldown;
     }
 
+    /** Odswieża czas trwania ataku i cooldown bez dodatkowej logiki wejścia. */
     public void tickTimers(float delta) {
         if (cooldownRemaining > 0f) {
             cooldownRemaining = Math.max(0f, cooldownRemaining - delta);
@@ -130,6 +134,7 @@ public class CombatComponent extends AbstractActorComponent {
         }
     }
 
+    /** Zapamiętuje ostatni sensowny kierunek ruchu, żeby atak miał poprawny zwrot. */
     public void updateFacing(Vector2 direction) {
         if (direction == null || direction.isZero(MOVE_EPSILON)) {
             return;
@@ -155,6 +160,7 @@ public class CombatComponent extends AbstractActorComponent {
         return attacking;
     }
 
+    /** Zwraca `true` tylko raz dla każdego nowo rozpoczętego ataku. */
     public boolean consumeAttackTrigger() {
         if (attackCounter <= consumedAttackCounter) {
             return false;

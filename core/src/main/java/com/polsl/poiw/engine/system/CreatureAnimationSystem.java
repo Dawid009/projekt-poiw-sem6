@@ -12,6 +12,10 @@ import com.polsl.poiw.engine.component.MovementComponent;
 import com.polsl.poiw.engine.component.SpriteComponent;
 import com.polsl.poiw.engine.component.TransformComponent;
 
+/**
+ * Steruje animacją stworzeń na podstawie ruchu i reakcji na trafienie.
+ * Jeśli ciało fizyczne nadal się przesuwa, to ono ma pierwszeństwo przed lokalnym wektorem ruchu.
+ */
 public class CreatureAnimationSystem extends IteratingSystem {
     private static final float BODY_MOVE_EPSILON = 0.03f;
 

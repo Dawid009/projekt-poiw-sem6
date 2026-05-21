@@ -19,8 +19,8 @@ import com.polsl.poiw.gameplay.tool.PlayerToolType;
 import java.util.List;
 
 /**
- * Postać gracza — podstawowy Actor z komponentami ruchu, grafiki, kamery i kolizji.
- * zdrowie zarządzane przez {@link HealthComponent} — replicated, serwer autorytatywny.
+ * Główny aktor gracza.
+ * Składa w jednym miejscu komponenty ruchu, walki, inventory i danych potrzebnych do save'a.
  */
 public class PlayerCharacter extends AbstractActor {
 
@@ -199,6 +199,7 @@ public class PlayerCharacter extends AbstractActor {
         return getComponent(PlayerAssignedItemComponent.class);
     }
 
+    /** Buduje lekki zapis gracza bez zależności od reszty świata. */
     public SaveGameData.PlayerData buildSaveData() {
         SaveGameData.PlayerData data = new SaveGameData.PlayerData();
         TransformComponent transform = getComponent(TransformComponent.class);
@@ -226,6 +227,7 @@ public class PlayerCharacter extends AbstractActor {
         return data;
     }
 
+    /** Odtwarza pozycję, zdrowie, inventory i aktywne sloty gracza z danych save'a. */
     public void applySaveData(SaveGameData.PlayerData data) {
         if (data == null) {
             return;
@@ -256,6 +258,9 @@ public class PlayerCharacter extends AbstractActor {
         }
     }
 
+    /**
+     * Przenosi gracza razem z ciałem Box2D, żeby render i kolizja od razu były zgodne.
+     */
     private void setWorldPosition(float x, float y) {
         TransformComponent transform = getComponent(TransformComponent.class);
         if (transform != null) {

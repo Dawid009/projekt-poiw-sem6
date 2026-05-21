@@ -30,6 +30,10 @@ public class AttackHitboxActor extends AbstractActor implements OverlapListener 
     private int damage;
     private PlayerToolType toolType = PlayerToolType.SWORD;
 
+    /**
+     * Ustawia wszystkie dane jednorazowego uderzenia.
+     * Hitbox po konfiguracji jest gotowy do spawnu przez `CombatSystem`.
+     */
     public void configure(int instigatorActorId,
                           int damage,
                           PlayerToolType toolType,
@@ -97,6 +101,7 @@ public class AttackHitboxActor extends AbstractActor implements OverlapListener 
     }
 
     @Override
+    /** Ten hitbox niczego nie śledzi po wyjściu z overlapu. */
     public void onEndOverlap(Actor self, Actor other) {
     }
 }

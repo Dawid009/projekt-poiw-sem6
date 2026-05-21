@@ -44,6 +44,9 @@ import java.util.Map;
  */
 public class MainPlayerController extends PlayerController {
     private static final float SAVE_STATUS_DURATION_SECONDS = 2.2f;
+    /**
+     * Wygasza chwilowy komunikat o zapisie bez mieszania w reszcie HUD-u.
+     */
     private static final int TOOL_SLOT_COUNT = PlayerToolType.values().length;
     private static final int ASSIGNED_ITEM_SLOT_INDEX = TOOL_SLOT_COUNT;
 
@@ -323,6 +326,7 @@ public class MainPlayerController extends PlayerController {
         }
     }
 
+    /** Pokazuje krótki komunikat na górze ekranu, np. po ręcznym zapisie. */
     private void showSaveStatus(String text, Color color) {
         if (saveStatusText == null) {
             return;
@@ -874,6 +878,7 @@ public class MainPlayerController extends PlayerController {
         }
     }
 
+    /** Uruchamia ręczny zapis aktywnego slota z poziomu menu pauzy. */
     private void saveGameProgress() {
         GameInstance gameInstance = getGameInstance();
         if (gameInstance == null || !gameInstance.isSinglePlayer()) {

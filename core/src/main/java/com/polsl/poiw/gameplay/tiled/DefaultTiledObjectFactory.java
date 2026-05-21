@@ -36,25 +36,8 @@ import com.badlogic.gdx.maps.MapLayer;
 import static com.polsl.poiw.engine.tiled.TiledConstants.*;
 
 /**
- * Domyślna fabryka tworząca Actorów z obiektów Tiled.
- * <p>
- * Obsługuje dwa typy obiektów zdefiniowane w objects.tsx:
- * <ul>
- *   <li><b>Prop</b> — statyczny obiekt środowiska (dom, skrzynia, drzewo).
- *       Odczytuje collision shape z tile objectgroup w .tsx.</li>
- *   <li><b>Object</b> — obiekt gameplay (trap, training_dummy, Player).
- *       Obiekty z type "Object" bez dodatkowej logiki są ignorowane (Player jest obsługiwany osobno).</li>
- * </ul>
- * <p>
- * Trigger objects (z warstwy "trigger") są tworzone jako {@link TriggerActor}.
- * <p>
- * <b>Organizacja w Tiled:</b>
- * <ul>
- *   <li>Każdy tile w objects.tsx powinien mieć ustawiony <b>Type</b> ("Prop" lub "Object")</li>
- *   <li>Kształt kolizji definiowany jest jako objectgroup wewnątrz tile (w Tiled: tile → Collision Editor)</li>
- *   <li>Triggery to prostokąty na warstwie "trigger" z property "sensor=true"</li>
- *   <li>Nazwy obiektów w Tiled odpowiadają logice gameplay (np. "trap_trigger", "Player")</li>
- * </ul>
+ * Domyślna fabryka obiektów z TMX.
+ * Na podstawie warstwy, typu i właściwości tile'a wybiera klasę aktora, konfiguruje ją i od razu spawnuje do `GameWorld`.
  */
 public class DefaultTiledObjectFactory implements TiledObjectFactory {
 
@@ -85,10 +68,17 @@ public class DefaultTiledObjectFactory implements TiledObjectFactory {
         }
     }
 
+    /**
+     * W multiplayerze blokuje lokalny spawn obiektów, które i tak przyjdą z replikacji serwera.
+     */
     public void setSkipReplicatedDamageableObjects(boolean skipReplicatedDamageableObjects) {
         this.skipReplicatedDamageableObjects = skipReplicatedDamageableObjects;
     }
 
+    /**
+     * Rozdziela prostokątne triggery od tile objectów.
+     * To jest pierwszy punkt wejścia dla parsera warstw obiektowych.
+     */
     @Override
     public Actor createFromMapObject(String type, MapObject mapObject) {
         // === Trigger z warstwy "trigger" (prostokąt bez gid) ===
@@ -107,6 +97,7 @@ public class DefaultTiledObjectFactory implements TiledObjectFactory {
 
     // ===== Trigger (warstwa "trigger") =====
 
+    /** Tworzy `TriggerActor` z prostokąta na warstwie triggerów. */
     private Actor createTrigger(String name, RectangleMapObject rectObj) {
         Rectangle rect = rectObj.getRectangle();
 
@@ -134,6 +125,9 @@ public class DefaultTiledObjectFactory implements TiledObjectFactory {
 
     // ===== Tile Object (warstwa "objects") =====
 
+    /**
+     * Tworzy aktora z tile objectu i wybiera właściwy typ gameplay na podstawie warstwy oraz properties tile'a.
+     */
     private Actor createFromTileObject(String type, TiledMapTileMapObject tileObj) {
         TiledMapTile tile = tileObj.getTile();
         if (tile == null) return null;
@@ -374,6 +368,10 @@ public class DefaultTiledObjectFactory implements TiledObjectFactory {
         return prop;
     }
 
+    /**
+     * Szuka tile'a po gid i odczytuje z niego dane kolizji.
+     * Używane głównie do znalezienia kolizji pniaka po ścięciu drzewa.
+     */
     private CollisionData extractCollisionFromTileByGid(int tileGid, float spriteW, float spriteH) {
         if (currentMap == null || tileGid <= 0) {
             return null;
@@ -591,6 +589,7 @@ public class DefaultTiledObjectFactory implements TiledObjectFactory {
         );
     }
 
+    /** Daje małą domyślną kolizję cropa, gdy tile nie ma własnego objectgroup. */
     private CollisionData defaultCropCollision(float spriteW, float spriteH) {
         return new CollisionData(
             spriteW * 0.22f,

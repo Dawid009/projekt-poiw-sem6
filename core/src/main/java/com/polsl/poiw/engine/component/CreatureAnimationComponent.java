@@ -8,6 +8,9 @@ import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.Array;
 
+/**
+ * Trzyma prosty stan animacji stworzenia: idle, chodzenie, kierunek patrzenia i krótki flash po trafieniu.
+ */
 public class CreatureAnimationComponent extends AbstractActorComponent {
     public static final ComponentMapper<CreatureAnimationComponent> MAPPER =
         ComponentMapper.getFor(CreatureAnimationComponent.class);
@@ -38,6 +41,7 @@ public class CreatureAnimationComponent extends AbstractActorComponent {
         this.sourceFacesRight = sourceFacesRight;
     }
 
+    /** Odswieża stan animacji na bazie kierunku ruchu i upływu czasu. */
     public void update(Vector2 direction, float delta) {
         boolean currentlyMoving = direction != null && !direction.isZero(MOVE_EPSILON);
         boolean shouldFaceRight = currentlyMoving ? resolveFacingRight(direction) : facingRight;
@@ -63,6 +67,7 @@ public class CreatureAnimationComponent extends AbstractActorComponent {
         return sourceFacesRight ? !facingRight : facingRight;
     }
 
+    /** Włącza krótki efekt trafienia używany przez system renderujący stworzenia. */
     public void triggerDamageFlash() {
         damageFlashRemaining = DAMAGE_FLASH_DURATION;
     }

@@ -26,6 +26,10 @@ import com.polsl.poiw.gameplay.item.GameplayItems;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Obsługuje sloty zapisu w trybie singleplayer.
+ * Zapisuje dane w Preferences i odtwarza świat po wejściu do gry.
+ */
 public class SinglePlayerSaveService {
     public static final int SLOT_COUNT = 3;
 
@@ -41,6 +45,9 @@ public class SinglePlayerSaveService {
         json.setIgnoreUnknownFields(true);
     }
 
+    /**
+     * Zwraca skróty wszystkich slotów, żeby UI nie musiało czytać całych save'ów osobno.
+     */
     public List<SaveSlotSummary> getSlotSummaries() {
         List<SaveSlotSummary> summaries = new ArrayList<>(SLOT_COUNT);
         for (int slotIndex = 0; slotIndex < SLOT_COUNT; slotIndex++) {
@@ -87,6 +94,10 @@ public class SinglePlayerSaveService {
         return pendingLoadedSave;
     }
 
+    /**
+     * Podaje pozycję startową gracza.
+     * Gdy slot ma zapis, bierze współrzędne z save'a, w przeciwnym razie zostawia pozycję z mapy.
+     */
     public Vector2 resolvePlayerSpawn(Vector2 fallbackPosition) {
         if (pendingLoadedSave == null || pendingLoadedSave.player == null) {
             return fallbackPosition != null ? new Vector2(fallbackPosition) : new Vector2();
@@ -123,6 +134,9 @@ public class SinglePlayerSaveService {
         activePlayTimeSeconds += deltaSeconds;
     }
 
+    /**
+     * Zbiera aktualny stan gracza i świata do aktywnego slotu.
+     */
     public boolean saveCurrentGame(WorldContext context) {
         if (activeSlotIndex < 0 || context == null || context.getGameWorld() == null) {
             return false;
@@ -168,6 +182,10 @@ public class SinglePlayerSaveService {
         return true;
     }
 
+    /**
+     * Odtwarza save, który został wybrany przed wejściem do poziomu.
+     * Najpierw czyści odtwarzalne obiekty, potem stawia je z danych zapisu.
+     */
     public void applyPendingSave(WorldContext context, PlayerCharacter player, AssetService assetService) {
         if (pendingLoadedSave == null || context == null || player == null || assetService == null) {
             return;
@@ -208,6 +226,7 @@ public class SinglePlayerSaveService {
         pendingLoadedSave = null;
     }
 
+    /** Czyta pełny save z jednego slotu. */
     public SaveGameData loadSlot(int slotIndex) {
         validateSlotIndex(slotIndex);
         Preferences preferences = getPreferences();
@@ -225,6 +244,7 @@ public class SinglePlayerSaveService {
         }
     }
 
+    /** Zapisuje gotowe dane slota do Preferences. */
     public void writeSlot(int slotIndex, SaveGameData saveGameData) {
         validateSlotIndex(slotIndex);
         if (saveGameData == null) {
@@ -236,6 +256,7 @@ public class SinglePlayerSaveService {
         preferences.flush();
     }
 
+    /** Czyści aktywną sesję save'a po wyjściu z gry lub skasowaniu slota. */
     public void endActiveSession() {
         activeSlotIndex = -1;
         pendingLoadedSave = null;
@@ -254,6 +275,10 @@ public class SinglePlayerSaveService {
         return context.getPlayerController().getPossessedPawn() instanceof PlayerCharacter player ? player : null;
     }
 
+    /**
+     * Usuwa z mapy obiekty, które są odtwarzane z zapisu.
+     * Dzięki temu po loadzie nie zostają duplikaty z mapy startowej.
+     */
     private void clearRestorableActors(GameWorld gameWorld) {
         destroyActors(gameWorld, gameWorld.getActorsOfClass(TreeActor.class));
         destroyActors(gameWorld, gameWorld.getActorsOfClass(MineableActor.class));

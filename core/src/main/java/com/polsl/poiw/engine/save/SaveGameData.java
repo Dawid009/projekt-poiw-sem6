@@ -3,6 +3,10 @@ package com.polsl.poiw.engine.save;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Surowe dane jednego savegame.
+ * Trzyma tylko stan potrzebny do odtworzenia świata w singleplayerze.
+ */
 public class SaveGameData {
     public static final int CURRENT_VERSION = 1;
 
@@ -18,6 +22,7 @@ public class SaveGameData {
     public List<VisualData> visuals = new ArrayList<>();
     public List<ItemPickupData> itemPickups = new ArrayList<>();
 
+    /** Stan gracza zapisywany razem ze światem. */
     public static class PlayerData {
         public float x;
         public float y;
@@ -28,11 +33,13 @@ public class SaveGameData {
         public List<InventoryEntryData> inventory = new ArrayList<>();
     }
 
+    /** Jeden wpis inventory bez dodatkowej logiki UI. */
     public static class InventoryEntryData {
         public String itemId = "";
         public int quantity;
     }
 
+    /** Zapis pojedynczego drzewa, także po ścięciu do pniaka. */
     public static class TreeData {
         public String treeKind = "";
         public int tileGid;
@@ -57,6 +64,7 @@ public class SaveGameData {
         public float stumpCollOffsetY;
     }
 
+    /** Zapis kopalnego obiektu razem z parametrami dropu. */
     public static class MineableData {
         public String mineableKind = "";
         public int tileGid;
@@ -76,6 +84,7 @@ public class SaveGameData {
         public int maxDropCount;
     }
 
+    /** Lekki zapis żywej istoty wystarczający do jej odtworzenia. */
     public static class CreatureData {
         public String creatureKind = "";
         public float x;
@@ -92,6 +101,7 @@ public class SaveGameData {
         public float currentHealth;
     }
 
+    /** Stan zasianej rośliny razem z etapem wzrostu. */
     public static class CropData {
         public String cropKind = "";
         public int tileGid;
@@ -112,6 +122,7 @@ public class SaveGameData {
         public float currentHealth;
     }
 
+    /** Zapis prostego obiektu wizualnego postawionego w świecie. */
     public static class VisualData {
         public int tileGid;
         public float x;
@@ -126,6 +137,7 @@ public class SaveGameData {
         public float collOffsetY;
     }
 
+    /** Dane przedmiotu leżącego na ziemi. */
     public static class ItemPickupData {
         public String itemId = "";
         public int quantity;

@@ -25,6 +25,10 @@ import com.polsl.poiw.engine.save.SaveGameData;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Bazowa klasa zwierząt i prostych przeciwników.
+ * Daje wspólną konfigurację, pasywną walkę jako target i prosty wandering wokół punktu startowego.
+ */
 public abstract class AbstractCreatureActor extends AbstractActor {
     public static final float DEFAULT_MAX_HEALTH = 50f;
 
@@ -185,6 +189,7 @@ public abstract class AbstractCreatureActor extends AbstractActor {
     protected void onDeathObserved() {
     }
 
+    /** Zbiera stan stworzenia potrzebny do zapisu i późniejszego odtworzenia. */
     public SaveGameData.CreatureData buildSaveData() {
         SaveGameData.CreatureData data = new SaveGameData.CreatureData();
         TransformComponent transform = getComponent(TransformComponent.class);
@@ -274,6 +279,10 @@ public abstract class AbstractCreatureActor extends AbstractActor {
         addComponent(new BoxCollisionComponent(CollisionProfile.ENEMY, collHalfW, collHalfH, collOffset));
     }
 
+    /**
+     * Proste AI spaceru.
+     * Stworzenie stoi chwilę w miejscu, losuje punkt w pobliżu domu i próbuje do niego dojść.
+     */
     private void updateWander(float delta) {
         MovementComponent movement = getComponent(MovementComponent.class);
         if (movement == null) {
@@ -335,6 +344,7 @@ public abstract class AbstractCreatureActor extends AbstractActor {
         }
     }
 
+    /** Wraca do stanu bez celu i losuje nową długość postoju. */
     private void enterIdle(MovementComponent movement) {
         hasTarget = false;
         movementAttemptTimer = 0f;
@@ -342,6 +352,7 @@ public abstract class AbstractCreatureActor extends AbstractActor {
         movement.getDirection().setZero();
     }
 
+    /** Szuka nowego celu spaceru w promieniu od pozycji domowej. */
     private boolean chooseNewTarget(Vector2 currentPosition) {
         movementAttemptTimer = 0f;
         idleRemaining = 0f;
@@ -363,6 +374,10 @@ public abstract class AbstractCreatureActor extends AbstractActor {
         return false;
     }
 
+    /**
+     * Zwraca pozycję używaną do AI.
+     * Gdy istnieje ciało Box2D, bierze je zamiast surowego transformu.
+     */
     private Vector2 getNavigationPosition() {
         CollisionComponent collision = getComponentByType(CollisionComponent.class);
         if (collision != null && collision.getBody() != null) {

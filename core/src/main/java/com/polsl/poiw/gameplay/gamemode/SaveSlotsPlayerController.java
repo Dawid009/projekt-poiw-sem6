@@ -23,6 +23,10 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
+/**
+ * Prosty ekran wyboru slota dla singleplayera.
+ * Pozwala zacząć nową grę, wejść do zajętego slota albo go skasować.
+ */
 public class SaveSlotsPlayerController extends PlayerController {
     private static final float CONTENT_FONT_SCALE = 0.5f;
     private static final float SLOT_CARD_INFO_WIDTH = 88f;
@@ -35,6 +39,7 @@ public class SaveSlotsPlayerController extends PlayerController {
     private FullscreenBackgroundRenderer backgroundRenderer;
     private Table slotsTable;
 
+    /** Buduje cały ekran wyboru slotów. */
     @Override
     protected void setupHUD() {
         Skin skin = getSkin();
@@ -76,6 +81,7 @@ public class SaveSlotsPlayerController extends PlayerController {
         super.destroy();
     }
 
+    /** Odswieża listę slotów na podstawie aktualnego stanu save'ów. */
     private void rebuildSlots(Skin skin) {
         if (slotsTable == null) {
             return;
@@ -107,6 +113,7 @@ public class SaveSlotsPlayerController extends PlayerController {
         slotsTable.add(backButton).left().padTop(4f);
     }
 
+    /** Składa pojedynczą kartę slotu z opisem i przyciskami akcji. */
     private Table createSlotRow(Skin skin, SaveSlotSummary summary) {
         Table row = new Table();
         row.setBackground(skin.getDrawable("list"));
@@ -182,6 +189,7 @@ public class SaveSlotsPlayerController extends PlayerController {
         return new SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.ROOT).format(new Date(epochMillis));
     }
 
+    /** Przełącza grę na wybrany slot i otwiera poziom gry. */
     private void startSlot(int slotIndex) {
         GameInstance gameInstance = getGameInstance();
         if (gameInstance == null) {
@@ -194,6 +202,7 @@ public class SaveSlotsPlayerController extends PlayerController {
         gameInstance.travel(LevelDefinitions.GAME);
     }
 
+    /** Kasuje slot i od razu odświeża listę na ekranie. */
     private void deleteSlot(int slotIndex) {
         GameInstance gameInstance = getGameInstance();
         if (gameInstance == null) {

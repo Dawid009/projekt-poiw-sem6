@@ -7,11 +7,18 @@ import com.polsl.poiw.gameplay.actor.MineableActor;
 import com.polsl.poiw.gameplay.actor.TrainingDummyActor;
 import com.polsl.poiw.gameplay.actor.TreeActor;
 
+/**
+ * Tłumaczy aktywne narzędzie gracza na końcowe obrażenia dla konkretnego typu celu.
+ */
 public final class ToolCombatResolver {
 
     private ToolCombatResolver() {
     }
 
+    /**
+     * Zwraca obrażenia po uwzględnieniu typu celu.
+     * Dzięki temu jedno uderzenie może ciąć drzewo, kopać rudę albo bić wroga, ale nie wszystko naraz.
+     */
     public static int resolveDamage(PlayerToolType toolType, Actor target, int baseDamage) {
         PlayerToolType resolvedTool = toolType != null ? toolType : PlayerToolType.SWORD;
         int clampedBaseDamage = Math.max(1, baseDamage);

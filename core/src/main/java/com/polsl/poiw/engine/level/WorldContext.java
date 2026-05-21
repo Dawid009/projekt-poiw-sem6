@@ -460,7 +460,8 @@ public class WorldContext implements Disposable {
     }
 
     /**
-     * Ładuje i parsuje mapę Tiled.
+        * Ładuje i parsuje mapę Tiled.
+        * Tutaj spinają się parser warstw, fabryka obiektów i render mapy w jeden przepływ startowy poziomu.
      */
     private void loadTiledMap() {
         AssetService assetService = game.getAssetService();
@@ -547,7 +548,8 @@ public class WorldContext implements Disposable {
     // ===== Update / Render =====
 
     /**
-     * Aktualizacja co klatkę. Wywoływane z aktywnego ekranu.
+        * Aktualizacja co klatkę. Wywoływane z aktywnego ekranu.
+        * Przy aktywnym save'ie w singleplayerze nalicza też czas gry do bieżącego slota.
      */
     public void update(float delta) {
         if (!isUiAvailable()) {
