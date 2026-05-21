@@ -18,6 +18,7 @@ public class StatsPanelWidget extends UserWidget {
     private static final float CONTENT_PADDING = 4f;
     private static final float ROW_SPACING = 1.5f;
     private static final float SECTION_SPACING = 3f;
+    private static final float TITLE_CLEARANCE = 2f;
 
     public interface StatsPanelActionListener {
         void onRefreshRequested();
@@ -47,7 +48,7 @@ public class StatsPanelWidget extends UserWidget {
 
         Table content = new Table();
         content.defaults().left().padBottom(ROW_SPACING);
-        content.add(statusLabel).left().padBottom(SECTION_SPACING).row();
+        content.add(statusLabel).left().padTop(TITLE_CLEARANCE).padBottom(SECTION_SPACING).row();
         content.add(statsLabel).left().padBottom(SECTION_SPACING).row();
 
         Table buttons = new Table();

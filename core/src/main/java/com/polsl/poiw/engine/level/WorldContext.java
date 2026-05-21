@@ -488,9 +488,17 @@ public class WorldContext implements Disposable {
         if (Math.abs(velX) <= SIMULATED_PROXY_MOVE_EPSILON
             && Math.abs(velY) <= SIMULATED_PROXY_MOVE_EPSILON) {
             movement.getDirection().setZero();
+            movement.setSpeedMultiplier(com.polsl.poiw.engine.component.MovementComponent.DEFAULT_SPEED_MULTIPLIER);
             return;
         }
 
+        float baseSpeed = movement.getMaxSpeed();
+        if (baseSpeed > SIMULATED_PROXY_MOVE_EPSILON) {
+            float velocityLength = (float) Math.sqrt(velX * velX + velY * velY);
+            movement.setSpeedMultiplier(Math.max(1f, velocityLength / baseSpeed));
+        } else {
+            movement.setSpeedMultiplier(com.polsl.poiw.engine.component.MovementComponent.DEFAULT_SPEED_MULTIPLIER);
+        }
         movement.getDirection().set(velX, velY).nor();
     }
 

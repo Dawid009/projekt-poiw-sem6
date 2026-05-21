@@ -244,7 +244,7 @@ public abstract class AbstractTiledTargetActor extends AbstractActor {
                 spawnY = sourceBaseY + collHalfH - height * 0.5f - resolvedCollOffset.y;
             } else {
                 spawnX = sourceBaseCenterX - width * 0.5f;
-                spawnY = sourceBaseY;
+                spawnY = transform.getPosition().y;
             }
         }
 

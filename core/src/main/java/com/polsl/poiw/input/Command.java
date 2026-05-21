@@ -11,6 +11,7 @@ public enum Command {
     RIGHT,
     DOWN,
     UP,
+    SPRINT,
     SELECT,
     CANCEL,
     TOOL_PREVIOUS,

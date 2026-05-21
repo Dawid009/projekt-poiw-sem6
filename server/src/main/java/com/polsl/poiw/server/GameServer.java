@@ -343,7 +343,7 @@ public class GameServer implements ApplicationListener {
         PlayerController pc = playerControllers.get(connectionId);
         if (pc == null) return;
 
-        pc.receiveClientInput(input.dirX, input.dirY, sequenceNumber);
+        pc.receiveClientInput(input.dirX, input.dirY, input.sprinting, sequenceNumber);
 
         if (attackPressed) {
             var pawn = pc.getPossessedPawn();

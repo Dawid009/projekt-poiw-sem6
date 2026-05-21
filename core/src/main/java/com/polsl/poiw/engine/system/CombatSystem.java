@@ -17,8 +17,8 @@ import com.polsl.poiw.gameplay.tool.PlayerToolType;
  * i spawnuje krótko żyjący hitbox przed postacią.
  */
 public class CombatSystem extends IteratingSystem {
-    private static final float HORIZONTAL_ATTACK_REACH_OFFSET = 0.22f;
-    private static final float VERTICAL_ATTACK_REACH_OFFSET = 0.35f;
+    private static final float HORIZONTAL_ATTACK_REACH_OFFSET = 0.52f;
+    private static final float VERTICAL_ATTACK_REACH_OFFSET = 0.65f;
     private static final Vector2 TMP_SPAWN = new Vector2();
     private static final Vector2 TMP_KNOCKBACK = new Vector2();
 

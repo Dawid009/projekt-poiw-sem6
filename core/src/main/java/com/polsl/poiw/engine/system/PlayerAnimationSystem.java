@@ -34,6 +34,7 @@ public class PlayerAnimationSystem extends IteratingSystem {
         DamageReactionComponent damageReaction = DamageReactionComponent.MAPPER.get(entity);
         PlayerToolComponent toolComponent = PlayerToolComponent.MAPPER.get(entity);
         PlayerToolType toolType = toolComponent != null ? toolComponent.getActiveTool() : PlayerToolType.SWORD;
+        float movementAnimationSpeedScale = resolveMovementAnimationSpeedScale(movement);
         TextureRegion currentFrame;
 
         if (damageReaction != null && damageReaction.consumeReactionTrigger()) {
@@ -49,7 +50,7 @@ public class PlayerAnimationSystem extends IteratingSystem {
         }
 
         if (combat == null) {
-            animation.update(movement.getDirection(), deltaTime);
+            animation.update(movement.getDirection(), movementAnimationSpeedScale, deltaTime);
             currentFrame = animation.getCurrentFrame();
             sprite.setRegion(currentFrame);
             applyFrameScale(transform, currentFrame);
@@ -64,10 +65,24 @@ public class PlayerAnimationSystem extends IteratingSystem {
             && !movement.getDirection().isZero(0.001f)
             && !combat.isAttacking()
             && !animation.isAttackVisualActive();
-        animation.applyState(combat.getFacingDirection(), moving, combat.isAttacking(), deltaTime);
+        animation.applyState(
+            combat.getFacingDirection(),
+            moving,
+            combat.isAttacking(),
+            movementAnimationSpeedScale,
+            deltaTime
+        );
         currentFrame = animation.getCurrentFrame();
         sprite.setRegion(currentFrame);
         applyFrameScale(transform, currentFrame);
+    }
+
+    private float resolveMovementAnimationSpeedScale(MovementComponent movement) {
+        if (movement == null) {
+            return 1f;
+        }
+
+        return Math.max(1f, movement.getSpeedMultiplier());
     }
 
     private void applyFrameScale(TransformComponent transform, TextureRegion currentFrame) {

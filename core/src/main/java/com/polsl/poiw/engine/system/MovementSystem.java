@@ -74,7 +74,7 @@ public class MovementSystem extends IteratingSystem {
             TMP_VELOCITY.setZero();
             if (!move.isRooted() && !move.getDirection().isZero()) {
                 TMP.set(move.getDirection()).nor();
-                float speed = move.getMaxSpeed();
+                float speed = move.getEffectiveMaxSpeed();
                 if (knockbackActive) {
                     speed *= KNOCKBACK_CONTROL_SCALE;
                 }
@@ -107,7 +107,7 @@ public class MovementSystem extends IteratingSystem {
             TMP_VELOCITY.setZero();
             if (!move.isRooted() && !move.getDirection().isZero()) {
                 TMP.set(move.getDirection()).nor();
-                float speed = move.getMaxSpeed();
+                float speed = move.getEffectiveMaxSpeed();
                 if (knockbackActive) {
                     speed *= KNOCKBACK_CONTROL_SCALE;
                 }

@@ -6,7 +6,9 @@ import com.badlogic.gdx.InputAdapter;
 import com.badlogic.gdx.utils.GdxRuntimeException;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Adapter klawiatury — mapuje klawisze na Command i deleguje do aktywnego ControllerState.
@@ -21,15 +23,21 @@ public class KeyboardController extends InputAdapter {
         Map.entry(Input.Keys.S, Command.DOWN),
         Map.entry(Input.Keys.A, Command.LEFT),
         Map.entry(Input.Keys.D, Command.RIGHT),
+        Map.entry(Input.Keys.SHIFT_LEFT, Command.SPRINT),
+        Map.entry(Input.Keys.SHIFT_RIGHT, Command.SPRINT),
         Map.entry(Input.Keys.ESCAPE, Command.CANCEL)
     );
 
     private final boolean[] commandState;
+    private final int[] pressedCommandCounts;
+    private final Set<Integer> pressedKeycodes;
     private final Map<Class<? extends ControllerState>, ControllerState> stateCache;
     private ControllerState activeState;
 
     public KeyboardController(Class<? extends ControllerState> initialState, Engine engine) {
         this.commandState = new boolean[Command.values().length];
+        this.pressedCommandCounts = new int[Command.values().length];
+        this.pressedKeycodes = new HashSet<>();
         this.stateCache = new HashMap<>();
 
         this.stateCache.put(IdleControllerState.class, new IdleControllerState());
@@ -55,7 +63,9 @@ public class KeyboardController extends InputAdapter {
                 this.activeState.keyUp(command);
             }
             this.commandState[command.ordinal()] = false;
+            this.pressedCommandCounts[command.ordinal()] = 0;
         }
+        this.pressedKeycodes.clear();
         this.activeState = state;
     }
 
@@ -63,9 +73,14 @@ public class KeyboardController extends InputAdapter {
     public boolean keyDown(int keycode) {
         Command command = KEY_MAPPING.get(keycode);
         if (command == null) return false;
+        if (!pressedKeycodes.add(keycode)) return false;
 
-        this.commandState[command.ordinal()] = true;
-        this.activeState.keyDown(command);
+        int commandIndex = command.ordinal();
+        this.pressedCommandCounts[commandIndex]++;
+        if (!this.commandState[commandIndex]) {
+            this.commandState[commandIndex] = true;
+            this.activeState.keyDown(command);
+        }
         return true;
     }
 
@@ -73,9 +88,17 @@ public class KeyboardController extends InputAdapter {
     public boolean keyUp(int keycode) {
         Command command = KEY_MAPPING.get(keycode);
         if (command == null) return false;
-        if (!this.commandState[command.ordinal()]) return false;
+        if (!this.pressedKeycodes.remove(keycode)) return false;
 
-        this.commandState[command.ordinal()] = false;
+        int commandIndex = command.ordinal();
+        if (this.pressedCommandCounts[commandIndex] > 0) {
+            this.pressedCommandCounts[commandIndex]--;
+        }
+        if (this.pressedCommandCounts[commandIndex] > 0) {
+            return true;
+        }
+
+        this.commandState[commandIndex] = false;
         this.activeState.keyUp(command);
         return true;
     }

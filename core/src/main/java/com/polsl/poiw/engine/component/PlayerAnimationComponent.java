@@ -63,13 +63,27 @@ public class PlayerAnimationComponent extends AbstractActorComponent {
     }
 
     public void update(Vector2 direction, float delta) {
+        update(direction, 1f, delta);
+    }
+
+    public void update(Vector2 direction, float movementAnimationSpeedScale, float delta) {
         boolean currentlyMoving = direction != null && !direction.isZero(MOVE_EPSILON);
         Direction resolvedDirection = resolveDirection(direction);
 
-        applyState(resolvedDirection, currentlyMoving, false, delta);
+        applyState(resolvedDirection, currentlyMoving, false, movementAnimationSpeedScale, delta);
     }
 
     public void applyState(Direction direction, boolean currentlyMoving, boolean currentlyAttacking, float delta) {
+        applyState(direction, currentlyMoving, currentlyAttacking, 1f, delta);
+    }
+
+    public void applyState(
+        Direction direction,
+        boolean currentlyMoving,
+        boolean currentlyAttacking,
+        float movementAnimationSpeedScale,
+        float delta
+    ) {
         Direction resolvedDirection = direction != null ? direction : facingDirection;
         boolean effectiveAttacking = currentlyAttacking || attackVisualRemaining > 0f;
 
@@ -81,7 +95,7 @@ public class PlayerAnimationComponent extends AbstractActorComponent {
             attacking = effectiveAttacking;
             stateTime = 0f;
         } else {
-            stateTime += delta;
+            stateTime += resolveStateTimeDelta(delta, currentlyMoving, effectiveAttacking, movementAnimationSpeedScale);
         }
     }
 
@@ -129,6 +143,19 @@ public class PlayerAnimationComponent extends AbstractActorComponent {
 
     public Direction getFacingDirection() {
         return facingDirection;
+    }
+
+    private float resolveStateTimeDelta(
+        float delta,
+        boolean currentlyMoving,
+        boolean effectiveAttacking,
+        float movementAnimationSpeedScale
+    ) {
+        if (!currentlyMoving || effectiveAttacking) {
+            return delta;
+        }
+
+        return delta * Math.max(1f, movementAnimationSpeedScale);
     }
 
     private Animation<TextureRegion> getCurrentAnimation() {

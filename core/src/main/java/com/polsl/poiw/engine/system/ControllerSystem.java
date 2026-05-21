@@ -42,6 +42,7 @@ public class ControllerSystem extends IteratingSystem {
                 case DOWN -> moveEntity(entity, 0f, -1f);
                 case LEFT -> moveEntity(entity, -1f, 0f);
                 case RIGHT -> moveEntity(entity, 1f, 0f);
+                case SPRINT -> setSprint(entity, true);
                 case SELECT -> requestAttack(entity);
                 case TOOL_PREVIOUS -> cycleTool(entity, false);
                 case TOOL_NEXT -> cycleTool(entity, true);
@@ -57,6 +58,7 @@ public class ControllerSystem extends IteratingSystem {
                 case DOWN -> moveEntity(entity, 0f, 1f);
                 case LEFT -> moveEntity(entity, 1f, 0f);
                 case RIGHT -> moveEntity(entity, -1f, 0f);
+                case SPRINT -> setSprint(entity, false);
                 case SELECT, CANCEL, TOOL_PREVIOUS, TOOL_NEXT -> {
                 }
             }
@@ -69,6 +71,13 @@ public class ControllerSystem extends IteratingSystem {
         if (move != null) {
             move.getDirection().x += dx;
             move.getDirection().y += dy;
+        }
+    }
+
+    private void setSprint(Entity entity, boolean sprinting) {
+        MovementComponent move = MovementComponent.MAPPER.get(entity);
+        if (move != null) {
+            move.setSprinting(sprinting);
         }
     }
 

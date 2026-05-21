@@ -81,8 +81,9 @@ public class PlayerController {
             if (move != null) {
                 float dirX = move.getDirection().x;
                 float dirY = move.getDirection().y;
+                boolean sprinting = move.isSprinting();
                 boolean attackPressed = consumeLocalAttackPressed();
-                int sequenceNumber = sendInputToServer(dirX, dirY, attackPressed);
+                int sequenceNumber = sendInputToServer(dirX, dirY, sprinting, attackPressed);
 
                 // save predicted position for reconciliation
                 if (clientPrediction != null && sequenceNumber >= 0) {
@@ -191,17 +192,18 @@ public class PlayerController {
 
     // on server: called when client sends input every update
     // applies movement direction to the posesed pawn
-    public void receiveClientInput(float dirX, float dirY, int sequence) {
+    public void receiveClientInput(float dirX, float dirY, boolean sprinting, int sequence) {
         if (possessedPawn == null) return;
         var move = possessedPawn.getComponent(
             com.polsl.poiw.engine.component.MovementComponent.class);
         if (move != null) {
             move.getDirection().set(dirX, dirY);
+            move.setSprinting(sprinting);
         }
     }
 
     // sends current input to server on the client
-    public int sendInputToServer(float dirX, float dirY, boolean attackPressed) {
+    public int sendInputToServer(float dirX, float dirY, boolean sprinting, boolean attackPressed) {
         if (gameInstance == null || !gameInstance.isClient()) return -1;
         var netDriver = gameInstance.getNetDriver();
         if (netDriver == null) return -1;
@@ -213,6 +215,7 @@ public class PlayerController {
         msg.playerId = playerId;
         msg.dirX = dirX;
         msg.dirY = dirY;
+        msg.sprinting = sprinting;
         msg.sequenceNumber = attackPressed ? sequenceNumber | ATTACK_INPUT_FLAG : sequenceNumber;
         msg.timestamp = gameInstance.getServerTime();
         netDriver.sendToServer(msg, attackPressed);
