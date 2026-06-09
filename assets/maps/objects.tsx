@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<tileset version="1.10" tiledversion="1.12.0" name="objects" tilewidth="96" tileheight="128" tilecount="63" columns="0">
+<tileset version="1.10" tiledversion="1.12.0" name="objects" tilewidth="96" tileheight="128" tilecount="65" columns="0">
  <grid orientation="orthogonal" width="1" height="1"/>
  <tile id="1" type="Object">
   <properties>
@@ -37,6 +37,24 @@
      <property name="sensor" type="bool" value="true"/>
     </properties>
    </object>
+  </objectgroup>
+ </tile>
+ <tile id="78" type="NPC">
+  <properties>
+   <property name="npc_type" propertytype="NPCType" value="farmer"/>
+  </properties>
+  <image source="../raw/npc/farmer/idle/idle_down_00.png" width="32" height="32"/>
+  <objectgroup draworder="index" id="2">
+   <object id="1" x="10" y="20.4375" width="10.9375" height="3.4375"/>
+  </objectgroup>
+ </tile>
+ <tile id="79" type="NPC">
+  <properties>
+   <property name="npc_type" propertytype="NPCType" value="miner"/>
+  </properties>
+  <image source="../raw/npc/miner/idle/idle_down_00.png" width="32" height="32"/>
+  <objectgroup draworder="index" id="2">
+   <object id="1" x="9.875" y="20.4375" width="11.0625" height="3.5625"/>
   </objectgroup>
  </tile>
  <tile id="2" type="Prop">
@@ -113,6 +131,9 @@
  </tile>
  <tile id="10" type="Prop">
   <image source="../raw/objects/trees/fallen_trunk.png" width="32" height="16"/>
+  <objectgroup draworder="index" id="2">
+   <object id="1" x="4.9375" y="9" width="22.125" height="3.375"/>
+  </objectgroup>
  </tile>
  <tile id="77">
   <image source="../raw/items/misc/tree_log.png" width="16" height="16"/>

@@ -1,0 +1,90 @@
+
+npc.png
+size: 256, 64
+format: RGBA8888
+filter: Nearest, Nearest
+repeat: none
+farmer/idle/idle_down
+  rotate: false
+  xy: 4, 4
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 0
+farmer/idle/idle_down
+  rotate: false
+  xy: 4, 4
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 5
+farmer/idle/idle_down
+  rotate: false
+  xy: 76, 4
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 1
+farmer/idle/idle_down
+  rotate: false
+  xy: 76, 4
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 4
+farmer/idle/idle_down
+  rotate: false
+  xy: 148, 4
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 2
+farmer/idle/idle_down
+  rotate: false
+  xy: 148, 4
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 3
+miner/idle/idle_down
+  rotate: false
+  xy: 40, 4
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 0
+miner/idle/idle_down
+  rotate: false
+  xy: 40, 4
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 5
+miner/idle/idle_down
+  rotate: false
+  xy: 112, 4
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 1
+miner/idle/idle_down
+  rotate: false
+  xy: 112, 4
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 4
+miner/idle/idle_down
+  rotate: false
+  xy: 184, 4
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 2
+miner/idle/idle_down
+  rotate: false
+  xy: 184, 4
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: 3

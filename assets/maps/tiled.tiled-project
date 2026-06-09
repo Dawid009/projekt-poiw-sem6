@@ -212,6 +212,43 @@
         {
             "color": "#ffa0a0a4",
             "drawFill": true,
+            "id": 16,
+            "members": [
+                {
+                    "name": "npc_type",
+                    "propertyType": "NPCType",
+                    "type": "string",
+                    "value": "farmer"
+                }
+            ],
+            "name": "NPC",
+            "type": "class",
+            "useAs": [
+                "property",
+                "map",
+                "layer",
+                "object",
+                "tile",
+                "tileset",
+                "wangcolor",
+                "wangset",
+                "project"
+            ]
+        },
+        {
+            "id": 17,
+            "name": "NPCType",
+            "storageType": "string",
+            "type": "enum",
+            "values": [
+                "farmer",
+                "miner"
+            ],
+            "valuesAsFlags": false
+        },
+        {
+            "color": "#ffa0a0a4",
+            "drawFill": true,
             "id": 3,
             "members": [
                 {
