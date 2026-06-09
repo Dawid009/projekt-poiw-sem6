@@ -2,6 +2,7 @@ package com.polsl.poiw.engine.ui;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.scenes.scene2d.ui.Button;
 import com.badlogic.gdx.scenes.scene2d.ui.CheckBox;
@@ -283,15 +284,14 @@ public final class UiSkinStyles {
             return baseFont;
         }
 
-        String fontFile = resolveFontFile(fontName);
-        String regionName = resolveFontRegion(fontName);
-        if (fontFile == null || regionName == null || !skin.has(regionName, com.badlogic.gdx.graphics.g2d.TextureRegion.class)) {
+        FontSource fontSource = resolveFontSource(skin, fontName);
+        if (fontSource == null) {
             return baseFont;
         }
 
         BitmapFont scaledFont = new BitmapFont(
-            Gdx.files.internal(fontFile),
-            skin.getRegion(regionName),
+            Gdx.files.internal(fontSource.file()),
+            skin.getRegion(fontSource.region()),
             false
         );
         scaledFont.getData().setScale(fontScale);
@@ -299,24 +299,41 @@ public final class UiSkinStyles {
         return scaledFont;
     }
 
-    private static String resolveFontFile(String fontName) {
+    private static FontSource resolveFontSource(Skin skin, String fontName) {
         return switch (fontName) {
-            case "default", "default-font", "font" -> "ui/font.fnt";
-            case "list" -> "ui/font-list.fnt";
-            case "window" -> "ui/font-window.fnt";
-            case "subtitle" -> "ui/font-subtitle.fnt";
+            case "default", "default-font", "font" -> findFontSource(skin,
+                new FontSource("ui/font.fnt", "font"),
+                new FontSource("ui/golden/font-export.fnt", "font-export"),
+                new FontSource("ui/neutralize/font-export.fnt", "font-export")
+            );
+            case "list" -> findFontSource(skin,
+                new FontSource("ui/font-list.fnt", "font-list"),
+                new FontSource("ui/golden/font-export.fnt", "font-export"),
+                new FontSource("ui/neutralize/font-export.fnt", "font-export")
+            );
+            case "window", "title" -> findFontSource(skin,
+                new FontSource("ui/font-window.fnt", "font-window"),
+                new FontSource("ui/golden/font-title-export.fnt", "font-title-export"),
+                new FontSource("ui/neutralize/font-title-export.fnt", "font-title-export")
+            );
+            case "subtitle" -> findFontSource(skin,
+                new FontSource("ui/font-subtitle.fnt", "font-subtitle"),
+                new FontSource("ui/golden/font-export.fnt", "font-export"),
+                new FontSource("ui/neutralize/font-export.fnt", "font-export")
+            );
             default -> null;
         };
     }
 
-    private static String resolveFontRegion(String fontName) {
-        return switch (fontName) {
-            case "default", "default-font", "font" -> "font";
-            case "list" -> "font-list";
-            case "window" -> "font-window";
-            case "subtitle" -> "font-subtitle";
-            default -> null;
-        };
+    private static FontSource findFontSource(Skin skin, FontSource... candidates) {
+        for (FontSource candidate : candidates) {
+            if (candidate != null
+                && Gdx.files.internal(candidate.file()).exists()
+                && skin.has(candidate.region(), TextureRegion.class)) {
+                return candidate;
+            }
+        }
+        return null;
     }
 
     private static float resolveMinHeight(BitmapFont font, float requestedHeight, float extraPadding) {
@@ -333,4 +350,6 @@ public final class UiSkinStyles {
         }
         return copy;
     }
+
+    private record FontSource(String file, String region) {}
 }

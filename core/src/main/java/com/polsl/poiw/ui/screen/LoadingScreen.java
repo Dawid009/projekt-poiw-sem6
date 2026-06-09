@@ -32,8 +32,10 @@ public class LoadingScreen extends ScreenAdapter {
             assetService.queue(atlasAsset);
         }
 
-        // Kolejkuj skin UI
-        assetService.queue(SkinAsset.DEFAULT);
+        // Kolejkuj skiny UI
+        for (SkinAsset skinAsset : SkinAsset.values()) {
+            assetService.queue(skinAsset);
+        }
     }
 
     @Override

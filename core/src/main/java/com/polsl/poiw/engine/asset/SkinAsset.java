@@ -8,12 +8,13 @@ import com.badlogic.gdx.scenes.scene2d.ui.Skin;
  * Skin to plik JSON + TextureAtlas definiujący wygląd elementów Scene2D.
  */
 public enum SkinAsset implements Asset<Skin> {
-    DEFAULT("uiskin.json");
+    DEFAULT("uiskin.json"),
+    MENU("shadeui/uiskin.json");
 
     private final AssetDescriptor<Skin> descriptor;
 
-    SkinAsset(String skinJsonFile) {
-        this.descriptor = new AssetDescriptor<>("ui/" + skinJsonFile, Skin.class);
+    SkinAsset(String skinJsonPath) {
+        this.descriptor = new AssetDescriptor<>("ui/" + skinJsonPath, Skin.class);
     }
 
     @Override
