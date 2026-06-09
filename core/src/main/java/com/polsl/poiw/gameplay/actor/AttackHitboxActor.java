@@ -8,7 +8,6 @@ import com.polsl.poiw.engine.collision.BoxCollisionComponent;
 import com.polsl.poiw.engine.collision.CollisionProfile;
 import com.polsl.poiw.engine.collision.CollisionResult;
 import com.polsl.poiw.engine.collision.OverlapListener;
-import com.polsl.poiw.engine.component.DamageReactionComponent;
 import com.polsl.poiw.engine.component.HealthComponent;
 import com.polsl.poiw.engine.component.TransformComponent;
 import com.polsl.poiw.gameplay.tool.PlayerToolType;
@@ -87,11 +86,6 @@ public class AttackHitboxActor extends AbstractActor implements OverlapListener 
         }
 
         health.applyDamage(resolvedDamage, getOwnerId());
-
-        DamageReactionComponent damageReaction = other.getComponent(DamageReactionComponent.class);
-        if (damageReaction != null) {
-            damageReaction.triggerReaction();
-        }
 
         com.polsl.poiw.engine.component.KnockbackComponent knockback =
             other.getComponent(com.polsl.poiw.engine.component.KnockbackComponent.class);

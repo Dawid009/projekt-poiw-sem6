@@ -1,5 +1,6 @@
 package com.polsl.poiw.engine.ui;
 
+import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.ui.CheckBox;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.SelectBox;
@@ -46,9 +47,9 @@ public class SettingsPanelWidget extends UserWidget {
 
         var compactSelectStyle = UiSkinStyles.copyCompactSelectBoxStyle(skin, "atlas", "font", 24f, 14f, 4f, 10f, 16f, CONTENT_FONT_SCALE);
         var compactCheckStyle = UiSkinStyles.copyCompactCheckBoxStyle(skin, "atlas", "font", 10f, 10f, CONTENT_FONT_SCALE);
-        this.resolutionSelect = new SelectBox<>(compactSelectStyle);
+        this.resolutionSelect = createSelectBox(compactSelectStyle);
         this.vSyncCheckBox = new CheckBox(" VSync", compactCheckStyle);
-        this.fpsLimitSelect = new SelectBox<>(compactSelectStyle);
+        this.fpsLimitSelect = createSelectBox(compactSelectStyle);
         this.vSyncCheckBox.getImageCell().padRight(2f);
 
         populateSelectBoxes();
@@ -117,6 +118,22 @@ public class SettingsPanelWidget extends UserWidget {
                 }
             }
         });
+    }
+
+    private SelectBox<String> createSelectBox(SelectBox.SelectBoxStyle style) {
+        return new SelectBox<>(style) {
+            @Override
+            protected void onShow(Actor scrollPane, boolean below) {
+                scrollPane.clearActions();
+                scrollPane.getColor().a = 1f;
+            }
+
+            @Override
+            protected void onHide(Actor scrollPane) {
+                scrollPane.clearActions();
+                scrollPane.remove();
+            }
+        };
     }
 
     public void refreshFromAppliedSettings() {

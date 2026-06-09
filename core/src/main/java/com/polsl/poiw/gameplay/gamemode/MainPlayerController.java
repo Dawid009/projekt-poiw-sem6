@@ -3,9 +3,12 @@ package com.polsl.poiw.gameplay.gamemode;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.math.Vector2;
 import com.polsl.poiw.GameInstance;
+import com.polsl.poiw.Main;
 import com.polsl.poiw.engine.actor.Actor;
+import com.polsl.poiw.engine.asset.SkinAsset;
 import com.polsl.poiw.engine.auth.AuthService;
 import com.polsl.poiw.engine.binding.BindingHandle;
 import com.polsl.poiw.engine.component.CombatComponent;
@@ -27,6 +30,7 @@ import com.polsl.poiw.engine.ui.StatsPanelWidget;
 import com.polsl.poiw.engine.ui.TextBlock;
 import com.polsl.poiw.engine.ui.ToolbeltWidget;
 import com.polsl.poiw.engine.world.GameWorld;
+import com.polsl.poiw.gameplay.actor.ChestActor;
 import com.polsl.poiw.gameplay.actor.ItemPickupActor;
 import com.polsl.poiw.gameplay.character.PlayerCharacter;
 import com.polsl.poiw.gameplay.crop.CropPlantingService;
@@ -44,6 +48,7 @@ import java.util.Map;
  */
 public class MainPlayerController extends PlayerController {
     private static final float SAVE_STATUS_DURATION_SECONDS = 2.2f;
+    private static final float CHEST_PANEL_SPACING = 8f;
     /**
      * Wygasza chwilowy komunikat o zapisie bez mieszania w reszcie HUD-u.
      */
@@ -53,6 +58,7 @@ public class MainPlayerController extends PlayerController {
     private TextBlock hpText;
     private ProgressBarWidget progressBar;
     private InventoryPanelWidget inventoryPanel;
+    private InventoryPanelWidget chestPanel;
     private ToolbeltWidget toolbeltWidget;
     private PauseMenuWidget pauseMenu;
     private TextBlock saveStatusText;
@@ -61,6 +67,7 @@ public class MainPlayerController extends PlayerController {
     private BindingHandle healthBinding;
     private BindingHandle maxHealthBinding;
     private BindingHandle inventoryBinding;
+    private BindingHandle chestInventoryBinding;
     private BindingHandle assignedItemBinding;
     private BindingHandle toolBinding;
     private final Map<String, Integer> trackedInventoryQuantities = new HashMap<>();
@@ -68,6 +75,7 @@ public class MainPlayerController extends PlayerController {
     private String assignedItemId = "";
     private int selectedHotbarSlot = 0;
     private float saveStatusTimer;
+    private ChestActor activeChest;
 
     /** Aktualne wartości do formatowania tekstu */
     private float currentHp = 0f;
@@ -75,6 +83,8 @@ public class MainPlayerController extends PlayerController {
 
     @Override
     protected void setupHUD() {
+        Skin overlaySkin = resolveOverlaySkin();
+
         hpText = new TextBlock("HP: ---", getSkin());
         hpText.setAnchor(EAnchor.BOTTOM_CENTER);
         hpText.setAlignment(EAnchor.TOP_CENTER);
@@ -100,21 +110,50 @@ public class MainPlayerController extends PlayerController {
         inventoryPanel.setOffset(0f, 0f);
         inventoryPanel.setActionListener(new InventoryPanelWidget.InventoryActionListener() {
             @Override
-            public void onUseRequested(String itemId) {
-                useSelectedItem(itemId);
+            public void onUseRequested(int slotIndex, String itemId) {
+                useSelectedItem(slotIndex, itemId);
             }
 
             @Override
-            public void onDropRequested(String itemId) {
-                dropSelectedItem(itemId);
+            public void onDropRequested(int slotIndex, String itemId, boolean wholeStack) {
+                dropSelectedItem(slotIndex, itemId, wholeStack);
             }
 
             @Override
-            public void onAssignRequested(String itemId) {
-                assignSelectedItem(itemId);
+            public void onAssignRequested(int slotIndex, String itemId) {
+                assignSelectedItem(slotIndex, itemId);
+            }
+
+            @Override
+            public void onQuickTransferRequested(int slotIndex, String itemId, boolean wholeStack) {
+                transferInventoryItemToChest(slotIndex, itemId, wholeStack);
             }
         });
         addWidgetToViewport(inventoryPanel);
+
+        chestPanel = new InventoryPanelWidget(getSkin(), getItemsAtlas(), "Skrzynia", 4, 4, false);
+        chestPanel.setAnchor(EAnchor.CENTER);
+        chestPanel.setAlignment(EAnchor.CENTER);
+        chestPanel.setVisibility(EVisibility.HIDDEN);
+        chestPanel.setActionListener(new InventoryPanelWidget.InventoryActionListener() {
+            @Override
+            public void onUseRequested(int slotIndex, String itemId) {
+            }
+
+            @Override
+            public void onDropRequested(int slotIndex, String itemId, boolean wholeStack) {
+            }
+
+            @Override
+            public void onAssignRequested(int slotIndex, String itemId) {
+            }
+
+            @Override
+            public void onQuickTransferRequested(int slotIndex, String itemId, boolean wholeStack) {
+                transferChestItemToInventory(slotIndex, itemId, wholeStack);
+            }
+        });
+        addWidgetToViewport(chestPanel);
 
         toolbeltWidget = new ToolbeltWidget(getSkin(), getItemsAtlas());
         toolbeltWidget.setAnchor(EAnchor.BOTTOM_RIGHT);
@@ -123,7 +162,7 @@ public class MainPlayerController extends PlayerController {
         toolbeltWidget.setVisibility(EVisibility.HIDDEN);
         addWidgetToViewport(toolbeltWidget);
 
-        pauseMenu = new PauseMenuWidget(getSkin());
+        pauseMenu = new PauseMenuWidget(overlaySkin);
         pauseMenu.setAnchor(EAnchor.CENTER);
         pauseMenu.setAlignment(EAnchor.CENTER);
         pauseMenu.setActionListener(new PauseMenuWidget.PauseMenuActionListener() {
@@ -165,13 +204,13 @@ public class MainPlayerController extends PlayerController {
         saveStatusText.setVisibility(EVisibility.HIDDEN);
         addWidgetToViewport(saveStatusText);
 
-        settingsPanel = new SettingsPanelWidget(getSkin());
+        settingsPanel = new SettingsPanelWidget(overlaySkin);
         settingsPanel.setAnchor(EAnchor.CENTER);
         settingsPanel.setAlignment(EAnchor.CENTER);
         settingsPanel.setCloseAction(this::closeSettingsToPauseMenu);
         addWidgetToViewport(settingsPanel);
 
-        statsPanel = new StatsPanelWidget(getSkin());
+        statsPanel = new StatsPanelWidget(overlaySkin);
         statsPanel.setAnchor(EAnchor.CENTER);
         statsPanel.setAlignment(EAnchor.CENTER);
         statsPanel.setActionListener(new StatsPanelWidget.StatsPanelActionListener() {
@@ -187,6 +226,20 @@ public class MainPlayerController extends PlayerController {
         });
         addWidgetToViewport(statsPanel);
         updateStatsUiState();
+    }
+
+    private Skin resolveOverlaySkin() {
+        GameInstance gameInstance = getGameInstance();
+        if (gameInstance != null) {
+            var context = gameInstance.getActiveWorldContext();
+            if (context != null) {
+                Main game = context.getGame();
+                if (game != null && game.getAssetService() != null) {
+                    return game.getAssetService().get(SkinAsset.MENU);
+                }
+            }
+        }
+        return getSkin();
     }
 
     @Override
@@ -240,6 +293,10 @@ public class MainPlayerController extends PlayerController {
             inventoryBinding.unbind();
             inventoryBinding = null;
         }
+        if (chestInventoryBinding != null) {
+            chestInventoryBinding.unbind();
+            chestInventoryBinding = null;
+        }
         if (assignedItemBinding != null) {
             assignedItemBinding.unbind();
             assignedItemBinding = null;
@@ -253,11 +310,18 @@ public class MainPlayerController extends PlayerController {
         assignedItemId = "";
         selectedHotbarSlot = 0;
         trackedInventoryQuantities.clear();
+        activeChest = null;
 
         if (inventoryPanel != null) {
             inventoryPanel.setItems(java.util.List.of());
             inventoryPanel.setHiddenItemId(null);
             inventoryPanel.setVisibility(EVisibility.HIDDEN);
+            inventoryPanel.setOffset(0f, 0f);
+        }
+        if (chestPanel != null) {
+            chestPanel.setItems(java.util.List.of());
+            chestPanel.setVisibility(EVisibility.HIDDEN);
+            chestPanel.setOffset(0f, 0f);
         }
         if (toolbeltWidget != null) {
             toolbeltWidget.setVisibility(EVisibility.HIDDEN);
@@ -303,6 +367,7 @@ public class MainPlayerController extends PlayerController {
         }
 
         handleInventoryToggle();
+        updateChestInteractionState();
         if (isInventoryInteractionActive()) {
             clearPendingAttackState();
             super.tick(delta);
@@ -420,10 +485,114 @@ public class MainPlayerController extends PlayerController {
             return;
         }
         if (Gdx.input.isKeyJustPressed(Input.Keys.E)) {
-            inventoryPanel.setVisibility(inventoryPanel.isVisible()
-                ? EVisibility.HIDDEN
-                : EVisibility.VISIBLE);
+            boolean nextVisible = !inventoryPanel.isVisible();
+            inventoryPanel.setVisibility(nextVisible ? EVisibility.VISIBLE : EVisibility.HIDDEN);
+            if (!nextVisible) {
+                setActiveChest(null);
+            }
         }
+    }
+
+    private void updateChestInteractionState() {
+        if (!(getPossessedPawn() instanceof PlayerCharacter player)) {
+            setActiveChest(null);
+            return;
+        }
+
+        if (inventoryPanel == null || !inventoryPanel.isVisible()) {
+            setActiveChest(null);
+            return;
+        }
+
+        setActiveChest(findNearbyChest(player));
+    }
+
+    private ChestActor findNearbyChest(PlayerCharacter player) {
+        GameWorld world = getWorld();
+        if (world == null || player == null) {
+            return null;
+        }
+
+        ChestActor nearestChest = null;
+        float bestDistance2 = Float.MAX_VALUE;
+        for (ChestActor chest : world.getActorsOfClass(ChestActor.class)) {
+            if (chest == null || !chest.isPlayerInInteractionRange(player)) {
+                continue;
+            }
+
+            float distance2 = chest.getPosition().dst2(player.getPosition());
+            if (distance2 < bestDistance2) {
+                bestDistance2 = distance2;
+                nearestChest = chest;
+            }
+        }
+        return nearestChest;
+    }
+
+    private void setActiveChest(ChestActor chest) {
+        if (activeChest == chest) {
+            if (activeChest != null && chestPanel != null && chestPanel.isVisible()) {
+                updateInventoryPanelLayout();
+            }
+            return;
+        }
+
+        if (chestInventoryBinding != null) {
+            chestInventoryBinding.unbind();
+            chestInventoryBinding = null;
+        }
+
+        activeChest = chest;
+        if (chestPanel == null) {
+            return;
+        }
+
+        if (activeChest == null) {
+            chestPanel.setItems(List.of());
+            chestPanel.setVisibility(EVisibility.HIDDEN);
+            updateInventoryPanelLayout();
+            return;
+        }
+
+        chestPanel.setTitle(activeChest.getStorageTitle());
+        chestPanel.setItems(activeChest.getInventoryItems());
+        chestPanel.setVisibility(EVisibility.VISIBLE);
+        updateInventoryPanelLayout();
+
+        InventoryComponent chestInventory = activeChest.getInventoryComponent();
+        if (chestInventory != null) {
+            ChestActor boundChest = activeChest;
+            chestInventoryBinding = chestInventory.getRevisionBinding().bind(revision -> handleChestInventoryChanged(boundChest));
+        }
+    }
+
+    private void handleChestInventoryChanged(ChestActor chest) {
+        if (chest == null || chest != activeChest || chestPanel == null) {
+            return;
+        }
+
+        chestPanel.setTitle(chest.getStorageTitle());
+        chestPanel.setItems(chest.getInventoryItems());
+        updateInventoryPanelLayout();
+    }
+
+    private void updateInventoryPanelLayout() {
+        if (inventoryPanel == null) {
+            return;
+        }
+
+        if (chestPanel == null || !chestPanel.isVisible()) {
+            inventoryPanel.setOffset(0f, 0f);
+            if (chestPanel != null) {
+                chestPanel.setOffset(0f, 0f);
+            }
+            return;
+        }
+
+        float inventoryOffsetX = -(chestPanel.getWidth() + CHEST_PANEL_SPACING) * 0.5f;
+        float chestOffsetX = (inventoryPanel.getWidth() + CHEST_PANEL_SPACING) * 0.5f;
+        inventoryPanel.setOffset(inventoryOffsetX, 0f);
+        chestPanel.setOffset(chestOffsetX, 0f);
     }
 
     private boolean isInventoryInteractionActive() {
@@ -527,13 +696,19 @@ public class MainPlayerController extends PlayerController {
         }
     }
 
-    private void useSelectedItem(String itemId) {
+    private void useSelectedItem(int slotIndex, String itemId) {
         if (!(getPossessedPawn() instanceof PlayerCharacter player)) {
             return;
         }
 
         if (!player.hasAuthority()) {
-            requestInventoryAction(itemId, NetworkProtocol.InventoryActionType.USE);
+            requestInventoryAction(slotIndex, itemId, NetworkProtocol.InventoryActionType.USE, false);
+            return;
+        }
+
+        InventoryComponent inventory = player.getInventoryComponent();
+        InventoryStack stack = inventory != null ? inventory.getStackAt(slotIndex) : null;
+        if (stack == null || stack.getDefinition() == null) {
             return;
         }
 
@@ -541,19 +716,18 @@ public class MainPlayerController extends PlayerController {
             return;
         }
 
-        InventoryComponent inventory = player.getInventoryComponent();
         if (inventory != null) {
-            inventory.useItem(itemId);
+            inventory.useItemAt(slotIndex);
         }
     }
 
-    private void dropSelectedItem(String itemId) {
+    private void dropSelectedItem(int slotIndex, String itemId, boolean wholeStack) {
         if (!(getPossessedPawn() instanceof PlayerCharacter player)) {
             return;
         }
 
         if (!player.hasAuthority()) {
-            requestInventoryAction(itemId, NetworkProtocol.InventoryActionType.DROP);
+            requestInventoryAction(slotIndex, itemId, NetworkProtocol.InventoryActionType.DROP, wholeStack);
             return;
         }
 
@@ -562,39 +736,119 @@ public class MainPlayerController extends PlayerController {
             return;
         }
 
-        InventoryStack stack = inventory.getStack(itemId);
+        InventoryStack stack = inventory.getStackAt(slotIndex);
         if (stack == null) {
             return;
         }
 
-        if (inventory.removeItem(itemId, 1) > 0) {
-            spawnItemNearPlayer(player, stack.getDefinition(), 1, 0.35f, 0.45f);
+        int dropQuantity = wholeStack ? stack.getQuantity() : 1;
+        if (inventory.removeItemAt(slotIndex, dropQuantity) > 0) {
+            spawnItemNearPlayer(player, stack.getDefinition(), dropQuantity, 0.35f, 0.45f);
         }
     }
 
-    private void assignSelectedItem(String itemId) {
+    private void assignSelectedItem(int slotIndex, String itemId) {
         if (itemId == null || itemId.isBlank() || !(getPossessedPawn() instanceof PlayerCharacter player)) {
             return;
         }
 
         InventoryComponent inventory = player.getInventoryComponent();
-        if (inventory == null || inventory.getStack(itemId) == null) {
+        InventoryStack selectedStack = inventory != null ? inventory.getStackAt(slotIndex) : null;
+        if (selectedStack == null || selectedStack.getDefinition() == null) {
             return;
         }
 
-        assignedItemId = itemId;
+        assignedItemId = selectedStack.getDefinition().getItemId();
         refreshAssignedItemSlot(player);
         selectAssignedItemSlot();
 
         if (!player.hasAuthority()) {
-            requestAssignedItemUpdate(itemId);
+            requestAssignedItemUpdate(assignedItemId);
             return;
         }
 
         PlayerAssignedItemComponent assignedItemComponent = player.getPlayerAssignedItemComponent();
         if (assignedItemComponent != null) {
-            assignedItemComponent.setAssignedItemId(itemId);
+            assignedItemComponent.setAssignedItemId(assignedItemId);
         }
+    }
+
+    private void transferInventoryItemToChest(int slotIndex, String itemId, boolean wholeStack) {
+        if (itemId == null || itemId.isBlank()
+            || activeChest == null
+            || !(getPossessedPawn() instanceof PlayerCharacter player)) {
+            return;
+        }
+
+        InventoryComponent playerInventory = player.getInventoryComponent();
+        InventoryComponent chestInventory = activeChest.getInventoryComponent();
+        if (playerInventory == null || chestInventory == null) {
+            return;
+        }
+
+        if (!player.hasAuthority()) {
+            requestChestTransfer(activeChest.getActorId(), slotIndex, itemId,
+                wholeStack,
+                NetworkProtocol.ChestInventoryTransferDirection.PLAYER_TO_CHEST);
+            return;
+        }
+
+        transferInventoryStack(playerInventory, chestInventory, slotIndex, wholeStack);
+    }
+
+    private void transferChestItemToInventory(int slotIndex, String itemId, boolean wholeStack) {
+        if (itemId == null || itemId.isBlank()
+            || activeChest == null
+            || !(getPossessedPawn() instanceof PlayerCharacter player)) {
+            return;
+        }
+
+        InventoryComponent playerInventory = player.getInventoryComponent();
+        InventoryComponent chestInventory = activeChest.getInventoryComponent();
+        if (playerInventory == null || chestInventory == null) {
+            return;
+        }
+
+        if (!player.hasAuthority()) {
+            requestChestTransfer(activeChest.getActorId(), slotIndex, itemId,
+                wholeStack,
+                NetworkProtocol.ChestInventoryTransferDirection.CHEST_TO_PLAYER);
+            return;
+        }
+
+        transferInventoryStack(chestInventory, playerInventory, slotIndex, wholeStack);
+    }
+
+    private boolean transferInventoryStack(InventoryComponent source,
+                                           InventoryComponent target,
+                                           int slotIndex,
+                                           boolean wholeStack) {
+        if (source == null || target == null || slotIndex < 0) {
+            return false;
+        }
+
+        InventoryStack stack = source.getStackAt(slotIndex);
+        if (stack == null || stack.getDefinition() == null || stack.getQuantity() <= 0) {
+            return false;
+        }
+
+        int transferQuantity = wholeStack ? stack.getQuantity() : 1;
+        if (!target.canAddItem(stack.getDefinition(), transferQuantity)) {
+            return false;
+        }
+
+        int removed = source.removeItemAt(slotIndex, transferQuantity);
+        if (removed <= 0) {
+            return false;
+        }
+
+        int added = target.addItem(stack.getDefinition(), removed);
+        if (added == removed) {
+            return true;
+        }
+
+        source.addItem(stack.getDefinition(), removed - Math.max(0, added));
+        return false;
     }
 
     private void useAssignedItem(PlayerCharacter player) {
@@ -602,11 +856,20 @@ public class MainPlayerController extends PlayerController {
             return;
         }
 
-        useSelectedItem(assignedItemId);
+        InventoryComponent inventory = player.getInventoryComponent();
+        InventoryStack assignedStack = inventory != null ? inventory.getStack(assignedItemId) : null;
+        if (assignedStack == null) {
+            return;
+        }
+
+        useSelectedItem(assignedStack.getSlotIndex(), assignedItemId);
     }
 
-    private void requestInventoryAction(String itemId, NetworkProtocol.InventoryActionType actionType) {
-        if (itemId == null || itemId.isBlank() || actionType == null) {
+    private void requestInventoryAction(int slotIndex,
+                                        String itemId,
+                                        NetworkProtocol.InventoryActionType actionType,
+                                        boolean wholeStack) {
+        if (slotIndex < 0 || itemId == null || itemId.isBlank() || actionType == null) {
             return;
         }
 
@@ -617,8 +880,10 @@ public class MainPlayerController extends PlayerController {
 
         NetworkProtocol.ClientInventoryAction request = new NetworkProtocol.ClientInventoryAction();
         request.playerId = getPlayerId();
+        request.slotIndex = slotIndex;
         request.itemId = itemId;
         request.action = actionType;
+        request.wholeStack = wholeStack;
         gameInstance.getNetDriver().sendToServer(request, true);
     }
 
@@ -631,6 +896,30 @@ public class MainPlayerController extends PlayerController {
         NetworkProtocol.ClientAssignedItemUpdate request = new NetworkProtocol.ClientAssignedItemUpdate();
         request.playerId = getPlayerId();
         request.itemId = itemId;
+        gameInstance.getNetDriver().sendToServer(request, true);
+    }
+
+    private void requestChestTransfer(int chestActorId,
+                                      int slotIndex,
+                                      String itemId,
+                                      boolean wholeStack,
+                                      NetworkProtocol.ChestInventoryTransferDirection direction) {
+        if (chestActorId <= 0 || slotIndex < 0 || itemId == null || itemId.isBlank() || direction == null) {
+            return;
+        }
+
+        GameInstance gameInstance = getGameInstance();
+        if (gameInstance == null || !gameInstance.isClient() || gameInstance.getNetDriver() == null) {
+            return;
+        }
+
+        NetworkProtocol.ClientChestInventoryTransfer request = new NetworkProtocol.ClientChestInventoryTransfer();
+        request.playerId = getPlayerId();
+        request.chestActorId = chestActorId;
+        request.slotIndex = slotIndex;
+        request.itemId = itemId;
+        request.wholeStack = wholeStack;
+        request.direction = direction;
         gameInstance.getNetDriver().sendToServer(request, true);
     }
 
@@ -659,7 +948,7 @@ public class MainPlayerController extends PlayerController {
         }
 
         if (inventoryPanel != null) {
-            inventoryPanel.setHiddenItemId(assignedStack != null ? assignedItemId : null);
+            inventoryPanel.setHiddenItemId(null);
         }
         if (toolbeltWidget != null) {
             toolbeltWidget.setAssignedItem(assignedStack);

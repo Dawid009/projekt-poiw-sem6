@@ -18,6 +18,7 @@ import com.polsl.poiw.engine.actor.Actor;
 import com.polsl.poiw.engine.tiled.TiledObjectFactory;
 import com.polsl.poiw.engine.world.GameWorld;
 import com.polsl.poiw.gameplay.actor.AbstractCreatureActor;
+import com.polsl.poiw.gameplay.actor.ChestActor;
 import com.polsl.poiw.gameplay.actor.CropActor;
 import com.polsl.poiw.gameplay.actor.CropKind;
 import com.polsl.poiw.gameplay.actor.CreatureKind;
@@ -167,6 +168,7 @@ public class DefaultTiledObjectFactory implements TiledObjectFactory {
         MineableKind mineableKind = getMineableKind(tile, type);
         TreeKind treeKind = getTreeKind(tile, type);
         CropData cropData = getCropData(tile, type);
+        boolean chestTile = isChestTile(tile);
 
         if (cropData != null && collData == null) {
             collData = defaultCropCollision(sizeW, sizeH);
@@ -348,6 +350,33 @@ public class DefaultTiledObjectFactory implements TiledObjectFactory {
             Gdx.app.debug(TAG, "Crop '" + cropData.kind() + "' stage=" + cropData.growthStage()
                 + " at (" + worldX + ", " + worldY + ")");
             return crop;
+        }
+
+        if (chestTile) {
+            if (skipReplicatedDamageableObjects) {
+                Gdx.app.debug(TAG, "Skipping local chest spawn in multiplayer");
+                return null;
+            }
+
+            ChestActor chest = new ChestActor();
+            chest.configure(
+                currentMap,
+                tile.getId(),
+                region,
+                sizeW,
+                sizeH,
+                sortOffsetY,
+                zOrder,
+                collData != null ? collData.halfW : 0f,
+                collData != null ? collData.halfH : 0f,
+                collData != null ? new Vector2(collData.offsetX, collData.offsetY) : Vector2.Zero,
+                getStringProperty(tile, "storage_title", ChestActor.DEFAULT_STORAGE_TITLE),
+                getIntProperty(tile, "storage_slots", ChestActor.DEFAULT_STORAGE_SLOTS)
+            );
+
+            gameWorld.spawnActor(chest, new Vector2(worldX, worldY));
+            Gdx.app.debug(TAG, "Chest at (" + worldX + ", " + worldY + ")");
+            return chest;
         }
 
         // Twórz PropActor
@@ -589,6 +618,10 @@ public class DefaultTiledObjectFactory implements TiledObjectFactory {
         );
     }
 
+    private boolean isChestTile(TiledMapTile tile) {
+        return "chest".equalsIgnoreCase(getStringProperty(tile, "container_type", ""));
+    }
+
     /** Daje małą domyślną kolizję cropa, gdy tile nie ma własnego objectgroup. */
     private CollisionData defaultCropCollision(float spriteW, float spriteH) {
         return new CollisionData(
@@ -619,6 +652,18 @@ public class DefaultTiledObjectFactory implements TiledObjectFactory {
         Object value = tile.getProperties().get(propertyName);
         if (value instanceof Number number) {
             return number.intValue();
+        }
+        return defaultValue;
+    }
+
+    private String getStringProperty(TiledMapTile tile, String propertyName, String defaultValue) {
+        if (tile == null) {
+            return defaultValue;
+        }
+
+        Object value = tile.getProperties().get(propertyName);
+        if (value instanceof String string && !string.isBlank()) {
+            return string;
         }
         return defaultValue;
     }

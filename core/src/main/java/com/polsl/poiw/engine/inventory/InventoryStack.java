@@ -4,8 +4,13 @@ public final class InventoryStack {
 
     private final ItemDefinition definition;
     private final int quantity;
+    private final int slotIndex;
 
     public InventoryStack(ItemDefinition definition, int quantity) {
+        this(definition, quantity, -1);
+    }
+
+    public InventoryStack(ItemDefinition definition, int quantity, int slotIndex) {
         if (definition == null) {
             throw new IllegalArgumentException("definition cannot be null");
         }
@@ -14,6 +19,7 @@ public final class InventoryStack {
         }
         this.definition = definition;
         this.quantity = quantity;
+        this.slotIndex = slotIndex;
     }
 
     public ItemDefinition getDefinition() {
@@ -22,5 +28,9 @@ public final class InventoryStack {
 
     public int getQuantity() {
         return quantity;
+    }
+
+    public int getSlotIndex() {
+        return slotIndex;
     }
 }

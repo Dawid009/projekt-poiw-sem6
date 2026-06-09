@@ -17,6 +17,7 @@ public class InventoryComponent extends AbstractActorComponent {
     private static final String VALUE_SEPARATOR = ":";
 
     private final List<InventoryRecord> stacks = new ArrayList<>();
+    private int maxSlots = Integer.MAX_VALUE;
     // Revision sluzy tylko do odswiezania UI po zmianie zawartosci.
     private final transient PropertyBinding<Integer> revisionBinding = new PropertyBinding<>(0);
     private int revision = 0;
@@ -34,6 +35,15 @@ public class InventoryComponent extends AbstractActorComponent {
             return 0;
         }
 
+        int added = mergeItem(definition, quantity);
+        if (added > 0) {
+            syncReplicatedStacks();
+            broadcastChange();
+        }
+        return added;
+    }
+
+    private int mergeItem(ItemDefinition definition, int quantity) {
         int remaining = quantity;
         int maxQuantity = definition.getMaxStack();
 
@@ -55,18 +65,21 @@ public class InventoryComponent extends AbstractActorComponent {
             }
         }
 
-        while (remaining > 0) {
+        while (remaining > 0 && stacks.size() < maxSlots) {
             int addedToNewStack = Math.min(remaining, maxQuantity);
             stacks.add(new InventoryRecord(definition, addedToNewStack));
             remaining -= addedToNewStack;
         }
 
-        int added = quantity - remaining;
-        if (added > 0) {
-            syncReplicatedStacks();
-            broadcastChange();
+        return quantity - remaining;
+    }
+
+    public boolean canAddItem(ItemDefinition definition, int quantity) {
+        if (definition == null || quantity <= 0) {
+            return false;
         }
-        return added;
+
+        return computeAddableQuantity(definition, quantity) >= quantity;
     }
 
     public int removeItem(String itemId, int quantity) {
@@ -143,15 +156,78 @@ public class InventoryComponent extends AbstractActorComponent {
     }
 
     public InventoryStack getStack(String itemId) {
-        InventoryRecord record = findFirstRecord(itemId);
-        return record != null ? new InventoryStack(record.definition, record.quantity) : null;
+        int index = findFirstRecordIndex(itemId);
+        InventoryRecord record = index >= 0 ? stacks.get(index) : null;
+        return record != null ? new InventoryStack(record.definition, record.quantity, index) : null;
+    }
+
+    public InventoryStack getStackAt(int slotIndex) {
+        if (slotIndex < 0 || slotIndex >= stacks.size()) {
+            return null;
+        }
+
+        InventoryRecord record = stacks.get(slotIndex);
+        return record != null ? new InventoryStack(record.definition, record.quantity, slotIndex) : null;
+    }
+
+    public int removeItemAt(int slotIndex, int quantity) {
+        if (slotIndex < 0 || slotIndex >= stacks.size() || quantity <= 0) {
+            return 0;
+        }
+
+        InventoryRecord record = stacks.get(slotIndex);
+        if (record == null || record.definition == null || record.quantity <= 0) {
+            return 0;
+        }
+
+        int removed = Math.min(quantity, record.quantity);
+        record.quantity -= removed;
+        String itemId = record.definition.getItemId();
+        if (record.quantity <= 0) {
+            stacks.remove(slotIndex);
+        }
+
+        if (removed > 0) {
+            clearAssignedItemIfMissing(itemId);
+            syncReplicatedStacks();
+            broadcastChange();
+        }
+        return removed;
+    }
+
+    public boolean useItemAt(int slotIndex) {
+        if (slotIndex < 0 || slotIndex >= stacks.size()) {
+            return false;
+        }
+
+        InventoryRecord record = stacks.get(slotIndex);
+        if (record == null || record.quantity <= 0 || record.definition == null) {
+            return false;
+        }
+
+        ItemDefinition definition = record.definition;
+        if (!definition.isConsumable() || definition.getHealthRestoreAmount() <= 0f) {
+            return false;
+        }
+
+        HealthComponent healthComponent = getOwner() != null
+            ? getOwner().getComponent(HealthComponent.class)
+            : null;
+        if (healthComponent == null) {
+            return false;
+        }
+
+        healthComponent.heal(definition.getHealthRestoreAmount());
+        removeItemAt(slotIndex, 1);
+        return true;
     }
 
     public List<InventoryStack> getItemsSnapshot() {
         // UI dostaje kopie, zeby nie grzebalo w stanie komponentu.
         List<InventoryStack> snapshot = new ArrayList<>();
-        for (InventoryRecord record : stacks) {
-            snapshot.add(new InventoryStack(record.definition, record.quantity));
+        for (int index = 0; index < stacks.size(); index++) {
+            InventoryRecord record = stacks.get(index);
+            snapshot.add(new InventoryStack(record.definition, record.quantity, index));
         }
         return snapshot;
     }
@@ -186,7 +262,7 @@ public class InventoryComponent extends AbstractActorComponent {
                     continue;
                 }
 
-                stacks.add(new InventoryRecord(definition, entry.quantity));
+                mergeItem(definition, entry.quantity);
             }
         }
 
@@ -196,6 +272,18 @@ public class InventoryComponent extends AbstractActorComponent {
 
     public PropertyBinding<Integer> getRevisionBinding() {
         return revisionBinding;
+    }
+
+    public void setMaxSlots(int maxSlots) {
+        this.maxSlots = maxSlots > 0 ? maxSlots : Integer.MAX_VALUE;
+    }
+
+    public int getMaxSlots() {
+        return maxSlots;
+    }
+
+    public int getOccupiedSlotCount() {
+        return stacks.size();
     }
 
     private void broadcastChange() {
@@ -271,21 +359,58 @@ public class InventoryComponent extends AbstractActorComponent {
                 continue;
             }
 
-            stacks.add(new InventoryRecord(definition, quantity));
+            mergeItem(definition, quantity);
         }
     }
 
-    private InventoryRecord findFirstRecord(String itemId) {
-        if (itemId == null || itemId.isBlank()) {
-            return null;
-        }
+    private int computeAddableQuantity(ItemDefinition definition, int requestedQuantity) {
+        int remaining = requestedQuantity;
+        int maxQuantity = definition.getMaxStack();
 
         for (InventoryRecord record : stacks) {
-            if (itemId.equals(record.definition.getItemId())) {
-                return record;
+            if (!definition.getItemId().equals(record.definition.getItemId())) {
+                continue;
+            }
+
+            int remainingSpace = Math.max(0, maxQuantity - record.quantity);
+            if (remainingSpace <= 0) {
+                continue;
+            }
+
+            int addedToStack = Math.min(remaining, remainingSpace);
+            remaining -= addedToStack;
+            if (remaining <= 0) {
+                return requestedQuantity;
             }
         }
-        return null;
+
+        int freeSlots = Math.max(0, maxSlots - stacks.size());
+        if (freeSlots <= 0) {
+            return requestedQuantity - remaining;
+        }
+
+        int addableFromNewSlots = freeSlots * maxQuantity;
+        int addable = Math.min(remaining, addableFromNewSlots);
+        return requestedQuantity - remaining + addable;
+    }
+
+    private InventoryRecord findFirstRecord(String itemId) {
+        int index = findFirstRecordIndex(itemId);
+        return index >= 0 ? stacks.get(index) : null;
+    }
+
+    private int findFirstRecordIndex(String itemId) {
+        if (itemId == null || itemId.isBlank()) {
+            return -1;
+        }
+
+        for (int index = 0; index < stacks.size(); index++) {
+            InventoryRecord record = stacks.get(index);
+            if (itemId.equals(record.definition.getItemId())) {
+                return index;
+            }
+        }
+        return -1;
     }
 
     private void clearAssignedItemIfMissing(String itemId) {

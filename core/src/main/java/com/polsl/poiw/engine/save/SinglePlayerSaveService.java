@@ -11,6 +11,7 @@ import com.polsl.poiw.engine.asset.AtlasAsset;
 import com.polsl.poiw.engine.level.WorldContext;
 import com.polsl.poiw.engine.world.GameWorld;
 import com.polsl.poiw.gameplay.actor.AbstractCreatureActor;
+import com.polsl.poiw.gameplay.actor.ChestActor;
 import com.polsl.poiw.gameplay.actor.CropActor;
 import com.polsl.poiw.gameplay.actor.CropKind;
 import com.polsl.poiw.gameplay.actor.CreatureKind;
@@ -167,7 +168,13 @@ public class SinglePlayerSaveService {
             saveGameData.crops.add(cropActor.buildSaveData());
         }
         for (TiledVisualActor visualActor : gameWorld.getActorsOfClass(TiledVisualActor.class)) {
+            if (visualActor instanceof ChestActor) {
+                continue;
+            }
             saveGameData.visuals.add(visualActor.buildSaveData());
+        }
+        for (ChestActor chestActor : gameWorld.getActorsOfClass(ChestActor.class)) {
+            saveGameData.chests.add(chestActor.buildChestSaveData());
         }
         for (ItemPickupActor pickupActor : gameWorld.getActorsOfClass(ItemPickupActor.class)) {
             SaveGameData.ItemPickupData pickupData = pickupActor.buildSaveData();
@@ -216,6 +223,11 @@ public class SinglePlayerSaveService {
         }
         for (SaveGameData.VisualData visualData : pendingLoadedSave.visuals) {
             restoreVisual(gameWorld, map, visualData);
+        }
+        if (pendingLoadedSave.version >= 2) {
+            for (SaveGameData.ChestData chestData : pendingLoadedSave.chests) {
+                restoreChest(gameWorld, map, chestData);
+            }
         }
         for (SaveGameData.ItemPickupData pickupData : pendingLoadedSave.itemPickups) {
             restoreItemPickup(gameWorld, itemsAtlas, pickupData);
@@ -284,7 +296,12 @@ public class SinglePlayerSaveService {
         destroyActors(gameWorld, gameWorld.getActorsOfClass(MineableActor.class));
         destroyActors(gameWorld, gameWorld.getActorsOfClass(AbstractCreatureActor.class));
         destroyActors(gameWorld, gameWorld.getActorsOfClass(CropActor.class));
-        destroyActors(gameWorld, gameWorld.getActorsOfClass(TiledVisualActor.class));
+        destroyActors(gameWorld, gameWorld.getActorsOfClass(TiledVisualActor.class).stream()
+            .filter(actor -> !(actor instanceof ChestActor))
+            .toList());
+        if (pendingLoadedSave != null && pendingLoadedSave.version >= 2) {
+            destroyActors(gameWorld, gameWorld.getActorsOfClass(ChestActor.class));
+        }
         destroyActors(gameWorld, gameWorld.getActorsOfClass(ItemPickupActor.class));
         gameWorld.flushDeferredChanges();
     }
@@ -423,6 +440,32 @@ public class SinglePlayerSaveService {
             new Vector2(visualData.collOffsetX, visualData.collOffsetY)
         );
         gameWorld.spawnActor(visualActor, new Vector2(visualData.x, visualData.y));
+    }
+
+    private void restoreChest(GameWorld gameWorld, TiledMap map, SaveGameData.ChestData chestData) {
+        if (chestData == null || chestData.tileGid <= 0) {
+            return;
+        }
+
+        ChestActor chestActor = new ChestActor();
+        chestActor.configure(
+            map,
+            chestData.tileGid,
+            map.getTileSets().getTile(chestData.tileGid) != null
+                ? map.getTileSets().getTile(chestData.tileGid).getTextureRegion()
+                : null,
+            chestData.sizeW,
+            chestData.sizeH,
+            chestData.sortOffsetY,
+            chestData.zOrder,
+            chestData.collHalfW,
+            chestData.collHalfH,
+            new Vector2(chestData.collOffsetX, chestData.collOffsetY),
+            chestData.title,
+            chestData.slotCount,
+            chestData.inventory
+        );
+        gameWorld.spawnActor(chestActor, new Vector2(chestData.x, chestData.y));
     }
 
     private void restoreItemPickup(GameWorld gameWorld, TextureAtlas itemsAtlas, SaveGameData.ItemPickupData pickupData) {

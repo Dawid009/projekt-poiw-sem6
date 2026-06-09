@@ -21,8 +21,10 @@ import com.polsl.poiw.engine.component.TransformComponent;
 import com.polsl.poiw.engine.auth.GameplayStatsBridge;
 import com.polsl.poiw.engine.inventory.ItemDefinition;
 import com.polsl.poiw.engine.save.SaveGameData;
+import com.polsl.poiw.gameplay.character.PlayerCharacter;
 
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 
 /**
@@ -55,10 +57,16 @@ public abstract class AbstractCreatureActor extends AbstractActor {
     private final Vector2 targetPosition = new Vector2();
     private boolean homeInitialized;
     private boolean hasTarget;
+    private boolean chasingPlayer;
     private boolean deathHandled;
     private boolean deathStatsHandled;
     private float idleRemaining;
     private float movementAttemptTimer;
+    private final Vector2 navigationPosition = new Vector2();
+    private final Vector2 playerNavigationPosition = new Vector2();
+    private final Vector2 chaseDirection = new Vector2();
+    private final Map<Integer, Float> contactDamageTimers = new HashMap<>();
+    private final Map<Integer, PlayerCharacter> sensedContactPlayers = new HashMap<>();
 
     public void configure(TextureAtlas atlas,
                           float sizeW,
@@ -164,6 +172,30 @@ public abstract class AbstractCreatureActor extends AbstractActor {
             return;
         }
 
+        MovementComponent movement = getComponent(MovementComponent.class);
+        if (movement == null) {
+            return;
+        }
+
+        if (isAggressiveToPlayers()) {
+            PlayerCharacter chaseTarget = sensePlayers();
+            updateContactDamage(delta, sensedContactPlayers);
+
+            if (chaseTarget != null) {
+                chasingPlayer = true;
+                updateChase(delta, chaseTarget, movement);
+                return;
+            }
+
+            if (chasingPlayer) {
+                chasingPlayer = false;
+                enterIdle(movement);
+            }
+        } else {
+            contactDamageTimers.clear();
+            sensedContactPlayers.clear();
+        }
+
         updateWander(delta);
     }
 
@@ -173,6 +205,26 @@ public abstract class AbstractCreatureActor extends AbstractActor {
 
     protected float getWanderRadius() {
         return 3f;
+    }
+
+    protected boolean isAggressiveToPlayers() {
+        return false;
+    }
+
+    protected float getChaseRadius() {
+        return 0f;
+    }
+
+    protected float getContactDamageAmount() {
+        return 0f;
+    }
+
+    protected float getContactDamageInterval() {
+        return 1f;
+    }
+
+    protected float getContactPadding() {
+        return 0.08f;
     }
 
     protected abstract String getIdleRegionName();
@@ -296,7 +348,7 @@ public abstract class AbstractCreatureActor extends AbstractActor {
             return;
         }
 
-        Vector2 currentPosition = getNavigationPosition();
+        Vector2 currentPosition = getNavigationPosition(this, navigationPosition);
         if (!homeInitialized) {
             homePosition.set(currentPosition);
             homeInitialized = true;
@@ -374,22 +426,169 @@ public abstract class AbstractCreatureActor extends AbstractActor {
         return false;
     }
 
+    private void updateChase(float delta, PlayerCharacter player, MovementComponent movement) {
+        KnockbackComponent knockback = getComponent(KnockbackComponent.class);
+        if (knockback != null && knockback.isActive()) {
+            movement.getDirection().setZero();
+            movementAttemptTimer = 0f;
+            return;
+        }
+
+        Vector2 currentPosition = getNavigationPosition(this, navigationPosition);
+        if (!homeInitialized) {
+            homePosition.set(currentPosition);
+            homeInitialized = true;
+        }
+
+        Vector2 playerPosition = getNavigationPosition(player, playerNavigationPosition);
+        chaseDirection.set(playerPosition).sub(currentPosition);
+        if (chaseDirection.isZero(0.001f)) {
+            movement.getDirection().setZero();
+            movementAttemptTimer = 0f;
+            return;
+        }
+
+        hasTarget = false;
+        idleRemaining = 0f;
+        movementAttemptTimer = 0f;
+        movement.getDirection().set(chaseDirection).nor();
+    }
+
+    private PlayerCharacter sensePlayers() {
+        sensedContactPlayers.clear();
+
+        if (getWorld() == null) {
+            return null;
+        }
+
+        float chaseRadius = getChaseRadius();
+        if (chaseRadius <= 0f) {
+            return null;
+        }
+
+        Vector2 currentPosition = getNavigationPosition(this, navigationPosition);
+        float chaseRadius2 = chaseRadius * chaseRadius;
+        float nearestDistance2 = chaseRadius2;
+        PlayerCharacter nearestPlayer = null;
+
+        for (PlayerCharacter player : getWorld().getActorsOfClass(PlayerCharacter.class)) {
+            if (player == null || !player.isAlive()) {
+                continue;
+            }
+
+            Vector2 playerPosition = getNavigationPosition(player, playerNavigationPosition);
+            float distance2 = currentPosition.dst2(playerPosition);
+            if (distance2 <= nearestDistance2) {
+                nearestDistance2 = distance2;
+                nearestPlayer = player;
+            }
+
+            if (isPlayerInContactRange(currentPosition, playerPosition, player)) {
+                sensedContactPlayers.put(player.getActorId(), player);
+            }
+        }
+
+        return nearestPlayer;
+    }
+
+    private void updateContactDamage(float delta, Map<Integer, PlayerCharacter> currentContacts) {
+        if (currentContacts.isEmpty()) {
+            contactDamageTimers.clear();
+            return;
+        }
+
+        Iterator<Map.Entry<Integer, Float>> iterator = contactDamageTimers.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<Integer, Float> entry = iterator.next();
+            PlayerCharacter player = currentContacts.get(entry.getKey());
+            if (player == null || !player.isAlive()) {
+                iterator.remove();
+                continue;
+            }
+
+            float remaining = entry.getValue() - delta;
+            if (remaining <= 0f) {
+                applyContactDamage(player);
+                remaining = getContactDamageInterval();
+            }
+            entry.setValue(remaining);
+        }
+
+        for (Map.Entry<Integer, PlayerCharacter> entry : currentContacts.entrySet()) {
+            if (contactDamageTimers.containsKey(entry.getKey())) {
+                continue;
+            }
+
+            PlayerCharacter player = entry.getValue();
+            if (player == null || !player.isAlive()) {
+                continue;
+            }
+
+            applyContactDamage(player);
+            contactDamageTimers.put(entry.getKey(), getContactDamageInterval());
+        }
+    }
+
+    private void applyContactDamage(PlayerCharacter player) {
+        if (player == null || !player.isAlive()) {
+            return;
+        }
+
+        float damage = getContactDamageAmount();
+        if (damage <= 0f) {
+            return;
+        }
+
+        HealthComponent playerHealth = player.getComponent(HealthComponent.class);
+        if (playerHealth != null) {
+            playerHealth.applyDamage(damage, getOwnerId());
+        }
+    }
+
+    private boolean isPlayerInContactRange(Vector2 currentPosition, Vector2 playerPosition, PlayerCharacter player) {
+        float halfWidthSum = getCollisionHalfWidth(this) + getCollisionHalfWidth(player) + getContactPadding();
+        float halfHeightSum = getCollisionHalfHeight(this) + getCollisionHalfHeight(player) + getContactPadding();
+
+        return Math.abs(currentPosition.x - playerPosition.x) <= halfWidthSum
+            && Math.abs(currentPosition.y - playerPosition.y) <= halfHeightSum;
+    }
+
     /**
      * Zwraca pozycję używaną do AI.
      * Gdy istnieje ciało Box2D, bierze je zamiast surowego transformu.
      */
-    private Vector2 getNavigationPosition() {
-        CollisionComponent collision = getComponentByType(CollisionComponent.class);
+    private Vector2 getNavigationPosition(AbstractActor actor, Vector2 out) {
+        CollisionComponent collision = actor != null ? actor.getComponentByType(CollisionComponent.class) : null;
         if (collision != null && collision.getBody() != null) {
-            return collision.getBody().getPosition();
+            return out.set(collision.getBody().getPosition());
         }
 
-        TransformComponent transform = getComponent(TransformComponent.class);
+        TransformComponent transform = actor != null ? actor.getComponent(TransformComponent.class) : null;
         if (transform == null) {
-            return getPosition();
+            return actor != null ? out.set(actor.getPosition()) : out.setZero();
         }
 
-        return new Vector2(transform.getPosition()).add(transform.getSize().x * 0.5f, transform.getSize().y * 0.5f);
+        return out.set(transform.getPosition()).add(transform.getSize().x * 0.5f, transform.getSize().y * 0.5f);
+    }
+
+    private float getCollisionHalfWidth(AbstractActor actor) {
+        BoxCollisionComponent collision = actor != null ? actor.getComponent(BoxCollisionComponent.class) : null;
+        if (collision != null) {
+            return collision.getHalfWidth();
+        }
+
+        TransformComponent transform = actor != null ? actor.getComponent(TransformComponent.class) : null;
+        return transform != null ? transform.getSize().x * 0.5f : 0.5f;
+    }
+
+    private float getCollisionHalfHeight(AbstractActor actor) {
+        BoxCollisionComponent collision = actor != null ? actor.getComponent(BoxCollisionComponent.class) : null;
+        if (collision != null) {
+            return collision.getHalfHeight();
+        }
+
+        TransformComponent transform = actor != null ? actor.getComponent(TransformComponent.class) : null;
+        return transform != null ? transform.getSize().y * 0.5f : 0.5f;
     }
 
     private CreatureKind resolveCreatureKind() {

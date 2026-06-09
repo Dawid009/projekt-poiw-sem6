@@ -8,7 +8,7 @@ import java.util.List;
  * Trzyma tylko stan potrzebny do odtworzenia świata w singleplayerze.
  */
 public class SaveGameData {
-    public static final int CURRENT_VERSION = 1;
+    public static final int CURRENT_VERSION = 2;
 
     public int version = CURRENT_VERSION;
     public String levelId = "game";
@@ -20,6 +20,7 @@ public class SaveGameData {
     public List<CreatureData> creatures = new ArrayList<>();
     public List<CropData> crops = new ArrayList<>();
     public List<VisualData> visuals = new ArrayList<>();
+    public List<ChestData> chests = new ArrayList<>();
     public List<ItemPickupData> itemPickups = new ArrayList<>();
 
     /** Stan gracza zapisywany razem ze światem. */
@@ -135,6 +136,24 @@ public class SaveGameData {
         public float collHalfH;
         public float collOffsetX;
         public float collOffsetY;
+    }
+
+    /** Zapis skrzyni razem z jej zawartością. */
+    public static class ChestData {
+        public int tileGid;
+        public float x;
+        public float y;
+        public float sizeW;
+        public float sizeH;
+        public float sortOffsetY;
+        public int zOrder;
+        public float collHalfW;
+        public float collHalfH;
+        public float collOffsetX;
+        public float collOffsetY;
+        public String title = "Skrzynia";
+        public int slotCount = 16;
+        public List<InventoryEntryData> inventory = new ArrayList<>();
     }
 
     /** Dane przedmiotu leżącego na ziemi. */

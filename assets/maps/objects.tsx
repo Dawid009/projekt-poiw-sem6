@@ -64,6 +64,11 @@
   </objectgroup>
  </tile>
  <tile id="4" type="Prop">
+  <properties>
+   <property name="container_type" value="chest"/>
+   <property name="storage_slots" type="int" value="16"/>
+   <property name="storage_title" value="Skrzynia"/>
+  </properties>
   <image source="../raw/objects/misc/chest.png" width="16" height="16"/>
   <objectgroup draworder="index" id="2">
    <object id="1" x="0" y="5.3125" width="16" height="8.6875"/>

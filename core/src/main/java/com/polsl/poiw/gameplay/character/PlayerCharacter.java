@@ -23,6 +23,7 @@ import java.util.List;
  * Składa w jednym miejscu komponenty ruchu, walki, inventory i danych potrzebnych do save'a.
  */
 public class PlayerCharacter extends AbstractActor {
+    public static final int INVENTORY_SLOT_COUNT = 32;
 
     /** Prędkość gracza w metrach/s */
     private static final float PLAYER_SPEED = 3.5f;
@@ -56,7 +57,9 @@ public class PlayerCharacter extends AbstractActor {
         addComponent(CombatComponent.createPlayerMelee());
         addComponent(new HealthComponent(MAX_HEALTH, MAX_HEALTH));
         addComponent(new DamageReactionComponent());
-        addComponent(new InventoryComponent());
+        InventoryComponent inventory = new InventoryComponent();
+        inventory.setMaxSlots(INVENTORY_SLOT_COUNT);
+        addComponent(inventory);
         addComponent(new PlayerToolComponent());
         addComponent(new PlayerAssignedItemComponent());
 
@@ -101,7 +104,9 @@ public class PlayerCharacter extends AbstractActor {
         addComponent(CombatComponent.createPlayerMelee());
         addComponent(new HealthComponent(MAX_HEALTH, MAX_HEALTH));
         addComponent(new DamageReactionComponent());
-        addComponent(new InventoryComponent());
+        InventoryComponent inventory = new InventoryComponent();
+        inventory.setMaxSlots(INVENTORY_SLOT_COUNT);
+        addComponent(inventory);
         addComponent(new PlayerToolComponent());
         addComponent(new PlayerAssignedItemComponent());
 

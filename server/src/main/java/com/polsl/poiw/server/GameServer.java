@@ -22,6 +22,7 @@ import com.polsl.poiw.engine.inventory.InventoryStack;
 import com.polsl.poiw.engine.inventory.ItemDefinition;
 import com.polsl.poiw.engine.net.replication.ReplicationInfo;
 import com.polsl.poiw.engine.tiled.TiledMapParser;
+import com.polsl.poiw.gameplay.actor.ChestActor;
 import com.polsl.poiw.gameplay.actor.ItemPickupActor;
 import com.polsl.poiw.gameplay.actor.TiledVisualActor;
 import com.polsl.poiw.gameplay.actor.TrainingDummyActor;
@@ -253,6 +254,8 @@ public class GameServer implements ApplicationListener {
             handleClientToolSelection(connectionId, toolSelection);
         } else if (message instanceof NetworkProtocol.ClientAssignedItemUpdate assignedItemUpdate) {
             handleClientAssignedItemUpdate(connectionId, assignedItemUpdate);
+        } else if (message instanceof NetworkProtocol.ClientChestInventoryTransfer chestTransfer) {
+            handleClientChestInventoryTransfer(connectionId, chestTransfer);
         } else if (message instanceof NetworkProtocol.ChatMessage chat) {
             handleChatMessage(connectionId, chat);
         } else if (message instanceof NetworkProtocol.Ping ping) {
@@ -438,14 +441,24 @@ public class GameServer implements ApplicationListener {
             return;
         }
 
+        InventoryStack stack = request.slotIndex >= 0 ? inventory.getStackAt(request.slotIndex) : inventory.getStack(request.itemId);
+        if (stack == null || stack.getDefinition() == null) {
+            return;
+        }
+
         switch (request.action) {
             case USE -> {
-                if (!CropPlantingService.tryPlant(player, request.itemId, gameWorld,
+                String resolvedItemId = stack.getDefinition().getItemId();
+                if (!CropPlantingService.tryPlant(player, resolvedItemId, gameWorld,
                     tiledParser != null ? tiledParser.getCurrentMap() : null, true)) {
-                    inventory.useItem(request.itemId);
+                    if (request.slotIndex >= 0) {
+                        inventory.useItemAt(request.slotIndex);
+                    } else {
+                        inventory.useItem(resolvedItemId);
+                    }
                 }
             }
-            case DROP -> dropInventoryItem(player, inventory, request.itemId);
+            case DROP -> dropInventoryItem(player, inventory, request.slotIndex, stack, request.wholeStack);
         }
     }
 
@@ -515,15 +528,102 @@ public class GameServer implements ApplicationListener {
         assignedItemComponent.setAssignedItemId(requestedItemId);
     }
 
-    private void dropInventoryItem(PlayerCharacter player, InventoryComponent inventory, String itemId) {
-        InventoryStack stack = inventory.getStack(itemId);
-        if (stack == null) {
+    private void handleClientChestInventoryTransfer(int connectionId, NetworkProtocol.ClientChestInventoryTransfer request) {
+        if (request == null
+            || request.direction == null
+            || request.itemId == null
+            || request.itemId.isBlank()) {
             return;
         }
 
-        if (inventory.removeItem(itemId, 1) > 0) {
-            spawnItemNearPlayer(player, stack.getDefinition(), 1, 0.35f, 0.45f);
+        PlayerController controller = playerControllers.get(connectionId);
+        if (controller == null) {
+            return;
         }
+
+        if (request.playerId > 0 && request.playerId != controller.getPlayerId()) {
+            Gdx.app.debug(TAG, "Ignoring chest transfer with mismatched playerId from conn=" + connectionId);
+            return;
+        }
+
+        if (!(controller.getPossessedPawn() instanceof PlayerCharacter player)) {
+            return;
+        }
+
+        if (!(gameWorld.getActorById(request.chestActorId) instanceof ChestActor chest)) {
+            return;
+        }
+
+        if (!chest.isPlayerInInteractionRange(player)) {
+            Gdx.app.debug(TAG, "Ignoring chest transfer outside of interaction range");
+            return;
+        }
+
+        InventoryComponent playerInventory = player.getInventoryComponent();
+        InventoryComponent chestInventory = chest.getInventoryComponent();
+        if (playerInventory == null || chestInventory == null) {
+            return;
+        }
+
+        switch (request.direction) {
+            case PLAYER_TO_CHEST -> transferInventoryStack(
+                playerInventory, chestInventory, request.slotIndex, request.wholeStack
+            );
+            case CHEST_TO_PLAYER -> transferInventoryStack(
+                chestInventory, playerInventory, request.slotIndex, request.wholeStack
+            );
+        }
+    }
+
+    private void dropInventoryItem(PlayerCharacter player,
+                                   InventoryComponent inventory,
+                                   int slotIndex,
+                                   InventoryStack stack,
+                                   boolean wholeStack) {
+        if (inventory == null || stack == null || slotIndex < 0) {
+            return;
+        }
+
+        int dropQuantity = wholeStack ? stack.getQuantity() : 1;
+        if (inventory.removeItemAt(slotIndex, dropQuantity) > 0) {
+            spawnItemNearPlayer(player, stack.getDefinition(), dropQuantity, 0.35f, 0.45f);
+        }
+    }
+
+    private boolean transferInventoryStack(InventoryComponent source,
+                                           InventoryComponent target,
+                                           int slotIndex,
+                                           boolean wholeStack) {
+        if (source == null || target == null || slotIndex < 0) {
+            return false;
+        }
+
+        InventoryStack stack = source.getStackAt(slotIndex);
+        if (stack == null || stack.getDefinition() == null || stack.getQuantity() <= 0) {
+            return false;
+        }
+
+        int transferQuantity = wholeStack ? stack.getQuantity() : 1;
+        if (!target.canAddItem(stack.getDefinition(), transferQuantity)) {
+            return false;
+        }
+
+        int removed = source.removeItemAt(slotIndex, transferQuantity);
+        if (removed <= 0) {
+            return false;
+        }
+
+        int added = target.addItem(stack.getDefinition(), removed);
+        if (added == removed) {
+            return true;
+        }
+
+        if (added > 0) {
+            source.addItem(stack.getDefinition(), removed - added);
+        } else {
+            source.addItem(stack.getDefinition(), removed);
+        }
+        return false;
     }
 
     /**

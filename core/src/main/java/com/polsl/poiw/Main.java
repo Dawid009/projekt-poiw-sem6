@@ -18,7 +18,6 @@ import com.polsl.poiw.engine.level.LevelScreen;
 import com.polsl.poiw.engine.level.WorldContext;
 import com.polsl.poiw.engine.save.SinglePlayerSaveService;
 import com.polsl.poiw.engine.settings.GraphicsSettingsService;
-import com.polsl.poiw.gameplay.actor.TriggerActor;
 import com.polsl.poiw.gameplay.character.PlayerCharacter;
 import com.polsl.poiw.gameplay.level.LevelDefinitions;
 import com.polsl.poiw.ui.screen.LoadingScreen;
@@ -112,9 +111,9 @@ public class Main extends Game {
     }
 
     /**
-        * Konfiguracja poziomu gry — spawn gracza i testowy trigger obrażeń.
+     * Konfiguracja poziomu gry — spawn gracza i odtworzenie stanu save'a.
      * W multiplayer: serwer kontroluje spawn gracza (nie tworzymy lokalnie).
-        * W singleplayerze ta metoda umie też podnieść stan z wybranego save'a.
+     * W singleplayerze ta metoda umie też podnieść stan z wybranego save'a.
      */
     private void setupGameLevel(WorldContext context) {
         // in multiplayer server spawns the pawn - client waits for ActorSpawn
@@ -139,15 +138,6 @@ public class Main extends Game {
         context.getPlayerController().possess(player);
         saveService.applyPendingSave(context, player, assetService);
 
-        // Testowy trigger obrażeń — 2 metry na prawo od gracza
-        //TODO: the damage from the trigger seems to be dealt by client, server currently disallows health modification from client
-        TriggerActor damageTrigger = new TriggerActor();
-        damageTrigger.configure("damage_zone", 1.0f, 1.0f);
-        damageTrigger.setDamagePerSecond(10f);
-
-        Vector2 triggerPos = new Vector2(startPos.x + 2f, startPos.y);
-        context.getGameWorld().spawnActor(damageTrigger, triggerPos);
-        Gdx.app.debug("Main", "Damage trigger na: " + triggerPos);
     }
 
     /**

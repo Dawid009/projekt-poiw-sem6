@@ -1,5 +1,7 @@
 package com.polsl.poiw.engine.ui;
 
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Input;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
@@ -25,9 +27,8 @@ import java.util.Objects;
 
 public class InventoryPanelWidget extends UserWidget {
 
-    private static final int GRID_COLUMNS = 8;
-    private static final int VISIBLE_ROWS = 4;
-    private static final int MIN_VISIBLE_SLOTS = GRID_COLUMNS * VISIBLE_ROWS;
+    private static final int DEFAULT_GRID_COLUMNS = 8;
+    private static final int DEFAULT_VISIBLE_ROWS = 4;
     private static final float SLOT_SIZE = 14f;
     private static final float SLOT_PADDING = 0.5f;
     private static final float ICON_SIZE = 8f;
@@ -40,9 +41,10 @@ public class InventoryPanelWidget extends UserWidget {
     private static final float TOOLTIP_OFFSET_Y = 10f;
 
     public interface InventoryActionListener {
-        void onUseRequested(String itemId);
-        void onDropRequested(String itemId);
-        void onAssignRequested(String itemId);
+        void onUseRequested(int slotIndex, String itemId);
+        void onDropRequested(int slotIndex, String itemId, boolean wholeStack);
+        void onAssignRequested(int slotIndex, String itemId);
+        void onQuickTransferRequested(int slotIndex, String itemId, boolean wholeStack);
     }
 
     private final Skin skin;
@@ -58,16 +60,33 @@ public class InventoryPanelWidget extends UserWidget {
     private final TextButton dropButton;
     private final TextButton assignButton;
     private final Vector2 stagePoint = new Vector2();
+    private final int gridColumns;
+    private final int visibleRows;
+    private final int minVisibleSlots;
+    private final boolean showActionButtons;
 
     private List<InventoryStack> items = List.of();
-    private String selectedItemId;
+    private int selectedSlotIndex = -1;
     private String hiddenItemId;
     private InventoryActionListener actionListener;
 
     public InventoryPanelWidget(Skin skin, TextureAtlas itemsAtlas) {
+        this(skin, itemsAtlas, "Ekwipunek", DEFAULT_GRID_COLUMNS, DEFAULT_VISIBLE_ROWS, true);
+    }
+
+    public InventoryPanelWidget(Skin skin,
+                                TextureAtlas itemsAtlas,
+                                String title,
+                                int gridColumns,
+                                int visibleRows,
+                                boolean showActionButtons) {
         super();
         this.skin = skin;
         this.itemsAtlas = itemsAtlas;
+        this.gridColumns = Math.max(1, gridColumns);
+        this.visibleRows = Math.max(1, visibleRows);
+        this.minVisibleSlots = this.gridColumns * this.visibleRows;
+        this.showActionButtons = showActionButtons;
         this.window = new Window("", skin);
         this.window.setMovable(false);
         this.window.defaults().pad(1f);
@@ -77,7 +96,7 @@ public class InventoryPanelWidget extends UserWidget {
         this.itemsTable.top().left();
 
         Label.LabelStyle titleStyle = UiSkinStyles.resolveLabelStyle(skin, "default");
-        this.titleLabel = new Label("Ekwipunek", titleStyle);
+        this.titleLabel = new Label(title != null && !title.isBlank() ? title : "Ekwipunek", titleStyle);
         this.titleLabel.setColor(Color.WHITE);
         this.titleLabel.setFontScale(0.55f);
         this.titleLabel.setAlignment(Align.left);
@@ -119,7 +138,9 @@ public class InventoryPanelWidget extends UserWidget {
         content.defaults().left();
         content.add(titleLabel).left().padLeft(1f).padTop(1f).padBottom(1f).row();
         content.add(gridContainer).left().padBottom(1f).row();
-        content.add(buttonRow).right().padBottom(1f);
+        if (showActionButtons) {
+            content.add(buttonRow).right().padBottom(1f);
+        }
 
         window.add(content).pad(2f);
         window.pack();
@@ -140,8 +161,8 @@ public class InventoryPanelWidget extends UserWidget {
         boolean itemsChanged = !areItemsEquivalent(this.items, normalizedItems);
         this.items = normalizedItems;
 
-        if (selectedItemId != null && getSelectedStack() == null) {
-            selectedItemId = null;
+        if (selectedSlotIndex >= 0 && getSelectedStack() == null) {
+            selectedSlotIndex = -1;
             itemsChanged = true;
         }
 
@@ -157,23 +178,40 @@ public class InventoryPanelWidget extends UserWidget {
         if (Objects.equals(hiddenItemId, normalizedItemId)) {
             return;
         }
-        if (normalizedItemId != null && normalizedItemId.equals(selectedItemId)) {
-            selectedItemId = null;
+        InventoryStack selectedStack = getSelectedStack();
+        if (normalizedItemId != null
+            && selectedStack != null
+            && selectedStack.getDefinition() != null
+            && normalizedItemId.equals(selectedStack.getDefinition().getItemId())) {
+            selectedSlotIndex = -1;
         }
         hiddenItemId = normalizedItemId;
         rebuildItems();
     }
 
     public String getSelectedItemId() {
-        return selectedItemId;
+        InventoryStack selectedStack = getSelectedStack();
+        return selectedStack != null && selectedStack.getDefinition() != null
+            ? selectedStack.getDefinition().getItemId()
+            : null;
+    }
+
+    public int getSelectedSlotIndex() {
+        return selectedSlotIndex;
+    }
+
+    public void setTitle(String title) {
+        titleLabel.setText(title != null && !title.isBlank() ? title : "Ekwipunek");
+        syncSize();
     }
 
     private void wireButtons() {
         useButton.addListener(new ClickListener() {
             @Override
             public void clicked(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y) {
-                if (actionListener != null && selectedItemId != null) {
-                    actionListener.onUseRequested(selectedItemId);
+                InventoryStack selectedStack = getSelectedStack();
+                if (actionListener != null && selectedStack != null && selectedStack.getDefinition() != null) {
+                    actionListener.onUseRequested(selectedStack.getSlotIndex(), selectedStack.getDefinition().getItemId());
                 }
             }
         });
@@ -181,8 +219,13 @@ public class InventoryPanelWidget extends UserWidget {
         dropButton.addListener(new ClickListener() {
             @Override
             public void clicked(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y) {
-                if (actionListener != null && selectedItemId != null) {
-                    actionListener.onDropRequested(selectedItemId);
+                InventoryStack selectedStack = getSelectedStack();
+                if (actionListener != null && selectedStack != null && selectedStack.getDefinition() != null) {
+                    actionListener.onDropRequested(
+                        selectedStack.getSlotIndex(),
+                        selectedStack.getDefinition().getItemId(),
+                        isShiftPressed()
+                    );
                 }
             }
         });
@@ -190,8 +233,9 @@ public class InventoryPanelWidget extends UserWidget {
         assignButton.addListener(new ClickListener() {
             @Override
             public void clicked(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y) {
-                if (actionListener != null && selectedItemId != null) {
-                    actionListener.onAssignRequested(selectedItemId);
+                InventoryStack selectedStack = getSelectedStack();
+                if (actionListener != null && selectedStack != null && selectedStack.getDefinition() != null) {
+                    actionListener.onAssignRequested(selectedStack.getSlotIndex(), selectedStack.getDefinition().getItemId());
                 }
             }
         });
@@ -203,14 +247,14 @@ public class InventoryPanelWidget extends UserWidget {
         itemsTable.clearChildren();
         List<InventoryStack> visibleItems = getVisibleItems();
 
-        int slotCount = MIN_VISIBLE_SLOTS;
+        int slotCount = minVisibleSlots;
         for (int index = 0; index < slotCount; index++) {
             InventoryStack stack = index < visibleItems.size() ? visibleItems.get(index) : null;
             itemsTable.add(createSlot(stack))
                 .size(SLOT_SIZE, SLOT_SIZE)
                 .pad(SLOT_PADDING);
 
-            if ((index + 1) % GRID_COLUMNS == 0) {
+            if ((index + 1) % gridColumns == 0) {
                 itemsTable.row();
             }
         }
@@ -233,7 +277,7 @@ public class InventoryPanelWidget extends UserWidget {
         style.checkedOver = style.over;
 
         Button button = new Button(style);
-        button.setChecked(definition.getItemId().equals(selectedItemId));
+        button.setChecked(stack.getSlotIndex() == selectedSlotIndex);
 
         Image icon = createIcon(definition);
 
@@ -257,8 +301,15 @@ public class InventoryPanelWidget extends UserWidget {
             @Override
             public boolean touchDown(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y,
                                      int pointer, int buttonCode) {
-                selectedItemId = definition.getItemId();
+                selectedSlotIndex = stack.getSlotIndex();
                 rebuildItems();
+                if (buttonCode == Input.Buttons.RIGHT && actionListener != null) {
+                    actionListener.onQuickTransferRequested(
+                        stack.getSlotIndex(),
+                        definition.getItemId(),
+                        isShiftPressed()
+                    );
+                }
                 return true;
             }
 
@@ -364,18 +415,18 @@ public class InventoryPanelWidget extends UserWidget {
             && selectedStack.getDefinition().isConsumable()
             && selectedStack.getDefinition().getHealthRestoreAmount() > 0f;
 
-        useButton.setDisabled(!canUse);
-        dropButton.setDisabled(!canDrop);
-        assignButton.setDisabled(!canDrop);
+        useButton.setDisabled(!showActionButtons || !canUse);
+        dropButton.setDisabled(!showActionButtons || !canDrop);
+        assignButton.setDisabled(!showActionButtons || !canDrop);
     }
 
     private InventoryStack getSelectedStack() {
-        if (selectedItemId == null) {
+        if (selectedSlotIndex < 0) {
             return null;
         }
 
         for (InventoryStack stack : items) {
-            if (stack.getDefinition().getItemId().equals(selectedItemId)) {
+            if (stack.getSlotIndex() == selectedSlotIndex) {
                 return stack;
             }
         }
@@ -420,6 +471,9 @@ public class InventoryPanelWidget extends UserWidget {
             if (leftStack.getQuantity() != rightStack.getQuantity()) {
                 return false;
             }
+            if (leftStack.getSlotIndex() != rightStack.getSlotIndex()) {
+                return false;
+            }
             if (!Objects.equals(leftStack.getDefinition().getItemId(), rightStack.getDefinition().getItemId())) {
                 return false;
             }
@@ -432,5 +486,10 @@ public class InventoryPanelWidget extends UserWidget {
         window.pack();
         window.setSize(window.getPrefWidth(), window.getPrefHeight());
         setSize(window.getWidth(), window.getHeight());
+    }
+
+    private boolean isShiftPressed() {
+        return Gdx.input != null
+            && (Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT) || Gdx.input.isKeyPressed(Input.Keys.SHIFT_RIGHT));
     }
 }

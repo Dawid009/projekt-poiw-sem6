@@ -50,8 +50,24 @@ public class HealthComponent extends AbstractActorComponent {
 
     public void applyDamage(float amount, int damageOwnerId) {
         if (getOwner() != null && !getOwner().hasAuthority()) return;
+        if (amount <= 0f || currentHealth <= 0f) {
+            return;
+        }
+
+        float nextHealth = Math.max(0f, currentHealth - amount);
+        if (nextHealth >= currentHealth) {
+            return;
+        }
+
         setLastDamageOwnerId(damageOwnerId);
-        setCurrentHealth(Math.max(0f, currentHealth - amount));
+        setCurrentHealth(nextHealth);
+
+        DamageReactionComponent damageReaction = getOwner() != null
+            ? getOwner().getComponent(DamageReactionComponent.class)
+            : null;
+        if (damageReaction != null) {
+            damageReaction.triggerReaction();
+        }
     }
 
     /**

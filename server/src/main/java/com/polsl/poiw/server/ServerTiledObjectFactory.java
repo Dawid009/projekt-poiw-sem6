@@ -2,6 +2,7 @@ package com.polsl.poiw.server;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.maps.MapObject;
+import com.badlogic.gdx.maps.MapProperties;
 import com.badlogic.gdx.maps.objects.RectangleMapObject;
 import com.badlogic.gdx.maps.tiled.objects.TiledMapTileMapObject;
 import com.badlogic.gdx.maps.tiled.TiledMapTile;
@@ -18,6 +19,7 @@ import com.polsl.poiw.engine.component.TransformComponent;
 import com.polsl.poiw.engine.tiled.TiledObjectFactory;
 import com.polsl.poiw.engine.world.GameWorld;
 import com.polsl.poiw.gameplay.actor.AbstractCreatureActor;
+import com.polsl.poiw.gameplay.actor.ChestActor;
 import com.polsl.poiw.gameplay.actor.CropActor;
 import com.polsl.poiw.gameplay.actor.CropKind;
 import com.polsl.poiw.gameplay.actor.CreatureKind;
@@ -143,13 +145,15 @@ public class ServerTiledObjectFactory implements TiledObjectFactory {
         MineableKind mineableKind = getMineableKind(tileData, type);
         TreeKind treeKind = getTreeKind(tileData, type);
         CropData cropData = getCropData(gid, tileData, type);
+        boolean chestTile = isChestTile(tileData);
 
         if (!tileData.hasCollision()
             && creatureKind == null
             && !trainingDummyTile
             && mineableKind == null
             && treeKind == null
-            && cropData == null) {
+            && cropData == null
+            && !chestTile) {
             return null;
         }
 
@@ -158,6 +162,7 @@ public class ServerTiledObjectFactory implements TiledObjectFactory {
             && mineableKind == null
             && treeKind == null
             && cropData == null
+            && !chestTile
             && isOnWater(worldX, worldY)) {
             return null; // skip water objects
         }
@@ -304,6 +309,27 @@ public class ServerTiledObjectFactory implements TiledObjectFactory {
             return crop;
         }
 
+        if (chestTile) {
+            ChestActor chest = new ChestActor();
+            chest.configureServer(
+                gid,
+                sizeW,
+                sizeH,
+                sortOffsetY,
+                zOrder,
+                halfW,
+                halfH,
+                new Vector2(offsetX, offsetY),
+                getStringProperty(tileData.properties(), "storage_title", ChestActor.DEFAULT_STORAGE_TITLE),
+                getIntProperty(tileData.properties(), "storage_slots", ChestActor.DEFAULT_STORAGE_SLOTS)
+            );
+            chest.setReplicated(true);
+
+            gameWorld.spawnActor(chest, new Vector2(worldX, worldY));
+            Gdx.app.debug(TAG, "Chest at (" + worldX + ", " + worldY + ") [replicated gid=" + gid + "]");
+            return chest;
+        }
+
         ServerPropActor prop = new ServerPropActor();
         prop.configure(sizeW, sizeH, halfW, halfH, new Vector2(offsetX, offsetY), sortOffsetY, zOrder);
 
@@ -338,6 +364,32 @@ public class ServerTiledObjectFactory implements TiledObjectFactory {
 
         if (collData != null && isOnWater(worldX, worldY)) {
             collData = null;
+        }
+
+        if (isChestTile(tile)) {
+            if (collData == null || collData.halfW <= 0 || collData.halfH <= 0) {
+                return null;
+            }
+
+            float sortOffsetY = sizeH / 2f + collData.offsetY - collData.halfH;
+            ChestActor chest = new ChestActor();
+            chest.configureServer(
+                tile.getId(),
+                sizeW,
+                sizeH,
+                sortOffsetY,
+                1,
+                collData.halfW,
+                collData.halfH,
+                new Vector2(collData.offsetX, collData.offsetY),
+                getStringProperty(tile.getProperties(), "storage_title", ChestActor.DEFAULT_STORAGE_TITLE),
+                getIntProperty(tile.getProperties(), "storage_slots", ChestActor.DEFAULT_STORAGE_SLOTS)
+            );
+            chest.setReplicated(true);
+
+            gameWorld.spawnActor(chest, new Vector2(worldX, worldY));
+            Gdx.app.debug(TAG, "Chest at (" + worldX + ", " + worldY + ") [replicated collision]");
+            return chest;
         }
 
         // props nie biorą udziału w kolizji gameplay po stronie serwera
@@ -560,6 +612,16 @@ public class ServerTiledObjectFactory implements TiledObjectFactory {
         );
     }
 
+    private boolean isChestTile(HeadlessTmxLoader.TileData tileData) {
+        return tileData != null
+            && "chest".equalsIgnoreCase(getStringProperty(tileData.properties(), "container_type", ""));
+    }
+
+    private boolean isChestTile(TiledMapTile tile) {
+        return tile != null
+            && "chest".equalsIgnoreCase(tile.getProperties().get("container_type", "", String.class));
+    }
+
     private int resolveCropGrowthStage(int gid, CropKind cropKind, int fallbackStage) {
         if (cropKind == null || currentMap == null) {
             return Math.max(0, fallbackStage);
@@ -602,6 +664,38 @@ public class ServerTiledObjectFactory implements TiledObjectFactory {
         Object value = properties.get(key);
         if (value instanceof Number number) {
             return number.floatValue();
+        }
+        return defaultValue;
+    }
+
+    private String getStringProperty(java.util.Map<String, Object> properties, String key, String defaultValue) {
+        Object value = properties.get(key);
+        if (value instanceof String string && !string.isBlank()) {
+            return string;
+        }
+        return defaultValue;
+    }
+
+    private int getIntProperty(MapProperties properties, String key, int defaultValue) {
+        if (properties == null) {
+            return defaultValue;
+        }
+
+        Object value = properties.get(key);
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        return defaultValue;
+    }
+
+    private String getStringProperty(MapProperties properties, String key, String defaultValue) {
+        if (properties == null) {
+            return defaultValue;
+        }
+
+        Object value = properties.get(key);
+        if (value instanceof String string && !string.isBlank()) {
+            return string;
         }
         return defaultValue;
     }

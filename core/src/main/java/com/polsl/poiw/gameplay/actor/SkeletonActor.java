@@ -30,9 +30,25 @@ public class SkeletonActor extends AbstractCreatureActor {
     }
 
     @Override
+    protected boolean isAggressiveToPlayers() {
+        return true;
+    }
+
+    @Override
+    protected float getChaseRadius() {
+        return 7.5f;
+    }
+
+    @Override
+    protected float getContactDamageAmount() {
+        return 12f;
+    }
+
+    @Override
     protected void onBeforeDestroy() {
         spawnItemDrops(GameplayItems.COIN_SILVER, 1, 3);
         spawnItemDrops(GameplayItems.COIN_BRONZE, 1, 5);
+        spawnItemDrops(GameplayItems.HEAL_POTION, 0, 2);
     }
 
     @Override
