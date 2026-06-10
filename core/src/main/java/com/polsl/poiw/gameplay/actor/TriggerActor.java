@@ -14,39 +14,22 @@ import com.polsl.poiw.gameplay.character.PlayerCharacter;
 import java.util.HashSet;
 import java.util.Set;
 
-/**
- * Trigger — niewidoczna strefa z mapy Tiled (warstwa "trigger").
- * Obsługuje obrażenia — jeśli gracz stoi w strefie, traci HP co sekundę.
- */
+/** Niewidoczna strefa z mapy, np. pułapka albo obszar zdarzenia. */
 public class TriggerActor extends AbstractActor implements OverlapListener {
 
     private String triggerName;
 
-    /** Obrażenia zadawane graczowi na sekundę (0 = brak obrażeń) */
     private float damagePerSecond = 0f;
-
-    /** Aktory aktualnie w strefie triggera */
     private final Set<Actor> overlappingActors = new HashSet<>();
-
-    /**
-     * Konfiguruje trigger z danymi z Tiled.
-     *
-     * @param name      nazwa triggera (z Tiled, np. "trap_trigger")
-     * @param halfW     połowa szerokości strefy w metrach
-     * @param halfH     połowa wysokości strefy w metrach
-     */
     public void configure(String name, float halfW, float halfH) {
         this.triggerName = name;
 
-        // TransformComponent — single source of truth dla pozycji Actora.
-        // Pozycja startowa ustawiana przez GameWorld.spawnActor() → Actor.setPosition().
         addComponent(new TransformComponent(
             new Vector2(),
             0,
             new Vector2(halfW * 2f, halfH * 2f)
         ));
 
-        // Kolizja — sensor, nie blokuje ruchu
         BoxCollisionComponent collision = new BoxCollisionComponent(
             CollisionProfile.TRIGGER, halfW, halfH
         );
@@ -62,11 +45,8 @@ public class TriggerActor extends AbstractActor implements OverlapListener {
     @Override
     public void tick(float delta) {
         super.tick(delta);
-        if (!hasAuthority()) return; // damage only applied by server/singleplayer
+        if (!hasAuthority()) return;
 
-        // Zadawaj obrażenia graczom przebywającym w strefie
-        //TODO: trzeba poprawić żeby nie było apply damage w kazdym ticku mnożone przez delte, tylko jednorazowy apply
-        //Ale to będzie w gameplayability system
         if (damagePerSecond > 0f) {
             for (Actor actor : overlappingActors) {
                 if (actor instanceof PlayerCharacter player && player.isAlive()) {
@@ -75,8 +55,6 @@ public class TriggerActor extends AbstractActor implements OverlapListener {
             }
         }
     }
-
-    // ===== Overlap Events =====
 
     @Override
     public void onBeginOverlap(Actor self, Actor other, CollisionResult result) {
@@ -91,8 +69,6 @@ public class TriggerActor extends AbstractActor implements OverlapListener {
             "Trigger '" + triggerName + "' deactivated by Actor #" + other.getActorId());
         overlappingActors.remove(other);
     }
-
-    // ===== Konfiguracja =====
 
     public void setDamagePerSecond(float dps) { this.damagePerSecond = dps; }
     public float getDamagePerSecond() { return damagePerSecond; }

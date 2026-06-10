@@ -9,10 +9,13 @@ import com.polsl.poiw.engine.collision.CollisionComponent;
 import com.polsl.poiw.engine.component.MovementComponent;
 import com.polsl.poiw.engine.net.driver.NetDriver;
 import com.polsl.poiw.engine.world.GameWorld;
+import com.polsl.poiw.gameplay.actor.ItemPickupActor;
 import com.polsl.poiw.shared.protocol.NetworkProtocol;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * server-side movement replication — sends position/velocity snapshots via UDP.
@@ -22,9 +25,12 @@ import java.util.List;
 public class MovementReplicationSystem extends EntitySystem {
 
     private static final int MAX_SNAPSHOTS_PER_BATCH = 48;
+    private static final float POSITION_EPSILON = 0.015f;
+    private static final float VELOCITY_EPSILON = 0.03f;
 
     private final NetDriver netDriver;
     private final GameWorld gameWorld;
+    private final Map<Integer, SentMovementState> lastSentStates = new HashMap<>();
     private float replicationRate = 1f / 20f; // 20 Hz
     private float timer = 0f;
     private int tickCounter = 0;
@@ -47,6 +53,7 @@ public class MovementReplicationSystem extends EntitySystem {
 
     private void sendMovementSnapshots() {
         List<NetworkProtocol.MovementSnapshot> snapshots = new ArrayList<>();
+        Map<Integer, SentMovementState> currentStates = new HashMap<>();
 
         for (Actor actor : gameWorld.getAllActors()) {
             if (!actor.isReplicated()) continue;
@@ -70,6 +77,13 @@ public class MovementReplicationSystem extends EntitySystem {
                 posY = pos.y;
             }
 
+            SentMovementState nextState = new SentMovementState(posX, posY, velX, velY);
+            currentStates.put(actor.getActorId(), nextState);
+            SentMovementState previousState = lastSentStates.get(actor.getActorId());
+            if (previousState != null && !hasMeaningfulMovementChange(previousState, nextState)) {
+                continue;
+            }
+
             var snapshot = new NetworkProtocol.MovementSnapshot();
             snapshot.actorId = actor.getActorId();
             snapshot.x = posX;
@@ -81,6 +95,8 @@ public class MovementReplicationSystem extends EntitySystem {
         }
 
         if (snapshots.isEmpty()) return;
+        lastSentStates.clear();
+        lastSentStates.putAll(currentStates);
 
         for (int start = 0; start < snapshots.size(); start += MAX_SNAPSHOTS_PER_BATCH) {
             int end = Math.min(start + MAX_SNAPSHOTS_PER_BATCH, snapshots.size());
@@ -95,6 +111,10 @@ public class MovementReplicationSystem extends EntitySystem {
     }
 
     private boolean shouldReplicateMovement(Actor actor, CollisionComponent collision) {
+        if (actor instanceof ItemPickupActor) {
+            return false;
+        }
+
         if (actor.getComponent(MovementComponent.class) != null) {
             return true;
         }
@@ -111,4 +131,16 @@ public class MovementReplicationSystem extends EntitySystem {
     }
 
     public int getTickCounter() { return tickCounter; }
+
+    private boolean hasMeaningfulMovementChange(SentMovementState previous, SentMovementState current) {
+        float dx = current.x - previous.x;
+        float dy = current.y - previous.y;
+        float dvx = current.velX - previous.velX;
+        float dvy = current.velY - previous.velY;
+        return dx * dx + dy * dy > POSITION_EPSILON * POSITION_EPSILON
+            || dvx * dvx + dvy * dvy > VELOCITY_EPSILON * VELOCITY_EPSILON;
+    }
+
+    private record SentMovementState(float x, float y, float velX, float velY) {
+    }
 }

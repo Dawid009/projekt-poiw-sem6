@@ -18,7 +18,7 @@ import java.util.Map;
  */
 public class ReplicationSystem extends EntitySystem {
 
-    private static final String TAG = "ReplicationSystem";
+    private static final int MAX_UPDATES_PER_BATCH = 32;
 
     private final NetDriver netDriver;
     private final GameWorld gameWorld;
@@ -55,19 +55,17 @@ public class ReplicationSystem extends EntitySystem {
 
         if (updates.isEmpty()) return;
 
-        // send batch to all clients
-        NetworkProtocol.BatchReplicationUpdate batch = new NetworkProtocol.BatchReplicationUpdate();
-        batch.updates = updates.toArray(new NetworkProtocol.ReplicationUpdate[0]);
-        batch.serverTick = tickCounter;
-        batch.serverTime = tickCounter * replicationRate;
-
-        netDriver.sendToAllClients(batch, true); // TCP — reliable
+        for (int start = 0; start < updates.size(); start += MAX_UPDATES_PER_BATCH) {
+            int end = Math.min(start + MAX_UPDATES_PER_BATCH, updates.size());
+            NetworkProtocol.BatchReplicationUpdate batch = new NetworkProtocol.BatchReplicationUpdate();
+            batch.updates = updates.subList(start, end).toArray(new NetworkProtocol.ReplicationUpdate[0]);
+            batch.serverTick = tickCounter;
+            batch.serverTime = tickCounter * replicationRate;
+            netDriver.sendToAllClients(batch, true);
+        }
     }
 
     private void collectComponentUpdates(Actor actor, List<NetworkProtocol.ReplicationUpdate> updates) {
-        // iterate over actor components — need access to AbstractActor
-        if (!(actor instanceof com.polsl.poiw.engine.actor.AbstractActor abstractActor)) return;
-
         var entity = actor.getAshleyEntity();
         var components = entity.getComponents();
 

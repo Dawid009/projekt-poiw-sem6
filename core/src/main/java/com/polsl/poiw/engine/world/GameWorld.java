@@ -108,13 +108,10 @@ public class GameWorld {
             collision.createBody(box2dWorld);
         }
 
-        // Dodaje Ashley Entity do Engine (systemy zaczynają widzieć tego Actora)
         ashleyEngine.addEntity(actor.getAshleyEntity());
 
-        // Rejestrowanie w mapie
         actors.put(actor.getActorId(), actor);
 
-        // Lifecycle: beginPlay
         actor.beginPlay();
 
         return actor;

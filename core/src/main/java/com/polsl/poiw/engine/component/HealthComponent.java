@@ -4,11 +4,7 @@ import com.polsl.poiw.engine.binding.PropertyBinding;
 import com.polsl.poiw.engine.net.RepNotify;
 import com.polsl.poiw.engine.net.Replicated;
 
-/**
- * komponent zdrowia — replicated.
- * serwer modyfikuje HP (applyDamage/heal), zmiany replikowane do klientów.
- * klient binduje UI do {@link #getHealthProperty()} / {@link #getMaxHealthProperty()}.
- */
+/** Trzyma zdrowie aktora i replikuje je do klienta. */
 public class HealthComponent extends AbstractActorComponent {
 
     @Replicated
@@ -22,7 +18,6 @@ public class HealthComponent extends AbstractActorComponent {
     @Replicated
     private int lastDamageOwnerId;
 
-    /** observable property — bridge do UI (aktualizowane przez @RepNotify na kliencie) */
     private final transient PropertyBinding<Float> healthProperty;
     private final transient PropertyBinding<Float> maxHealthProperty;
 
@@ -39,11 +34,6 @@ public class HealthComponent extends AbstractActorComponent {
         this.maxHealthProperty = new PropertyBinding<>(maxHealth);
     }
 
-    // ===== Modyfikacja zdrowia (server-only) =====
-
-    /**
-     * zadaje obrażenia — tylko na serwerze (authority)
-     */
     public void applyDamage(float amount) {
         applyDamage(amount, -1);
     }
@@ -70,9 +60,6 @@ public class HealthComponent extends AbstractActorComponent {
         }
     }
 
-    /**
-     * leczy — tylko na serwerze (authority)
-     */
     public void heal(float amount) {
         if (getOwner() != null && !getOwner().hasAuthority()) return;
         setCurrentHealth(Math.min(maxHealth, currentHealth + amount));
@@ -82,7 +69,6 @@ public class HealthComponent extends AbstractActorComponent {
         return currentHealth > 0f;
     }
 
-    /** Przywraca pełny stan zdrowia z zapisu bez zostawiania starego źródła obrażeń. */
     public void restoreState(float maxHealth, float currentHealth) {
         float normalizedMaxHealth = Math.max(1f, maxHealth);
         float normalizedCurrentHealth = Math.max(0f, Math.min(normalizedMaxHealth, currentHealth));
@@ -90,8 +76,6 @@ public class HealthComponent extends AbstractActorComponent {
         setCurrentHealth(normalizedCurrentHealth);
         setLastDamageOwnerId(-1);
     }
-
-    // ===== Settery (dirty tracking) =====
 
     private void setCurrentHealth(float value) {
         this.currentHealth = value;
@@ -110,8 +94,6 @@ public class HealthComponent extends AbstractActorComponent {
         markDirty("lastDamageOwnerId");
     }
 
-    // ===== @RepNotify callbacks (called on client after replication apply) =====
-
     @SuppressWarnings("unused")
     public void onHealthChanged() {
         healthProperty.set(currentHealth);
@@ -122,15 +104,11 @@ public class HealthComponent extends AbstractActorComponent {
         maxHealthProperty.set(maxHealth);
     }
 
-    // ===== Gettery =====
-
     public float getCurrentHealth() { return currentHealth; }
     public float getMaxHealth() { return maxHealth; }
     public int getLastDamageOwnerId() { return lastDamageOwnerId; }
 
-    /** observable HP — binduj do UI */
     public PropertyBinding<Float> getHealthProperty() { return healthProperty; }
 
-    /** observable max HP — binduj do UI */
     public PropertyBinding<Float> getMaxHealthProperty() { return maxHealthProperty; }
 }

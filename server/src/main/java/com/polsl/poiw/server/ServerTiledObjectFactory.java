@@ -25,10 +25,12 @@ import com.polsl.poiw.gameplay.actor.CropKind;
 import com.polsl.poiw.gameplay.actor.CreatureKind;
 import com.polsl.poiw.gameplay.actor.MineableActor;
 import com.polsl.poiw.gameplay.actor.MineableKind;
+import com.polsl.poiw.gameplay.actor.NpcTraderActor;
 import com.polsl.poiw.gameplay.actor.TreeActor;
 import com.polsl.poiw.gameplay.actor.TreeKind;
 import com.polsl.poiw.gameplay.actor.TrainingDummyActor;
 import com.polsl.poiw.gameplay.actor.TriggerActor;
+import com.polsl.poiw.gameplay.trade.TraderKind;
 
 import com.badlogic.gdx.maps.tiled.TiledMap;
 import com.badlogic.gdx.maps.tiled.TiledMapTileLayer;
@@ -145,6 +147,7 @@ public class ServerTiledObjectFactory implements TiledObjectFactory {
         MineableKind mineableKind = getMineableKind(tileData, type);
         TreeKind treeKind = getTreeKind(tileData, type);
         CropData cropData = getCropData(gid, tileData, type);
+        TraderKind traderKind = getTraderKind(tileData, type);
         boolean chestTile = isChestTile(tileData);
 
         if (!tileData.hasCollision()
@@ -153,6 +156,7 @@ public class ServerTiledObjectFactory implements TiledObjectFactory {
             && mineableKind == null
             && treeKind == null
             && cropData == null
+            && traderKind == null
             && !chestTile) {
             return null;
         }
@@ -162,6 +166,7 @@ public class ServerTiledObjectFactory implements TiledObjectFactory {
             && mineableKind == null
             && treeKind == null
             && cropData == null
+            && traderKind == null
             && !chestTile
             && isOnWater(worldX, worldY)) {
             return null; // skip water objects
@@ -309,6 +314,25 @@ public class ServerTiledObjectFactory implements TiledObjectFactory {
             return crop;
         }
 
+        if (traderKind != null) {
+            NpcTraderActor trader = new NpcTraderActor();
+            trader.configureServer(
+                traderKind,
+                sizeW,
+                sizeH,
+                halfW,
+                halfH,
+                new Vector2(offsetX, offsetY),
+                sortOffsetY,
+                zOrder
+            );
+            trader.setReplicated(true);
+
+            gameWorld.spawnActor(trader, new Vector2(worldX, worldY));
+            Gdx.app.debug(TAG, "Trader '" + traderKind + "' at (" + worldX + ", " + worldY + ") [replicated gid=" + gid + "]");
+            return trader;
+        }
+
         if (chestTile) {
             ChestActor chest = new ChestActor();
             chest.configureServer(
@@ -364,6 +388,31 @@ public class ServerTiledObjectFactory implements TiledObjectFactory {
 
         if (collData != null && isOnWater(worldX, worldY)) {
             collData = null;
+        }
+
+        TraderKind traderKind = getTraderKind(tile, type);
+        if (traderKind != null) {
+            if (collData == null || collData.halfW <= 0 || collData.halfH <= 0) {
+                return null;
+            }
+
+            float sortOffsetY = sizeH / 2f + collData.offsetY - collData.halfH;
+            NpcTraderActor trader = new NpcTraderActor();
+            trader.configureServer(
+                traderKind,
+                sizeW,
+                sizeH,
+                collData.halfW,
+                collData.halfH,
+                new Vector2(collData.offsetX, collData.offsetY),
+                sortOffsetY,
+                tile.getProperties().get("z", 1, Integer.class)
+            );
+            trader.setReplicated(true);
+
+            gameWorld.spawnActor(trader, new Vector2(worldX, worldY));
+            Gdx.app.debug(TAG, "Trader '" + traderKind + "' at (" + worldX + ", " + worldY + ") [replicated tile object]");
+            return trader;
         }
 
         if (isChestTile(tile)) {
@@ -617,9 +666,31 @@ public class ServerTiledObjectFactory implements TiledObjectFactory {
             && "chest".equalsIgnoreCase(getStringProperty(tileData.properties(), "container_type", ""));
     }
 
+    private TraderKind getTraderKind(HeadlessTmxLoader.TileData tileData, String type) {
+        if (tileData == null) {
+            return null;
+        }
+        String npcType = getStringProperty(tileData.properties(), "npc_type", "");
+        if (npcType.isBlank() && !"NPC".equalsIgnoreCase(type)) {
+            return null;
+        }
+        return TraderKind.fromId(npcType);
+    }
+
     private boolean isChestTile(TiledMapTile tile) {
         return tile != null
             && "chest".equalsIgnoreCase(tile.getProperties().get("container_type", "", String.class));
+    }
+
+    private TraderKind getTraderKind(TiledMapTile tile, String type) {
+        if (tile == null) {
+            return null;
+        }
+        String npcType = tile.getProperties().get("npc_type", "", String.class);
+        if ((npcType == null || npcType.isBlank()) && !"NPC".equalsIgnoreCase(type)) {
+            return null;
+        }
+        return TraderKind.fromId(npcType);
     }
 
     private int resolveCropGrowthStage(int gid, CropKind cropKind, int fallbackStage) {

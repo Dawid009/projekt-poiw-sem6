@@ -8,7 +8,7 @@ import java.util.List;
  * Trzyma tylko stan potrzebny do odtworzenia świata w singleplayerze.
  */
 public class SaveGameData {
-    public static final int CURRENT_VERSION = 2;
+    public static final int CURRENT_VERSION = 3;
 
     public int version = CURRENT_VERSION;
     public String levelId = "game";
@@ -21,6 +21,7 @@ public class SaveGameData {
     public List<CropData> crops = new ArrayList<>();
     public List<VisualData> visuals = new ArrayList<>();
     public List<ChestData> chests = new ArrayList<>();
+    public List<TraderData> traders = new ArrayList<>();
     public List<ItemPickupData> itemPickups = new ArrayList<>();
 
     /** Stan gracza zapisywany razem ze światem. */
@@ -32,6 +33,7 @@ public class SaveGameData {
         public int activeToolOrdinal;
         public String assignedItemId = "";
         public List<InventoryEntryData> inventory = new ArrayList<>();
+        public List<InventoryEntryData> tradeBasket = new ArrayList<>();
     }
 
     /** Jeden wpis inventory bez dodatkowej logiki UI. */
@@ -153,6 +155,22 @@ public class SaveGameData {
         public float collOffsetY;
         public String title = "Skrzynia";
         public int slotCount = 16;
+        public List<InventoryEntryData> inventory = new ArrayList<>();
+    }
+
+    /** Zapis handlarza z aktualnym stockiem. */
+    public static class TraderData {
+        public String traderKind = "";
+        public float x;
+        public float y;
+        public float sizeW;
+        public float sizeH;
+        public float sortOffsetY;
+        public int zOrder;
+        public float collHalfW;
+        public float collHalfH;
+        public float collOffsetX;
+        public float collOffsetY;
         public List<InventoryEntryData> inventory = new ArrayList<>();
     }
 

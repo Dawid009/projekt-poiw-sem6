@@ -9,43 +9,17 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-/**
- * Bazowy widget UI — odpowiednik UWidget.
- * <p>
- * Opakowuje Scene2D {@link Group} i dodaje system ankierowania,
- * widoczności, hierarchii parent/child oraz dynamicznego dodawania do viewportu.
- * <p>
- * Każdy widget posiada:
- * <ul>
- *   <li>anchor — punkt zakotwiczenia na ekranie/parentcie</li>
- *   <li>alignment — wyrównanie samego widgetu względem anchora</li>
- *   <li>offset — przesunięcie od obliczonej pozycji anchora</li>
- *   <li>visibility — sterowanie widocznością</li>
- * </ul>
- */
+/** Prosty bazowy widget oparty na Scene2D. */
 public class UserWidget {
 
-    /** Wewnętrzny aktor Scene2D */
     protected final Group root;
-
-    /** Anchor — punkt zakotwiczenia w przestrzeni parenta */
     private EAnchor anchor = EAnchor.TOP_LEFT;
-
-    /** Alignment — wyrównanie widgetu względem obliczonej pozycji */
     private EAnchor alignment = EAnchor.TOP_LEFT;
-
-    /** Offset od pozycji anchora (w pikselach UI) */
     private float offsetX = 0f;
     private float offsetY = 0f;
-
-    /** Widoczność */
     private EVisibility visibility = EVisibility.VISIBLE;
-
-    /** Hierarchia */
     private UserWidget parent;
     private final List<UserWidget> children = new ArrayList<>();
-
-    /** Czy widget jest dodany do viewportu (Stage) */
     private boolean addedToViewport = false;
 
     public UserWidget() {
@@ -53,15 +27,10 @@ public class UserWidget {
         root.setName(getClass().getSimpleName());
     }
 
-    // ===== Lifecycle =====
-
-    /** Wywoływane po dodaniu do viewportu lub do parenta. Override w subklasach. */
     public void construct() {}
 
-    /** Wywoływane przed usunięciem z viewportu. Override w subklasach. */
     public void destruct() {}
 
-    /** Aktualizacja co klatkę. Override w subklasach. */
     public void tick(float delta) {
         for (UserWidget child : children) {
             if (child.visibility != EVisibility.COLLAPSED) {
@@ -70,9 +39,6 @@ public class UserWidget {
         }
     }
 
-    // ===== Hierarchia =====
-
-    /** Dodaje child widget */
     public void addChild(UserWidget child) {
         if (child.parent != null) {
             child.parent.removeChild(child);
@@ -84,7 +50,6 @@ public class UserWidget {
         child.updateLayout();
     }
 
-    /** Usuwa child widget */
     public void removeChild(UserWidget child) {
         if (children.remove(child)) {
             child.destruct();
@@ -93,21 +58,15 @@ public class UserWidget {
         }
     }
 
-    /** Usuwa wszystkie dzieci */
     public void clearChildren() {
         for (UserWidget child : new ArrayList<>(children)) {
             removeChild(child);
         }
     }
 
-    /** Dodaje surowy aktor Scene2D do root group */
     protected void addActor(Actor actor) {
         root.addActor(actor);
     }
-
-    // ===== Layout =====
-
-    /** Przelicza pozycję widgetu na podstawie anchora, alignment i offsetu */
     public void updateLayout() {
         float parentW, parentH;
 
@@ -121,25 +80,18 @@ public class UserWidget {
             return;
         }
 
-        // Pozycja anchora w przestrzeni parenta
         float anchorX = parentW * anchor.getX();
         float anchorY = parentH * anchor.getY();
 
-        // Przesunięcie z alignment (wyrównanie widgetu względem anchora)
         float alignX = getWidth() * alignment.getX();
         float alignY = getHeight() * alignment.getY();
 
         root.setPosition(anchorX - alignX + offsetX, anchorY - alignY + offsetY);
 
-        // Przelicz dzieci
         for (UserWidget child : children) {
             child.updateLayout();
         }
     }
-
-    // ===== Viewport =====
-
-    /** Dodaje widget do Stage (viewport HUD). Wywoływane przez HUD. */
     public void addToStage(Stage stage) {
         stage.addActor(root);
         addedToViewport = true;
@@ -147,7 +99,6 @@ public class UserWidget {
         updateLayout();
     }
 
-    /** Usuwa widget ze Stage */
     public void removeFromStage() {
         destruct();
         for (UserWidget child : new ArrayList<>(children)) {
@@ -156,8 +107,6 @@ public class UserWidget {
         root.remove();
         addedToViewport = false;
     }
-
-    // ===== Visibility =====
 
     public void setVisibility(EVisibility visibility) {
         this.visibility = visibility;
@@ -180,8 +129,6 @@ public class UserWidget {
     public EVisibility getVisibility() { return visibility; }
     public boolean isVisible() { return visibility == EVisibility.VISIBLE; }
 
-    // ===== Anchor / Alignment / Offset =====
-
     public void setAnchor(EAnchor anchor) {
         this.anchor = anchor;
         updateLayout();
@@ -203,8 +150,6 @@ public class UserWidget {
     public float getOffsetX() { return offsetX; }
     public float getOffsetY() { return offsetY; }
 
-    // ===== Rozmiar =====
-
     public void setSize(float width, float height) {
         root.setSize(width, height);
         updateLayout();
@@ -212,8 +157,6 @@ public class UserWidget {
 
     public float getWidth() { return root.getWidth(); }
     public float getHeight() { return root.getHeight(); }
-
-    // ===== Gettery =====
 
     public Group getRoot() { return root; }
     public UserWidget getParent() { return parent; }

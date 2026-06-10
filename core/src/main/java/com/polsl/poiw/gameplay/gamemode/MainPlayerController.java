@@ -16,6 +16,7 @@ import com.polsl.poiw.engine.component.ControllerComponent;
 import com.polsl.poiw.engine.component.InventoryComponent;
 import com.polsl.poiw.engine.component.PlayerAssignedItemComponent;
 import com.polsl.poiw.engine.component.PlayerToolComponent;
+import com.polsl.poiw.engine.component.TradeBasketComponent;
 import com.polsl.poiw.engine.component.TransformComponent;
 import com.polsl.poiw.engine.gameframework.PlayerController;
 import com.polsl.poiw.engine.inventory.InventoryStack;
@@ -28,13 +29,17 @@ import com.polsl.poiw.engine.ui.ProgressBarWidget;
 import com.polsl.poiw.engine.ui.SettingsPanelWidget;
 import com.polsl.poiw.engine.ui.StatsPanelWidget;
 import com.polsl.poiw.engine.ui.TextBlock;
+import com.polsl.poiw.engine.ui.TradePanelWidget;
 import com.polsl.poiw.engine.ui.ToolbeltWidget;
 import com.polsl.poiw.engine.world.GameWorld;
 import com.polsl.poiw.gameplay.actor.ChestActor;
 import com.polsl.poiw.gameplay.actor.ItemPickupActor;
+import com.polsl.poiw.gameplay.actor.NpcTraderActor;
 import com.polsl.poiw.gameplay.character.PlayerCharacter;
 import com.polsl.poiw.gameplay.crop.CropPlantingService;
 import com.polsl.poiw.gameplay.item.GameplayItems;
+import com.polsl.poiw.gameplay.trade.TradeOfferDefinition;
+import com.polsl.poiw.gameplay.trade.TradeLogic;
 import com.polsl.poiw.gameplay.tool.PlayerToolType;
 import com.polsl.poiw.shared.protocol.NetworkProtocol;
 
@@ -47,11 +52,7 @@ import java.util.Map;
  * i binduje go do PropertyBinding z PlayerCharacter.
  */
 public class MainPlayerController extends PlayerController {
-    private static final float SAVE_STATUS_DURATION_SECONDS = 2.2f;
     private static final float CHEST_PANEL_SPACING = 8f;
-    /**
-     * Wygasza chwilowy komunikat o zapisie bez mieszania w reszcie HUD-u.
-     */
     private static final int TOOL_SLOT_COUNT = PlayerToolType.values().length;
     private static final int ASSIGNED_ITEM_SLOT_INDEX = TOOL_SLOT_COUNT;
 
@@ -59,23 +60,27 @@ public class MainPlayerController extends PlayerController {
     private ProgressBarWidget progressBar;
     private InventoryPanelWidget inventoryPanel;
     private InventoryPanelWidget chestPanel;
+    private TradePanelWidget tradePanel;
     private ToolbeltWidget toolbeltWidget;
     private PauseMenuWidget pauseMenu;
     private TextBlock saveStatusText;
     private SettingsPanelWidget settingsPanel;
     private StatsPanelWidget statsPanel;
+    private PlayerOverlayController overlayController;
     private BindingHandle healthBinding;
     private BindingHandle maxHealthBinding;
     private BindingHandle inventoryBinding;
     private BindingHandle chestInventoryBinding;
+    private BindingHandle tradeBasketBinding;
+    private BindingHandle traderInventoryBinding;
     private BindingHandle assignedItemBinding;
     private BindingHandle toolBinding;
     private final Map<String, Integer> trackedInventoryQuantities = new HashMap<>();
     private PlayerToolType lastObservedTool;
     private String assignedItemId = "";
     private int selectedHotbarSlot = 0;
-    private float saveStatusTimer;
     private ChestActor activeChest;
+    private NpcTraderActor activeTrader;
 
     /** Aktualne wartości do formatowania tekstu */
     private float currentHp = 0f;
@@ -126,7 +131,11 @@ public class MainPlayerController extends PlayerController {
 
             @Override
             public void onQuickTransferRequested(int slotIndex, String itemId, boolean wholeStack) {
-                transferInventoryItemToChest(slotIndex, itemId, wholeStack);
+                if (activeTrader != null) {
+                    transferInventoryItemToTradeBasket(slotIndex, itemId, wholeStack);
+                } else {
+                    transferInventoryItemToChest(slotIndex, itemId, wholeStack);
+                }
             }
         });
         addWidgetToViewport(inventoryPanel);
@@ -155,6 +164,28 @@ public class MainPlayerController extends PlayerController {
         });
         addWidgetToViewport(chestPanel);
 
+        tradePanel = new TradePanelWidget(getSkin(), getItemsAtlas());
+        tradePanel.setAnchor(EAnchor.CENTER);
+        tradePanel.setAlignment(EAnchor.CENTER);
+        tradePanel.setVisibility(EVisibility.HIDDEN);
+        tradePanel.setActionListener(new TradePanelWidget.TradePanelActionListener() {
+            @Override
+            public void onBuyRequested(int traderSlotIndex, String itemId) {
+                buyTraderItem(traderSlotIndex, itemId);
+            }
+
+            @Override
+            public void onSellRequested() {
+                sellTradeBasketItems();
+            }
+
+            @Override
+            public void onSellSlotTransferRequested(int slotIndex, String itemId, boolean wholeStack) {
+                transferTradeBasketItemToInventory(slotIndex, itemId, wholeStack);
+            }
+        });
+        addWidgetToViewport(tradePanel);
+
         toolbeltWidget = new ToolbeltWidget(getSkin(), getItemsAtlas());
         toolbeltWidget.setAnchor(EAnchor.BOTTOM_RIGHT);
         toolbeltWidget.setAlignment(EAnchor.BOTTOM_RIGHT);
@@ -165,32 +196,6 @@ public class MainPlayerController extends PlayerController {
         pauseMenu = new PauseMenuWidget(overlaySkin);
         pauseMenu.setAnchor(EAnchor.CENTER);
         pauseMenu.setAlignment(EAnchor.CENTER);
-        pauseMenu.setActionListener(new PauseMenuWidget.PauseMenuActionListener() {
-            @Override
-            public void onResumeRequested() {
-                hidePauseMenu();
-            }
-
-            @Override
-            public void onSaveRequested() {
-                saveGameProgress();
-            }
-
-            @Override
-            public void onOptionsRequested() {
-                openSettingsFromPauseMenu();
-            }
-
-            @Override
-            public void onStatsRequested() {
-                openStatsPanel();
-            }
-
-            @Override
-            public void onQuitRequested() {
-                quitToMainMenu();
-            }
-        });
         pauseMenu.setSaveVisible(getGameInstance() != null && getGameInstance().isSinglePlayer());
         addWidgetToViewport(pauseMenu);
 
@@ -207,25 +212,62 @@ public class MainPlayerController extends PlayerController {
         settingsPanel = new SettingsPanelWidget(overlaySkin);
         settingsPanel.setAnchor(EAnchor.CENTER);
         settingsPanel.setAlignment(EAnchor.CENTER);
-        settingsPanel.setCloseAction(this::closeSettingsToPauseMenu);
         addWidgetToViewport(settingsPanel);
 
         statsPanel = new StatsPanelWidget(overlaySkin);
         statsPanel.setAnchor(EAnchor.CENTER);
         statsPanel.setAlignment(EAnchor.CENTER);
+        addWidgetToViewport(statsPanel);
+
+        overlayController = new PlayerOverlayController(
+            this,
+            inventoryPanel,
+            pauseMenu,
+            settingsPanel,
+            statsPanel,
+            saveStatusText,
+            this::clearActiveContainerPanels
+        );
+
+        pauseMenu.setActionListener(new PauseMenuWidget.PauseMenuActionListener() {
+            @Override
+            public void onResumeRequested() {
+                overlayController.hidePauseMenu();
+            }
+
+            @Override
+            public void onSaveRequested() {
+                overlayController.saveGameProgress();
+            }
+
+            @Override
+            public void onOptionsRequested() {
+                overlayController.openSettingsFromPauseMenu();
+            }
+
+            @Override
+            public void onStatsRequested() {
+                overlayController.openStatsPanel();
+            }
+
+            @Override
+            public void onQuitRequested() {
+                overlayController.quitToMainMenu();
+            }
+        });
+        settingsPanel.setCloseAction(overlayController::closeSettingsToPauseMenu);
         statsPanel.setActionListener(new StatsPanelWidget.StatsPanelActionListener() {
             @Override
             public void onRefreshRequested() {
-                refreshStatsPanel();
+                overlayController.refreshStatsPanel();
             }
 
             @Override
             public void onCloseRequested() {
-                closeStatsPanel();
+                overlayController.closeStatsPanel();
             }
         });
-        addWidgetToViewport(statsPanel);
-        updateStatsUiState();
+        overlayController.updateStatsUiState();
     }
 
     private Skin resolveOverlaySkin() {
@@ -258,6 +300,7 @@ public class MainPlayerController extends PlayerController {
             inventoryPanel.setItems(initialItems);
             resetInventoryTracking(initialItems);
             inventoryBinding = player.getInventoryRevision().bind(revision -> handleInventoryChanged(player));
+            tradeBasketBinding = player.getTradeBasketRevision().bind(revision -> handleTradeBasketChanged(player));
 
             PlayerAssignedItemComponent assignedItemComponent = player.getPlayerAssignedItemComponent();
             if (assignedItemComponent != null) {
@@ -274,8 +317,11 @@ public class MainPlayerController extends PlayerController {
                 toolbeltWidget.setVisibility(EVisibility.VISIBLE);
                 toolbeltWidget.setSelectedSlot(selectedHotbarSlot);
             }
+            handleTradeBasketChanged(player);
             refreshAssignedItemSlot(player);
-            updateStatsUiState();
+            if (overlayController != null) {
+                overlayController.updateStatsUiState();
+            }
         }
     }
 
@@ -297,6 +343,14 @@ public class MainPlayerController extends PlayerController {
             chestInventoryBinding.unbind();
             chestInventoryBinding = null;
         }
+        if (tradeBasketBinding != null) {
+            tradeBasketBinding.unbind();
+            tradeBasketBinding = null;
+        }
+        if (traderInventoryBinding != null) {
+            traderInventoryBinding.unbind();
+            traderInventoryBinding = null;
+        }
         if (assignedItemBinding != null) {
             assignedItemBinding.unbind();
             assignedItemBinding = null;
@@ -311,6 +365,7 @@ public class MainPlayerController extends PlayerController {
         selectedHotbarSlot = 0;
         trackedInventoryQuantities.clear();
         activeChest = null;
+        activeTrader = null;
 
         if (inventoryPanel != null) {
             inventoryPanel.setItems(java.util.List.of());
@@ -323,24 +378,20 @@ public class MainPlayerController extends PlayerController {
             chestPanel.setVisibility(EVisibility.HIDDEN);
             chestPanel.setOffset(0f, 0f);
         }
+        if (tradePanel != null) {
+            tradePanel.setOffers(List.of());
+            tradePanel.setSellItems(List.of());
+            tradePanel.setVisibility(EVisibility.HIDDEN);
+            tradePanel.setOffset(0f, 0f);
+        }
         if (toolbeltWidget != null) {
             toolbeltWidget.setVisibility(EVisibility.HIDDEN);
             toolbeltWidget.setAssignedItem(null);
             toolbeltWidget.setSelectedSlot(selectedHotbarSlot);
         }
-        if (pauseMenu != null) {
-            pauseMenu.setVisibility(EVisibility.HIDDEN);
+        if (overlayController != null) {
+            overlayController.reset();
         }
-        if (settingsPanel != null) {
-            settingsPanel.setVisibility(EVisibility.HIDDEN);
-        }
-        if (statsPanel != null) {
-            statsPanel.setVisibility(EVisibility.HIDDEN);
-        }
-        if (saveStatusText != null) {
-            saveStatusText.setVisibility(EVisibility.HIDDEN);
-        }
-        saveStatusTimer = 0f;
     }
 
     @Override
@@ -351,7 +402,9 @@ public class MainPlayerController extends PlayerController {
 
     @Override
     public void tick(float delta) {
-        updateSaveStatus(delta);
+        if (overlayController != null) {
+            overlayController.updateSaveStatus(delta);
+        }
 
         if (GameInstance.isChatInputActive()) {
             clearPendingAttackState();
@@ -359,8 +412,10 @@ public class MainPlayerController extends PlayerController {
             return;
         }
 
-        handlePauseToggle();
-        if (isOverlayVisible()) {
+        if (overlayController != null) {
+            overlayController.handlePauseToggle();
+        }
+        if (overlayController != null && overlayController.isOverlayVisible()) {
             clearPendingAttackState();
             super.tick(delta);
             return;
@@ -378,29 +433,6 @@ public class MainPlayerController extends PlayerController {
         handleToolAttack();
         handleAssignedItemUse();
         super.tick(delta);
-    }
-
-    private void updateSaveStatus(float delta) {
-        if (saveStatusText == null || !saveStatusText.isVisible() || delta <= 0f) {
-            return;
-        }
-
-        saveStatusTimer = Math.max(0f, saveStatusTimer - delta);
-        if (saveStatusTimer <= 0f) {
-            saveStatusText.setVisibility(EVisibility.HIDDEN);
-        }
-    }
-
-    /** Pokazuje krótki komunikat na górze ekranu, np. po ręcznym zapisie. */
-    private void showSaveStatus(String text, Color color) {
-        if (saveStatusText == null) {
-            return;
-        }
-
-        saveStatusText.setText(text);
-        saveStatusText.setColor(color);
-        saveStatusText.setVisibility(EVisibility.VISIBLE);
-        saveStatusTimer = SAVE_STATUS_DURATION_SECONDS;
     }
 
     private void updateHpText() {
@@ -426,6 +458,14 @@ public class MainPlayerController extends PlayerController {
         inventoryPanel.setItems(items);
         trackInventoryStats(items);
         refreshAssignedItemSlot(player);
+    }
+
+    private void handleTradeBasketChanged(PlayerCharacter player) {
+        if (tradePanel == null || player == null) {
+            return;
+        }
+
+        tradePanel.setSellItems(player.getTradeBasketItems());
     }
 
     private void resetInventoryTracking(List<InventoryStack> items) {
@@ -488,6 +528,7 @@ public class MainPlayerController extends PlayerController {
             boolean nextVisible = !inventoryPanel.isVisible();
             inventoryPanel.setVisibility(nextVisible ? EVisibility.VISIBLE : EVisibility.HIDDEN);
             if (!nextVisible) {
+                setActiveTrader(null);
                 setActiveChest(null);
             }
         }
@@ -495,16 +536,47 @@ public class MainPlayerController extends PlayerController {
 
     private void updateChestInteractionState() {
         if (!(getPossessedPawn() instanceof PlayerCharacter player)) {
+            setActiveTrader(null);
             setActiveChest(null);
             return;
         }
 
         if (inventoryPanel == null || !inventoryPanel.isVisible()) {
+            setActiveTrader(null);
+            setActiveChest(null);
+            return;
+        }
+
+        NpcTraderActor nearbyTrader = findNearbyTrader(player);
+        setActiveTrader(nearbyTrader);
+        if (nearbyTrader != null) {
             setActiveChest(null);
             return;
         }
 
         setActiveChest(findNearbyChest(player));
+    }
+
+    private NpcTraderActor findNearbyTrader(PlayerCharacter player) {
+        GameWorld world = getWorld();
+        if (world == null || player == null) {
+            return null;
+        }
+
+        NpcTraderActor nearestTrader = null;
+        float bestDistance2 = Float.MAX_VALUE;
+        for (NpcTraderActor trader : world.getActorsOfClass(NpcTraderActor.class)) {
+            if (trader == null || !trader.isPlayerInInteractionRange(player)) {
+                continue;
+            }
+
+            float distance2 = trader.getPosition().dst2(player.getPosition());
+            if (distance2 < bestDistance2) {
+                bestDistance2 = distance2;
+                nearestTrader = trader;
+            }
+        }
+        return nearestTrader;
     }
 
     private ChestActor findNearbyChest(PlayerCharacter player) {
@@ -566,6 +638,43 @@ public class MainPlayerController extends PlayerController {
         }
     }
 
+    private void setActiveTrader(NpcTraderActor trader) {
+        if (activeTrader == trader) {
+            if (activeTrader != null && tradePanel != null && tradePanel.isVisible()) {
+                refreshTradePanel();
+                updateInventoryPanelLayout();
+            }
+            return;
+        }
+
+        if (traderInventoryBinding != null) {
+            traderInventoryBinding.unbind();
+            traderInventoryBinding = null;
+        }
+
+        activeTrader = trader;
+        if (tradePanel == null) {
+            return;
+        }
+
+        if (activeTrader == null) {
+            tradePanel.setOffers(List.of());
+            tradePanel.setVisibility(EVisibility.HIDDEN);
+            updateInventoryPanelLayout();
+            return;
+        }
+
+        refreshTradePanel();
+        tradePanel.setVisibility(EVisibility.VISIBLE);
+        updateInventoryPanelLayout();
+
+        InventoryComponent traderInventory = activeTrader.getInventoryComponent();
+        if (traderInventory != null) {
+            NpcTraderActor boundTrader = activeTrader;
+            traderInventoryBinding = traderInventory.getRevisionBinding().bind(revision -> handleTraderInventoryChanged(boundTrader));
+        }
+    }
+
     private void handleChestInventoryChanged(ChestActor chest) {
         if (chest == null || chest != activeChest || chestPanel == null) {
             return;
@@ -576,23 +685,99 @@ public class MainPlayerController extends PlayerController {
         updateInventoryPanelLayout();
     }
 
+    private void handleTraderInventoryChanged(NpcTraderActor trader) {
+        if (trader == null || trader != activeTrader || tradePanel == null) {
+            return;
+        }
+
+        refreshTradePanel();
+        updateInventoryPanelLayout();
+    }
+
+    private void refreshTradePanel() {
+        if (tradePanel == null) {
+            return;
+        }
+
+        if (activeTrader == null) {
+            tradePanel.setOffers(List.of());
+            return;
+        }
+
+        tradePanel.setTraderName(activeTrader.getDisplayName());
+        tradePanel.setOffers(buildTradeOfferViews(activeTrader));
+        if (getPossessedPawn() instanceof PlayerCharacter player) {
+            tradePanel.setSellItems(player.getTradeBasketItems());
+        }
+    }
+
+    private List<TradePanelWidget.TradeOfferView> buildTradeOfferViews(NpcTraderActor trader) {
+        if (trader == null) {
+            return List.of();
+        }
+
+        List<InventoryStack> traderItems = trader.getInventoryComponent() != null
+            ? trader.getInventoryComponent().getItemsSnapshot()
+            : List.of();
+        Map<String, Integer> quantitiesByItemId = new HashMap<>();
+        Map<String, Integer> slotIndicesByItemId = new HashMap<>();
+        for (InventoryStack stack : traderItems) {
+            if (stack != null && stack.getDefinition() != null) {
+                String itemId = stack.getDefinition().getItemId();
+                quantitiesByItemId.merge(itemId, stack.getQuantity(), Integer::sum);
+                slotIndicesByItemId.putIfAbsent(itemId, stack.getSlotIndex());
+            }
+        }
+
+        List<TradePanelWidget.TradeOfferView> views = new java.util.ArrayList<>();
+        for (TradeOfferDefinition offer : trader.getOffers()) {
+            String itemId = offer.itemDefinition().getItemId();
+            views.add(new TradePanelWidget.TradeOfferView(
+                slotIndicesByItemId.getOrDefault(itemId, -1),
+                offer.itemDefinition(),
+                quantitiesByItemId.getOrDefault(itemId, 0),
+                offer.buyPrice().toDisplayString(),
+                offer.sellPrice().toDisplayString()
+            ));
+        }
+        return views;
+    }
+
     private void updateInventoryPanelLayout() {
         if (inventoryPanel == null) {
             return;
         }
 
-        if (chestPanel == null || !chestPanel.isVisible()) {
+        float sidePanelWidth = 0f;
+        boolean sidePanelVisible = false;
+        if (tradePanel != null && tradePanel.isVisible()) {
+            sidePanelWidth = tradePanel.getWidth();
+            sidePanelVisible = true;
+        } else if (chestPanel != null && chestPanel.isVisible()) {
+            sidePanelWidth = chestPanel.getWidth();
+            sidePanelVisible = true;
+        }
+
+        if (!sidePanelVisible) {
             inventoryPanel.setOffset(0f, 0f);
             if (chestPanel != null) {
                 chestPanel.setOffset(0f, 0f);
             }
+            if (tradePanel != null) {
+                tradePanel.setOffset(0f, 0f);
+            }
             return;
         }
 
-        float inventoryOffsetX = -(chestPanel.getWidth() + CHEST_PANEL_SPACING) * 0.5f;
+        float inventoryOffsetX = -(sidePanelWidth + CHEST_PANEL_SPACING) * 0.5f;
         float chestOffsetX = (inventoryPanel.getWidth() + CHEST_PANEL_SPACING) * 0.5f;
         inventoryPanel.setOffset(inventoryOffsetX, 0f);
-        chestPanel.setOffset(chestOffsetX, 0f);
+        if (chestPanel != null) {
+            chestPanel.setOffset(chestPanel.isVisible() ? chestOffsetX : 0f, 0f);
+        }
+        if (tradePanel != null) {
+            tradePanel.setOffset(tradePanel.isVisible() ? chestOffsetX : 0f, 0f);
+        }
     }
 
     private boolean isInventoryInteractionActive() {
@@ -793,7 +978,7 @@ public class MainPlayerController extends PlayerController {
             return;
         }
 
-        transferInventoryStack(playerInventory, chestInventory, slotIndex, wholeStack);
+        TradeLogic.transferStack(playerInventory, chestInventory, slotIndex, wholeStack);
     }
 
     private void transferChestItemToInventory(int slotIndex, String itemId, boolean wholeStack) {
@@ -816,39 +1001,102 @@ public class MainPlayerController extends PlayerController {
             return;
         }
 
-        transferInventoryStack(chestInventory, playerInventory, slotIndex, wholeStack);
+        TradeLogic.transferStack(chestInventory, playerInventory, slotIndex, wholeStack);
     }
 
-    private boolean transferInventoryStack(InventoryComponent source,
-                                           InventoryComponent target,
-                                           int slotIndex,
-                                           boolean wholeStack) {
-        if (source == null || target == null || slotIndex < 0) {
-            return false;
+    private void transferInventoryItemToTradeBasket(int slotIndex, String itemId, boolean wholeStack) {
+        if (itemId == null || itemId.isBlank()
+            || activeTrader == null
+            || !(getPossessedPawn() instanceof PlayerCharacter player)) {
+            return;
         }
 
-        InventoryStack stack = source.getStackAt(slotIndex);
-        if (stack == null || stack.getDefinition() == null || stack.getQuantity() <= 0) {
-            return false;
+        InventoryComponent playerInventory = player.getInventoryComponent();
+        TradeBasketComponent tradeBasket = player.getTradeBasketComponent();
+        if (playerInventory == null || tradeBasket == null || activeTrader.getOffer(itemId) == null) {
+            return;
         }
 
-        int transferQuantity = wholeStack ? stack.getQuantity() : 1;
-        if (!target.canAddItem(stack.getDefinition(), transferQuantity)) {
-            return false;
+        if (!player.hasAuthority()) {
+            requestTradeTransfer(
+                activeTrader.getActorId(),
+                slotIndex,
+                itemId,
+                wholeStack,
+                NetworkProtocol.TradeTransferDirection.PLAYER_TO_TRADE
+            );
+            return;
         }
 
-        int removed = source.removeItemAt(slotIndex, transferQuantity);
-        if (removed <= 0) {
-            return false;
+        TradeLogic.transferStack(playerInventory, tradeBasket, slotIndex, wholeStack);
+    }
+
+    private void transferTradeBasketItemToInventory(int slotIndex, String itemId, boolean wholeStack) {
+        if (itemId == null || itemId.isBlank()
+            || activeTrader == null
+            || !(getPossessedPawn() instanceof PlayerCharacter player)) {
+            return;
         }
 
-        int added = target.addItem(stack.getDefinition(), removed);
-        if (added == removed) {
-            return true;
+        InventoryComponent playerInventory = player.getInventoryComponent();
+        TradeBasketComponent tradeBasket = player.getTradeBasketComponent();
+        if (playerInventory == null || tradeBasket == null) {
+            return;
         }
 
-        source.addItem(stack.getDefinition(), removed - Math.max(0, added));
-        return false;
+        if (!player.hasAuthority()) {
+            requestTradeTransfer(
+                activeTrader.getActorId(),
+                slotIndex,
+                itemId,
+                wholeStack,
+                NetworkProtocol.TradeTransferDirection.TRADE_TO_PLAYER
+            );
+            return;
+        }
+
+        TradeLogic.transferStack(tradeBasket, playerInventory, slotIndex, wholeStack);
+    }
+
+    private void buyTraderItem(int traderSlotIndex, String itemId) {
+        if (itemId == null || itemId.isBlank()
+            || activeTrader == null
+            || !(getPossessedPawn() instanceof PlayerCharacter player)) {
+            return;
+        }
+
+        if (!player.hasAuthority()) {
+            requestTradePurchase(activeTrader.getActorId(), traderSlotIndex, itemId);
+            return;
+        }
+
+        InventoryComponent playerInventory = player.getInventoryComponent();
+        InventoryComponent traderInventory = activeTrader.getInventoryComponent();
+        TradeOfferDefinition offer = activeTrader.getOffer(itemId);
+        if (playerInventory == null || traderInventory == null || offer == null) {
+            return;
+        }
+
+        TradeLogic.buyTraderItem(playerInventory, traderInventory, offer, traderSlotIndex, itemId);
+    }
+
+    private void sellTradeBasketItems() {
+        if (activeTrader == null || !(getPossessedPawn() instanceof PlayerCharacter player)) {
+            return;
+        }
+
+        if (!player.hasAuthority()) {
+            requestTradeSell(activeTrader.getActorId());
+            return;
+        }
+
+        TradeBasketComponent tradeBasket = player.getTradeBasketComponent();
+        InventoryComponent playerInventory = player.getInventoryComponent();
+        if (tradeBasket == null || playerInventory == null) {
+            return;
+        }
+
+        TradeLogic.sellTradeBasket(tradeBasket, playerInventory, activeTrader::getOffer);
     }
 
     private void useAssignedItem(PlayerCharacter player) {
@@ -920,6 +1168,64 @@ public class MainPlayerController extends PlayerController {
         request.itemId = itemId;
         request.wholeStack = wholeStack;
         request.direction = direction;
+        gameInstance.getNetDriver().sendToServer(request, true);
+    }
+
+    private void requestTradeTransfer(int traderActorId,
+                                      int slotIndex,
+                                      String itemId,
+                                      boolean wholeStack,
+                                      NetworkProtocol.TradeTransferDirection direction) {
+        if (traderActorId <= 0 || slotIndex < 0 || itemId == null || itemId.isBlank() || direction == null) {
+            return;
+        }
+
+        GameInstance gameInstance = getGameInstance();
+        if (gameInstance == null || !gameInstance.isClient() || gameInstance.getNetDriver() == null) {
+            return;
+        }
+
+        NetworkProtocol.ClientTradeTransfer request = new NetworkProtocol.ClientTradeTransfer();
+        request.playerId = getPlayerId();
+        request.traderActorId = traderActorId;
+        request.slotIndex = slotIndex;
+        request.itemId = itemId;
+        request.wholeStack = wholeStack;
+        request.direction = direction;
+        gameInstance.getNetDriver().sendToServer(request, true);
+    }
+
+    private void requestTradePurchase(int traderActorId, int traderSlotIndex, String itemId) {
+        if (traderActorId <= 0 || traderSlotIndex < 0 || itemId == null || itemId.isBlank()) {
+            return;
+        }
+
+        GameInstance gameInstance = getGameInstance();
+        if (gameInstance == null || !gameInstance.isClient() || gameInstance.getNetDriver() == null) {
+            return;
+        }
+
+        NetworkProtocol.ClientTradePurchase request = new NetworkProtocol.ClientTradePurchase();
+        request.playerId = getPlayerId();
+        request.traderActorId = traderActorId;
+        request.traderSlotIndex = traderSlotIndex;
+        request.itemId = itemId;
+        gameInstance.getNetDriver().sendToServer(request, true);
+    }
+
+    private void requestTradeSell(int traderActorId) {
+        if (traderActorId <= 0) {
+            return;
+        }
+
+        GameInstance gameInstance = getGameInstance();
+        if (gameInstance == null || !gameInstance.isClient() || gameInstance.getNetDriver() == null) {
+            return;
+        }
+
+        NetworkProtocol.ClientTradeSell request = new NetworkProtocol.ClientTradeSell();
+        request.playerId = getPlayerId();
+        request.traderActorId = traderActorId;
         gameInstance.getNetDriver().sendToServer(request, true);
     }
 
@@ -1016,173 +1322,9 @@ public class MainPlayerController extends PlayerController {
         world.spawnActor(pickupActor, spawnPosition);
     }
 
-    private void handlePauseToggle() {
-        if (Gdx.input == null || !Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
-            return;
-        }
-
-        if (statsPanel != null && statsPanel.isVisible()) {
-            closeStatsPanel();
-            return;
-        }
-        if (settingsPanel != null && settingsPanel.isVisible()) {
-            closeSettingsToPauseMenu();
-            return;
-        }
-        if (pauseMenu != null && pauseMenu.isVisible()) {
-            hidePauseMenu();
-            return;
-        }
-
-        showPauseMenu();
-    }
-
-    private boolean isOverlayVisible() {
-        return (pauseMenu != null && pauseMenu.isVisible())
-            || (settingsPanel != null && settingsPanel.isVisible())
-            || (statsPanel != null && statsPanel.isVisible());
-    }
-
-    private void openStatsPanel() {
-        if (statsPanel == null) {
-            return;
-        }
-
-        if (inventoryPanel != null) {
-            inventoryPanel.setVisibility(EVisibility.HIDDEN);
-        }
-        if (pauseMenu != null) {
-            pauseMenu.setVisibility(EVisibility.HIDDEN);
-        }
-        if (settingsPanel != null) {
-            settingsPanel.setVisibility(EVisibility.HIDDEN);
-        }
-
-        statsPanel.setVisibility(EVisibility.VISIBLE);
-        refreshStatsPanel();
-    }
-
-    private void closeStatsPanel() {
-        if (statsPanel != null) {
-            statsPanel.setVisibility(EVisibility.HIDDEN);
-        }
-        if (pauseMenu != null && isStatsAvailable()) {
-            pauseMenu.setVisibility(EVisibility.VISIBLE);
-        }
-    }
-
-    private void refreshStatsPanel() {
-        if (statsPanel == null) {
-            return;
-        }
-
-        GameInstance gameInstance = getGameInstance();
-        AuthService authService = gameInstance != null ? gameInstance.getAuthService() : null;
-        if (authService == null || !authService.isAuthenticated() || authService.isOfflineSession()) {
-            statsPanel.showError("Statystyki sa dostepne tylko po zalogowaniu.");
-            return;
-        }
-
-        statsPanel.showLoading();
-        authService.fetchCurrentStats(new AuthService.StatsResultListener() {
-            @Override
-            public void onSuccess(AuthService.PlayerStatsSnapshot stats) {
-                if (statsPanel == null || !statsPanel.isAddedToViewport()) {
-                    return;
-                }
-                statsPanel.setStats(stats);
-            }
-
-            @Override
-            public void onFailure(String message) {
-                if (statsPanel == null || !statsPanel.isAddedToViewport()) {
-                    return;
-                }
-                statsPanel.showError(message);
-            }
-        });
-    }
-
-    private void updateStatsUiState() {
-        boolean statsAvailable = isStatsAvailable();
-        if (pauseMenu != null) {
-            pauseMenu.setStatsVisible(statsAvailable);
-        }
-        if (!statsAvailable && statsPanel != null) {
-            statsPanel.setVisibility(EVisibility.HIDDEN);
-        }
-    }
-
-    private boolean isStatsAvailable() {
-        GameInstance gameInstance = getGameInstance();
-        if (gameInstance == null) {
-            return false;
-        }
-
-        AuthService authService = gameInstance.getAuthService();
-        return authService != null && authService.isAuthenticated() && !authService.isOfflineSession();
-    }
-
-    private void showPauseMenu() {
-        if (inventoryPanel != null) {
-            inventoryPanel.setVisibility(EVisibility.HIDDEN);
-        }
-        if (statsPanel != null) {
-            statsPanel.setVisibility(EVisibility.HIDDEN);
-        }
-        if (pauseMenu != null) {
-            pauseMenu.setVisibility(EVisibility.VISIBLE);
-        }
-    }
-
-    private void hidePauseMenu() {
-        if (pauseMenu != null) {
-            pauseMenu.setVisibility(EVisibility.HIDDEN);
-        }
-    }
-
-    private void openSettingsFromPauseMenu() {
-        if (pauseMenu != null) {
-            pauseMenu.setVisibility(EVisibility.HIDDEN);
-        }
-        if (settingsPanel != null) {
-            settingsPanel.refreshFromAppliedSettings();
-            settingsPanel.setVisibility(EVisibility.VISIBLE);
-        }
-    }
-
-    private void closeSettingsToPauseMenu() {
-        if (settingsPanel != null) {
-            settingsPanel.setVisibility(EVisibility.HIDDEN);
-        }
-        if (pauseMenu != null) {
-            pauseMenu.setVisibility(EVisibility.VISIBLE);
-        }
-    }
-
-    private void quitToMainMenu() {
-        GameInstance gameInstance = getGameInstance();
-        if (gameInstance != null) {
-            gameInstance.returnToMenu("Wyjscie do menu glownego");
-        }
-    }
-
-    /** Uruchamia ręczny zapis aktywnego slota z poziomu menu pauzy. */
-    private void saveGameProgress() {
-        GameInstance gameInstance = getGameInstance();
-        if (gameInstance == null || !gameInstance.isSinglePlayer()) {
-            return;
-        }
-
-        boolean saved = gameInstance.getSinglePlayerSaveService().saveCurrentGame(gameInstance.getActiveWorldContext());
-        if (saved) {
-            Gdx.app.log("MainPlayerController", "Zapisano postep gry do slotu #"
-                + (gameInstance.getSinglePlayerSaveService().getActiveSlotIndex() + 1));
-            showSaveStatus("Zapisano gre", new Color(0.75f, 1f, 0.75f, 1f));
-        } else {
-            Gdx.app.error("MainPlayerController", "Nie udalo sie zapisac postepu gry");
-            showSaveStatus("Blad zapisu", new Color(1f, 0.7f, 0.7f, 1f));
-        }
+    private void clearActiveContainerPanels() {
+        setActiveTrader(null);
+        setActiveChest(null);
     }
 
     private com.badlogic.gdx.maps.tiled.TiledMap getCurrentTiledMap() {

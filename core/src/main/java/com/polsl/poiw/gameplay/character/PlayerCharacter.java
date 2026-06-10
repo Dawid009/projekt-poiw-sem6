@@ -11,7 +11,19 @@ import com.polsl.poiw.engine.binding.PropertyBinding;
 import com.polsl.poiw.engine.collision.BoxCollisionComponent;
 import com.polsl.poiw.engine.collision.CollisionComponent;
 import com.polsl.poiw.engine.collision.CollisionProfile;
-import com.polsl.poiw.engine.component.*;
+import com.polsl.poiw.engine.component.CameraFollowComponent;
+import com.polsl.poiw.engine.component.CombatComponent;
+import com.polsl.poiw.engine.component.ControllerComponent;
+import com.polsl.poiw.engine.component.DamageReactionComponent;
+import com.polsl.poiw.engine.component.HealthComponent;
+import com.polsl.poiw.engine.component.InventoryComponent;
+import com.polsl.poiw.engine.component.MovementComponent;
+import com.polsl.poiw.engine.component.PlayerAnimationComponent;
+import com.polsl.poiw.engine.component.PlayerAssignedItemComponent;
+import com.polsl.poiw.engine.component.PlayerToolComponent;
+import com.polsl.poiw.engine.component.SpriteComponent;
+import com.polsl.poiw.engine.component.TradeBasketComponent;
+import com.polsl.poiw.engine.component.TransformComponent;
 import com.polsl.poiw.engine.inventory.InventoryStack;
 import com.polsl.poiw.engine.save.SaveGameData;
 import com.polsl.poiw.gameplay.tool.PlayerToolType;
@@ -25,58 +37,24 @@ import java.util.List;
 public class PlayerCharacter extends AbstractActor {
     public static final int INVENTORY_SLOT_COUNT = 32;
 
-    /** Prędkość gracza w metrach/s */
     private static final float PLAYER_SPEED = 3.5f;
-
-    /** Maksymalne i początkowe HP */
     private static final float MAX_HEALTH = 100f;
-
-    /** Klucz regionu w atlasie */
     private static final String PLAYER_REGION = "player";
-
-    /** Rozmiar sprite'a w pikselach (32x32) */
     private static final float SPRITE_PX = 32f;
+    private static final float PIXELS_PER_METER = 16f;
+    private static final float COLLISION_WIDTH_PX = 9f;
+    private static final float COLLISION_HEIGHT_PX = 5f;
+    private static final float COLLISION_X_PX = 11f;
+    private static final float COLLISION_Y_PX = 18f;
+    private static final float SPRITE_CENTER_PX = 16f;
 
     public PlayerCharacter() {
-        // components are added in configure() or configureServer()
     }
 
-    /**
-     * server configuration (headless) — without sprites and camera.
-     * adds TransformComponent, MovementComponent, ControllerComponent, BoxCollisionComponent, HealthComponent.
-     */
     public void configureServer() {
-        float sizeW = SPRITE_PX / 16f;
-        float sizeH = SPRITE_PX / 16f;
-
-        addComponent(new TransformComponent(
-            new Vector2(), 1, new Vector2(sizeW, sizeH)
-        ));
-        addComponent(new MovementComponent(PLAYER_SPEED));
-        addComponent(new ControllerComponent());
-        addComponent(CombatComponent.createPlayerMelee());
-        addComponent(new HealthComponent(MAX_HEALTH, MAX_HEALTH));
-        addComponent(new DamageReactionComponent());
-        InventoryComponent inventory = new InventoryComponent();
-        inventory.setMaxSlots(INVENTORY_SLOT_COUNT);
-        addComponent(inventory);
-        addComponent(new PlayerToolComponent());
-        addComponent(new PlayerAssignedItemComponent());
-
-        float ppm = 16f;
-        float collHalfW = 9f / 2f / ppm;
-        float collHalfH = 5f / 2f / ppm;
-        float offsetX = (11f + 4.5f - 16f) / ppm;
-        float offsetY = -((18f + 2.5f - 16f) / ppm);
-        addComponent(new BoxCollisionComponent(
-            CollisionProfile.PLAYER, collHalfW, collHalfH, new Vector2(offsetX, offsetY)
-        ));
+        addCommonComponents(SPRITE_PX / PIXELS_PER_METER, false);
     }
 
-    /**
-     * Konfiguruje gracza z podanym atlasem (klient).
-     * Wywoływane po stworzeniu, ale przed beginPlay().
-     */
     public void configure(TextureAtlas atlas, TextureAtlas playerActionsAtlas) {
         TextureAtlas playerAtlas = resolvePlayerAtlas(atlas, playerActionsAtlas);
         TextureRegion region = playerAtlas != null ? playerAtlas.findRegion(PLAYER_REGION) : null;
@@ -84,45 +62,15 @@ public class PlayerCharacter extends AbstractActor {
             throw new RuntimeException("Nie znaleziono regionu: " + PLAYER_REGION + " w atlasie");
         }
 
-        float sizeW = SPRITE_PX * Main.UNIT_SCALE;
-        float sizeH = SPRITE_PX * Main.UNIT_SCALE;
-
-        addComponent(new TransformComponent(
-            new Vector2(), 1, new Vector2(sizeW, sizeH)
-        ));
+        float size = SPRITE_PX * Main.UNIT_SCALE;
+        addCommonComponents(size, true);
         addComponent(new SpriteComponent(region, Color.WHITE.cpy()));
-
-
-        // Animacje idle/walk zależne od kierunku i ruchu
         TextureAtlas actionAtlas = playerActionsAtlas != null ? playerActionsAtlas : playerAtlas;
         addComponent(new PlayerAnimationComponent(playerAtlas, actionAtlas));
 
-        // Movement component - opisuje aktualny ruch i jego parametry
-        addComponent(new MovementComponent(PLAYER_SPEED));
-        addComponent(new CameraFollowComponent());
-        addComponent(new ControllerComponent());
-        addComponent(CombatComponent.createPlayerMelee());
-        addComponent(new HealthComponent(MAX_HEALTH, MAX_HEALTH));
-        addComponent(new DamageReactionComponent());
-        InventoryComponent inventory = new InventoryComponent();
-        inventory.setMaxSlots(INVENTORY_SLOT_COUNT);
-        addComponent(inventory);
-        addComponent(new PlayerToolComponent());
-        addComponent(new PlayerAssignedItemComponent());
-
-        // Kolizja gracza — kształt z objects.tsx: x=11,y=18,w=9,h=5 px (sprite 32x32)
-        float ppm = 16f;
-        float collHalfW = 9f / 2f / ppm;
-        float collHalfH = 5f / 2f / ppm;
-        float offsetX = (11f + 4.5f - 16f) / ppm;
-        float offsetY = -((18f + 2.5f - 16f) / ppm);
-        addComponent(new BoxCollisionComponent(
-            CollisionProfile.PLAYER, collHalfW, collHalfH, new Vector2(offsetX, offsetY)
-        ));
-
         TransformComponent transform = getComponent(TransformComponent.class);
         if (transform != null) {
-            transform.setSortOffsetY(sizeH / 2f + offsetY - collHalfH);
+            transform.setSortOffsetY(size * 0.5f + getCollisionOffsetY() - getCollisionHalfHeight());
         }
     }
 
@@ -136,25 +84,11 @@ public class PlayerCharacter extends AbstractActor {
         return preferredAtlas != null ? preferredAtlas : fallbackAtlas;
     }
 
-    @Override
-    public void beginPlay() {
-        super.beginPlay();
-    }
-
-    @Override
-    public void tick(float delta) {
-        super.tick(delta);
-    }
-
-    // ===== System zdrowia (delegacja do HealthComponent) =====
-
-    /** Zadaje obrażenia graczowi — deleguje do HealthComponent */
     public void applyDamage(float amount) {
         HealthComponent hc = getComponent(HealthComponent.class);
         if (hc != null) hc.applyDamage(amount);
     }
 
-    /** Leczy gracza — deleguje do HealthComponent */
     public void heal(float amount) {
         HealthComponent hc = getComponent(HealthComponent.class);
         if (hc != null) hc.heal(amount);
@@ -165,13 +99,11 @@ public class PlayerCharacter extends AbstractActor {
         return hc != null && hc.isAlive();
     }
 
-    /** Obserwowalne HP — binduj do UI (bridge do HealthComponent) */
     public PropertyBinding<Float> getHealth() {
         HealthComponent hc = getComponent(HealthComponent.class);
         return hc != null ? hc.getHealthProperty() : new PropertyBinding<>(0f);
     }
 
-    /** Obserwowalne max HP — binduj do UI (bridge do HealthComponent) */
     public PropertyBinding<Float> getMaxHealth() {
         HealthComponent hc = getComponent(HealthComponent.class);
         return hc != null ? hc.getMaxHealthProperty() : new PropertyBinding<>(0f);
@@ -195,6 +127,20 @@ public class PlayerCharacter extends AbstractActor {
         return getComponent(PlayerToolComponent.class);
     }
 
+    public TradeBasketComponent getTradeBasketComponent() {
+        return getComponent(TradeBasketComponent.class);
+    }
+
+    public PropertyBinding<Integer> getTradeBasketRevision() {
+        TradeBasketComponent tradeBasket = getTradeBasketComponent();
+        return tradeBasket != null ? tradeBasket.getRevisionBinding() : new PropertyBinding<>(0);
+    }
+
+    public List<InventoryStack> getTradeBasketItems() {
+        TradeBasketComponent tradeBasket = getTradeBasketComponent();
+        return tradeBasket != null ? tradeBasket.getItemsSnapshot() : List.of();
+    }
+
     public PlayerToolType getActiveTool() {
         PlayerToolComponent toolComponent = getPlayerToolComponent();
         return toolComponent != null ? toolComponent.getActiveTool() : PlayerToolType.SWORD;
@@ -204,7 +150,6 @@ public class PlayerCharacter extends AbstractActor {
         return getComponent(PlayerAssignedItemComponent.class);
     }
 
-    /** Buduje lekki zapis gracza bez zależności od reszty świata. */
     public SaveGameData.PlayerData buildSaveData() {
         SaveGameData.PlayerData data = new SaveGameData.PlayerData();
         TransformComponent transform = getComponent(TransformComponent.class);
@@ -212,6 +157,7 @@ public class PlayerCharacter extends AbstractActor {
         InventoryComponent inventory = getInventoryComponent();
         PlayerToolComponent toolComponent = getPlayerToolComponent();
         PlayerAssignedItemComponent assignedItemComponent = getPlayerAssignedItemComponent();
+        TradeBasketComponent tradeBasketComponent = getTradeBasketComponent();
 
         if (transform != null) {
             data.x = transform.getPosition().x;
@@ -229,10 +175,12 @@ public class PlayerCharacter extends AbstractActor {
         if (inventory != null) {
             data.inventory = inventory.buildSaveEntries();
         }
+        if (tradeBasketComponent != null) {
+            data.tradeBasket = tradeBasketComponent.buildSaveEntries();
+        }
         return data;
     }
 
-    /** Odtwarza pozycję, zdrowie, inventory i aktywne sloty gracza z danych save'a. */
     public void applySaveData(SaveGameData.PlayerData data) {
         if (data == null) {
             return;
@@ -251,6 +199,10 @@ public class PlayerCharacter extends AbstractActor {
         if (inventory != null) {
             inventory.restoreSaveEntries(data.inventory);
         }
+        TradeBasketComponent tradeBasketComponent = getTradeBasketComponent();
+        if (tradeBasketComponent != null) {
+            tradeBasketComponent.restoreSaveEntries(data.tradeBasket);
+        }
 
         PlayerToolComponent toolComponent = getPlayerToolComponent();
         if (toolComponent != null) {
@@ -263,9 +215,6 @@ public class PlayerCharacter extends AbstractActor {
         }
     }
 
-    /**
-     * Przenosi gracza razem z ciałem Box2D, żeby render i kolizja od razu były zgodne.
-     */
     private void setWorldPosition(float x, float y) {
         TransformComponent transform = getComponent(TransformComponent.class);
         if (transform != null) {
@@ -285,5 +234,50 @@ public class PlayerCharacter extends AbstractActor {
         body.setLinearVelocity(0f, 0f);
         collision.capturePreviousBodyPosition();
         collision.captureCurrentBodyPosition();
+    }
+
+    private void addCommonComponents(float size, boolean addCameraFollow) {
+        addComponent(new TransformComponent(new Vector2(), 1, new Vector2(size, size)));
+        addComponent(new MovementComponent(PLAYER_SPEED));
+        if (addCameraFollow) {
+            addComponent(new CameraFollowComponent());
+        }
+        addComponent(new ControllerComponent());
+        addComponent(CombatComponent.createPlayerMelee());
+        addComponent(new HealthComponent(MAX_HEALTH, MAX_HEALTH));
+        addComponent(new DamageReactionComponent());
+
+        InventoryComponent inventory = new InventoryComponent();
+        inventory.setMaxSlots(INVENTORY_SLOT_COUNT);
+        addComponent(inventory);
+        addComponent(new TradeBasketComponent());
+        addComponent(new PlayerToolComponent());
+        addComponent(new PlayerAssignedItemComponent());
+        addComponent(createCollision());
+    }
+
+    private BoxCollisionComponent createCollision() {
+        return new BoxCollisionComponent(
+            CollisionProfile.PLAYER,
+            getCollisionHalfWidth(),
+            getCollisionHalfHeight(),
+            new Vector2(getCollisionOffsetX(), getCollisionOffsetY())
+        );
+    }
+
+    private float getCollisionHalfWidth() {
+        return COLLISION_WIDTH_PX * 0.5f / PIXELS_PER_METER;
+    }
+
+    private float getCollisionHalfHeight() {
+        return COLLISION_HEIGHT_PX * 0.5f / PIXELS_PER_METER;
+    }
+
+    private float getCollisionOffsetX() {
+        return (COLLISION_X_PX + COLLISION_WIDTH_PX * 0.5f - SPRITE_CENTER_PX) / PIXELS_PER_METER;
+    }
+
+    private float getCollisionOffsetY() {
+        return -((COLLISION_Y_PX + COLLISION_HEIGHT_PX * 0.5f - SPRITE_CENTER_PX) / PIXELS_PER_METER);
     }
 }

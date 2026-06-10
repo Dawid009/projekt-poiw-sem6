@@ -14,15 +14,9 @@ import com.polsl.poiw.engine.component.TransformComponent;
  */
 public class PropActor extends AbstractActor {
 
-    /**
-     * Konfiguruje PropActor z danymi z Tiled.
-     */
     public void configure(TextureRegion region, float sizeW, float sizeH,
                           float collHalfW, float collHalfH, Vector2 collOffset,
                           float sortOffsetY, int zOrder) {
-
-        // TransformComponent — single source of truth dla pozycji Actora.
-        // Pozycja startowa ustawiana przez GameWorld.spawnActor() → Actor.setPosition().
         addComponent(new TransformComponent(
             new Vector2(),
             zOrder,
@@ -32,7 +26,6 @@ public class PropActor extends AbstractActor {
             sortOffsetY
         ));
 
-        // Grafika
         addComponent(new SpriteComponent(region, Color.WHITE.cpy()));
 
         if (collHalfW > 0f && collHalfH > 0f) {

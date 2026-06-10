@@ -138,10 +138,7 @@ public abstract class AbstractActor implements Actor {
      */
     public void overrideActorId(int newId) { this.actorId = newId; }
 
-    /**
-     * Zwraca pozycję Actora w świecie (w metrach Box2D).
-     * Deleguje do TransformComponent jeśli istnieje (single source of truth).
-     */
+    /** Zwraca pozycję aktora w świecie. */
     @Override
     public Vector2 getPosition() {
         TransformComponent transform = getComponent(TransformComponent.class);

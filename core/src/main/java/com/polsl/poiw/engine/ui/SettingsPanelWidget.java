@@ -54,9 +54,9 @@ public class SettingsPanelWidget extends UserWidget {
 
         populateSelectBoxes();
 
-        TextButton applyButton = new TextButton("Apply", UiSkinStyles.copyCompactTextButtonStyle(skin, "atlas", "font", 16f, 14f, CONTENT_FONT_SCALE));
-        TextButton saveButton = new TextButton("Save", UiSkinStyles.copyCompactTextButtonStyle(skin, "atlas", "font", 16f, 14f, CONTENT_FONT_SCALE));
-        TextButton resetButton = new TextButton("Reset", UiSkinStyles.copyCompactTextButtonStyle(skin, "atlas", "font", 16f, 14f, CONTENT_FONT_SCALE));
+        TextButton applyButton = new TextButton("Zastosuj", UiSkinStyles.copyCompactTextButtonStyle(skin, "atlas", "font", 16f, 14f, CONTENT_FONT_SCALE));
+        TextButton saveButton = new TextButton("Zapisz", UiSkinStyles.copyCompactTextButtonStyle(skin, "atlas", "font", 16f, 14f, CONTENT_FONT_SCALE));
+        TextButton resetButton = new TextButton("Resetuj", UiSkinStyles.copyCompactTextButtonStyle(skin, "atlas", "font", 16f, 14f, CONTENT_FONT_SCALE));
         TextButton backButton = new TextButton("Powrot", UiSkinStyles.copyCompactTextButtonStyle(skin, "atlas", "font", 16f, 14f, CONTENT_FONT_SCALE));
 
         Label resolutionLabel = new Label("Rozdzielczosc", UiSkinStyles.copyScaledLabelStyle(skin, "font", CONTENT_FONT_SCALE));
@@ -167,7 +167,6 @@ public class SettingsPanelWidget extends UserWidget {
         fpsLimitSelect.setSelected(String.valueOf(settings.fpsLimit()));
     }
 
-    // Apply rusza runtime od razu, Save dodatkowo zapisuje wybor do prefs.
     private void applyPending(boolean save) {
         GraphicsSettings pending = readPendingSettings();
         GraphicsSettings applied = GraphicsSettingsService.applySettings(pending);

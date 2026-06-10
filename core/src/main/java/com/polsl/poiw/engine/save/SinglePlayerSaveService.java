@@ -18,11 +18,13 @@ import com.polsl.poiw.gameplay.actor.CreatureKind;
 import com.polsl.poiw.gameplay.actor.ItemPickupActor;
 import com.polsl.poiw.gameplay.actor.MineableActor;
 import com.polsl.poiw.gameplay.actor.MineableKind;
+import com.polsl.poiw.gameplay.actor.NpcTraderActor;
 import com.polsl.poiw.gameplay.actor.TiledVisualActor;
 import com.polsl.poiw.gameplay.actor.TreeActor;
 import com.polsl.poiw.gameplay.actor.TreeKind;
 import com.polsl.poiw.gameplay.character.PlayerCharacter;
 import com.polsl.poiw.gameplay.item.GameplayItems;
+import com.polsl.poiw.gameplay.trade.TraderKind;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -176,6 +178,9 @@ public class SinglePlayerSaveService {
         for (ChestActor chestActor : gameWorld.getActorsOfClass(ChestActor.class)) {
             saveGameData.chests.add(chestActor.buildChestSaveData());
         }
+        for (NpcTraderActor traderActor : gameWorld.getActorsOfClass(NpcTraderActor.class)) {
+            saveGameData.traders.add(traderActor.buildSaveData());
+        }
         for (ItemPickupActor pickupActor : gameWorld.getActorsOfClass(ItemPickupActor.class)) {
             SaveGameData.ItemPickupData pickupData = pickupActor.buildSaveData();
             if (pickupData.itemId != null && !pickupData.itemId.isBlank() && pickupData.quantity > 0) {
@@ -207,6 +212,7 @@ public class SinglePlayerSaveService {
         clearRestorableActors(gameWorld);
 
         TextureAtlas creaturesAtlas = assetService.get(AtlasAsset.CREATURES);
+        TextureAtlas npcAtlas = assetService.get(AtlasAsset.NPC);
         TextureAtlas itemsAtlas = assetService.get(AtlasAsset.ITEMS);
 
         for (SaveGameData.TreeData treeData : pendingLoadedSave.trees) {
@@ -227,6 +233,11 @@ public class SinglePlayerSaveService {
         if (pendingLoadedSave.version >= 2) {
             for (SaveGameData.ChestData chestData : pendingLoadedSave.chests) {
                 restoreChest(gameWorld, map, chestData);
+            }
+        }
+        if (pendingLoadedSave.version >= 3) {
+            for (SaveGameData.TraderData traderData : pendingLoadedSave.traders) {
+                restoreTrader(gameWorld, npcAtlas, traderData);
             }
         }
         for (SaveGameData.ItemPickupData pickupData : pendingLoadedSave.itemPickups) {
@@ -301,6 +312,9 @@ public class SinglePlayerSaveService {
             .toList());
         if (pendingLoadedSave != null && pendingLoadedSave.version >= 2) {
             destroyActors(gameWorld, gameWorld.getActorsOfClass(ChestActor.class));
+        }
+        if (pendingLoadedSave != null && pendingLoadedSave.version >= 3) {
+            destroyActors(gameWorld, gameWorld.getActorsOfClass(NpcTraderActor.class));
         }
         destroyActors(gameWorld, gameWorld.getActorsOfClass(ItemPickupActor.class));
         gameWorld.flushDeferredChanges();
@@ -466,6 +480,32 @@ public class SinglePlayerSaveService {
             chestData.inventory
         );
         gameWorld.spawnActor(chestActor, new Vector2(chestData.x, chestData.y));
+    }
+
+    private void restoreTrader(GameWorld gameWorld, TextureAtlas npcAtlas, SaveGameData.TraderData traderData) {
+        if (traderData == null || traderData.traderKind == null || traderData.traderKind.isBlank()) {
+            return;
+        }
+
+        TraderKind traderKind = TraderKind.fromId(traderData.traderKind);
+        if (traderKind == null) {
+            return;
+        }
+
+        NpcTraderActor traderActor = new NpcTraderActor();
+        traderActor.configure(
+            npcAtlas,
+            traderKind,
+            traderData.sizeW,
+            traderData.sizeH,
+            traderData.collHalfW,
+            traderData.collHalfH,
+            new Vector2(traderData.collOffsetX, traderData.collOffsetY),
+            traderData.sortOffsetY,
+            traderData.zOrder,
+            traderData.inventory
+        );
+        gameWorld.spawnActor(traderActor, new Vector2(traderData.x, traderData.y));
     }
 
     private void restoreItemPickup(GameWorld gameWorld, TextureAtlas itemsAtlas, SaveGameData.ItemPickupData pickupData) {

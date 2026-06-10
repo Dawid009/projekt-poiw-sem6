@@ -42,12 +42,17 @@ public final class NetworkSerializer {
 
         // input
         kryo.register(NetworkProtocol.ClientInputUpdate.class);
+        kryo.register(NetworkProtocol.ClientAttackRequest.class);
         kryo.register(NetworkProtocol.InventoryActionType.class);
         kryo.register(NetworkProtocol.ClientInventoryAction.class);
         kryo.register(NetworkProtocol.ClientToolSelection.class);
         kryo.register(NetworkProtocol.ClientAssignedItemUpdate.class);
         kryo.register(NetworkProtocol.ChestInventoryTransferDirection.class);
         kryo.register(NetworkProtocol.ClientChestInventoryTransfer.class);
+        kryo.register(NetworkProtocol.TradeTransferDirection.class);
+        kryo.register(NetworkProtocol.ClientTradeTransfer.class);
+        kryo.register(NetworkProtocol.ClientTradePurchase.class);
+        kryo.register(NetworkProtocol.ClientTradeSell.class);
         kryo.register(NetworkProtocol.ServerPositionCorrection.class);
 
         // RPC

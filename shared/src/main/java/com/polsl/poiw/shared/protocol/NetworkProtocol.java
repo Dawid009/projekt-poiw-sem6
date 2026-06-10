@@ -9,7 +9,7 @@ import java.util.Map;
 public final class NetworkProtocol {
 
     // wersja protokołu - musi być taka sama między klientem i serwerem
-    public static final int PROTOCOL_VERSION = 8;
+    public static final int PROTOCOL_VERSION = 10;
 
     // maksymalna długość wiadomości czatu
     public static final int MAX_CHAT_MESSAGE_LENGTH = 60;
@@ -93,6 +93,10 @@ public final class NetworkProtocol {
         public float timestamp;
     }
 
+    public static class ClientAttackRequest {
+        public int playerId;
+    }
+
     public enum InventoryActionType {
         USE,
         DROP
@@ -128,6 +132,32 @@ public final class NetworkProtocol {
         public String itemId;
         public boolean wholeStack;
         public ChestInventoryTransferDirection direction;
+    }
+
+    public enum TradeTransferDirection {
+        PLAYER_TO_TRADE,
+        TRADE_TO_PLAYER
+    }
+
+    public static class ClientTradeTransfer {
+        public int playerId;
+        public int traderActorId;
+        public int slotIndex = -1;
+        public String itemId;
+        public boolean wholeStack;
+        public TradeTransferDirection direction;
+    }
+
+    public static class ClientTradePurchase {
+        public int playerId;
+        public int traderActorId;
+        public int traderSlotIndex = -1;
+        public String itemId;
+    }
+
+    public static class ClientTradeSell {
+        public int playerId;
+        public int traderActorId;
     }
 
     // serwer -> klient: korekta pozycji (np. po wykryciu desynchronizacji)

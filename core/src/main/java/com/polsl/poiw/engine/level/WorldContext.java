@@ -2,17 +2,10 @@ package com.polsl.poiw.engine.level;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
-import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.maps.tiled.TiledMap;
 import com.badlogic.gdx.scenes.scene2d.Stage;
-import com.badlogic.gdx.scenes.scene2d.ui.CheckBox;
-import com.badlogic.gdx.scenes.scene2d.ui.Label;
-import com.badlogic.gdx.scenes.scene2d.ui.SelectBox;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
-import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
-import com.badlogic.gdx.scenes.scene2d.ui.TextField;
-import com.badlogic.gdx.scenes.scene2d.ui.Window;
 import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.polsl.poiw.Main;
@@ -46,26 +39,7 @@ import com.polsl.poiw.gameplay.actor.ItemPickupActor;
 import com.polsl.poiw.gameplay.actor.TiledVisualActor;
 import com.polsl.poiw.gameplay.level.LevelDefinitions;
 
-/**
- * WorldContext — aktywna instancja poziomu.
- * <p>
- * Przechowuje cały stan uruchomionego świata:
- * <ul>
- *   <li>{@link LevelDefinition} — konfiguracja poziomu</li>
- *   <li>{@link GameWorld} — fizyka, ECS, aktorzy (null dla UI_ONLY)</li>
- *   <li>{@link GameMode} — reguły gry</li>
- *   <li>{@link PlayerController} — sterowanie graczem</li>
- *   <li>{@link HUD} — warstwa UI</li>
- * </ul>
- * <p>
- * Lifecycle:
- * <ol>
- *   <li>{@link #initialize()} — tworzy świat, systemy, GameMode, controller</li>
- *   <li>{@link #update(float)} — tick co klatkę</li>
- *   <li>{@link #render()} — renderuje świat i UI</li>
- *   <li>{@link #dispose()} — sprzątanie</li>
- * </ol>
- */
+/** Aktywna instancja poziomu z całym stanem świata i UI. */
 public class WorldContext implements Disposable {
 
     private static final String TAG = "WorldContext";
@@ -74,36 +48,28 @@ public class WorldContext implements Disposable {
     private final Main game;
     private final LevelDefinition levelDef;
 
-    // ===== Świat gry (null dla UI_ONLY) =====
     private GameWorld gameWorld;
     private TiledMapParser tiledParser;
     private RenderSystem renderSystem;
     private CameraSystem cameraSystem;
     private DebugRenderSystem debugRenderSystem;
 
-    // ===== Sterowanie =====
     private KeyboardController keyboardController;
 
-    // ===== Framework =====
     private GameMode gameMode;
     private PlayerController playerController;
     private HUD hud;
     private Skin skin;
 
-    // ===== Debug UI =====
     private TextBlock fpsDebugText;
     private float fpsUpdateTimer = 0f;
 
-    // ===== Chat =====
     private ChatWidget chatWidget;
 
-    // ===== Player List =====
     private PlayerListWidget playerListWidget;
 
-    // ===== Stan =====
     private boolean initialized = false;
 
-    // ===== Networking (multiplayer client) =====
     private NetDriver netDriver;
     private ClientReplicationHandler replicationHandler;
     private InterpolationSystem interpolationSystem;
@@ -115,28 +81,19 @@ public class WorldContext implements Disposable {
         this.levelDef = levelDef;
     }
 
-    // ===== Lifecycle =====
-
-    /**
-     * Inicjalizuje świat — tworzy GameWorld (jeśli GAME), systemy, HUD, GameMode, controller.
-     * Wywoływane raz, po stworzeniu kontekstu.
-     */
     public void initialize() {
         Gdx.app.debug(TAG, "Inicjalizacja: " + levelDef);
 
         SkinAsset skinAsset = resolveSkinAsset();
         this.skin = game.getAssetService().get(skinAsset);
         if (skinAsset == SkinAsset.MENU) {
-            applyLegacyMenuTypography(this.skin, game.getAssetService().get(SkinAsset.DEFAULT));
+            MenuSkinPatcher.apply(this.skin, game.getAssetService().get(SkinAsset.DEFAULT));
         }
         TextureAtlas itemsAtlas = game.getAssetService().get(AtlasAsset.ITEMS);
 
-        // HUD — Stage UI z osobnym viewportem (zawsze, nawet UI_ONLY)
         Stage hudStage = new Stage(new FitViewport(320f, 180f), game.getBatch());
         this.hud = new HUD(hudStage);
 
-        // in multiplayer: client generates negative IDs BEFORE loading the map
-        // so that actors from TiledMap dont collide with positive IDs from the server
         if (game.getGameInstance().isMultiplayer() && levelDef.isGameWorld()) {
             com.polsl.poiw.engine.actor.ActorIdGenerator.setServerMode(false);
         }
@@ -145,22 +102,18 @@ public class WorldContext implements Disposable {
             initializeGameWorld();
         }
 
-        // GameMode
         this.gameMode = createInstance(levelDef.getGameModeClass(), "GameMode");
         if (gameWorld != null) {
             gameMode.initGame(gameWorld);
         }
 
-        // PlayerController
         this.playerController = createInstance(levelDef.getControllerClass(), "PlayerController");
         playerController.initialize(game.getGameInstance(), gameWorld, gameMode, hud, skin, itemsAtlas);
 
         initializeDebugHud();
 
-        // Input
         configureInput();
 
-        // Multiplayer client: connect with server
         if (game.getGameInstance().isMultiplayer() && levelDef.isGameWorld()) {
             initializeMultiplayer();
             initializeChat();
@@ -172,105 +125,6 @@ public class WorldContext implements Disposable {
 
     private SkinAsset resolveSkinAsset() {
         return levelDef != null && !levelDef.isGameWorld() ? SkinAsset.MENU : SkinAsset.DEFAULT;
-    }
-
-    private void applyLegacyMenuTypography(Skin menuSkin, Skin fallbackSkin) {
-        if (menuSkin == null || fallbackSkin == null) {
-            return;
-        }
-
-        menuSkin.addRegions(fallbackSkin.getAtlas());
-
-        overrideFont(menuSkin, fallbackSkin, "font", "font");
-        overrideFont(menuSkin, fallbackSkin, "default", "font");
-        overrideFont(menuSkin, fallbackSkin, "default-font", "font");
-        overrideFont(menuSkin, fallbackSkin, "list", "list");
-        overrideFont(menuSkin, fallbackSkin, "subtitle", "subtitle");
-        overrideFont(menuSkin, fallbackSkin, "window", "window");
-        overrideFont(menuSkin, fallbackSkin, "title", "window");
-
-        overrideLabelStyle(menuSkin, "default", menuSkin.getFont("font"));
-        overrideLabelStyle(menuSkin, "list", menuSkin.getFont("list"));
-        overrideLabelStyle(menuSkin, "subtitle", menuSkin.getFont("subtitle"));
-        overrideLabelStyle(menuSkin, "window", menuSkin.getFont("window"));
-        overrideLabelStyle(menuSkin, "title", menuSkin.getFont("window"));
-
-        overrideTextButtonStyle(menuSkin, "default", menuSkin.getFont("font"));
-        overrideTextButtonStyle(menuSkin, "atlas", menuSkin.getFont("font"));
-        overrideTextFieldStyle(menuSkin, "default", menuSkin.getFont("font"));
-        overrideTextFieldStyle(menuSkin, "atlas", menuSkin.getFont("font"));
-        overrideSelectBoxStyle(menuSkin, "default", menuSkin.getFont("font"), menuSkin.getFont("list"));
-        overrideSelectBoxStyle(menuSkin, "atlas", menuSkin.getFont("font"), menuSkin.getFont("list"));
-        overrideCheckBoxStyle(menuSkin, "default", menuSkin.getFont("font"));
-        overrideCheckBoxStyle(menuSkin, "atlas", menuSkin.getFont("font"));
-        overrideWindowStyle(menuSkin, "default", menuSkin.getFont("window"));
-        overrideWindowStyle(menuSkin, "atlas", menuSkin.getFont("window"));
-    }
-
-    private void overrideFont(Skin targetSkin, Skin sourceSkin, String targetName, String sourceName) {
-        if (targetSkin == null || sourceSkin == null || !sourceSkin.has(sourceName, BitmapFont.class)) {
-            return;
-        }
-        targetSkin.add(targetName, sourceSkin.getFont(sourceName), BitmapFont.class);
-    }
-
-    private void overrideLabelStyle(Skin skin, String styleName, BitmapFont font) {
-        if (font == null || !skin.has(styleName, Label.LabelStyle.class)) {
-            return;
-        }
-        Label.LabelStyle style = new Label.LabelStyle(skin.get(styleName, Label.LabelStyle.class));
-        style.font = font;
-        skin.add(styleName, style, Label.LabelStyle.class);
-    }
-
-    private void overrideTextButtonStyle(Skin skin, String styleName, BitmapFont font) {
-        if (font == null || !skin.has(styleName, TextButton.TextButtonStyle.class)) {
-            return;
-        }
-        TextButton.TextButtonStyle style = new TextButton.TextButtonStyle(skin.get(styleName, TextButton.TextButtonStyle.class));
-        style.font = font;
-        skin.add(styleName, style, TextButton.TextButtonStyle.class);
-    }
-
-    private void overrideTextFieldStyle(Skin skin, String styleName, BitmapFont font) {
-        if (font == null || !skin.has(styleName, TextField.TextFieldStyle.class)) {
-            return;
-        }
-        TextField.TextFieldStyle style = new TextField.TextFieldStyle(skin.get(styleName, TextField.TextFieldStyle.class));
-        style.font = font;
-        style.messageFont = font;
-        skin.add(styleName, style, TextField.TextFieldStyle.class);
-    }
-
-    private void overrideSelectBoxStyle(Skin skin, String styleName, BitmapFont font, BitmapFont listFont) {
-        if (font == null || !skin.has(styleName, SelectBox.SelectBoxStyle.class)) {
-            return;
-        }
-        SelectBox.SelectBoxStyle style = new SelectBox.SelectBoxStyle(skin.get(styleName, SelectBox.SelectBoxStyle.class));
-        style.font = font;
-        if (style.listStyle != null) {
-            style.listStyle = new com.badlogic.gdx.scenes.scene2d.ui.List.ListStyle(style.listStyle);
-            style.listStyle.font = listFont != null ? listFont : font;
-        }
-        skin.add(styleName, style, SelectBox.SelectBoxStyle.class);
-    }
-
-    private void overrideCheckBoxStyle(Skin skin, String styleName, BitmapFont font) {
-        if (font == null || !skin.has(styleName, CheckBox.CheckBoxStyle.class)) {
-            return;
-        }
-        CheckBox.CheckBoxStyle style = new CheckBox.CheckBoxStyle(skin.get(styleName, CheckBox.CheckBoxStyle.class));
-        style.font = font;
-        skin.add(styleName, style, CheckBox.CheckBoxStyle.class);
-    }
-
-    private void overrideWindowStyle(Skin skin, String styleName, BitmapFont titleFont) {
-        if (titleFont == null || !skin.has(styleName, Window.WindowStyle.class)) {
-            return;
-        }
-        Window.WindowStyle style = new Window.WindowStyle(skin.get(styleName, Window.WindowStyle.class));
-        style.titleFont = titleFont;
-        skin.add(styleName, style, Window.WindowStyle.class);
     }
 
     /**
@@ -297,6 +151,7 @@ public class WorldContext implements Disposable {
                 var actor = (com.polsl.poiw.engine.actor.AbstractActor) clazz.getDeclaredConstructor().newInstance();
                 TextureAtlas objectsAtlas = game.getAssetService().get(AtlasAsset.OBJECTS);
                 TextureAtlas creaturesAtlas = game.getAssetService().get(AtlasAsset.CREATURES);
+                TextureAtlas npcAtlas = game.getAssetService().get(AtlasAsset.NPC);
                 TextureAtlas itemsAtlas = game.getAssetService().get(AtlasAsset.ITEMS);
                 TextureAtlas playerActionsAtlas = game.getAssetService().get(AtlasAsset.PLAYER_ACTIONS);
                 if (actor instanceof com.polsl.poiw.gameplay.character.PlayerCharacter pc) {
@@ -305,6 +160,8 @@ public class WorldContext implements Disposable {
                     trainingDummy.configureFromReplication(objectsAtlas, initialProps);
                 } else if (actor instanceof com.polsl.poiw.gameplay.actor.AbstractCreatureActor creature) {
                     creature.configureFromReplication(creaturesAtlas, initialProps);
+                } else if (actor instanceof com.polsl.poiw.gameplay.actor.NpcTraderActor npcTraderActor) {
+                    npcTraderActor.configureFromReplication(npcAtlas, initialProps);
                 } else if (actor instanceof com.polsl.poiw.gameplay.actor.CropActor cropActor) {
                     cropActor.configureFromReplication(
                         tiledParser != null ? tiledParser.getCurrentMap() : null,
@@ -544,15 +401,7 @@ public class WorldContext implements Disposable {
         gameWorld.addSystem(new MovementSystem());
         gameWorld.addSystem(new PlayerAnimationSystem());
         gameWorld.addSystem(new com.polsl.poiw.engine.system.CreatureAnimationSystem());
-
-        // in multiplayer the client adds InterpolationSystem + NetworkClock + ClientPrediction
-        if (game.getGameInstance().isMultiplayer()) {
-            networkClock = new com.polsl.poiw.engine.net.prediction.NetworkClock();
-            clientPrediction = new com.polsl.poiw.engine.net.prediction.ClientPrediction();
-            interpolationSystem = new InterpolationSystem();
-            interpolationSystem.setNetworkClock(networkClock);
-            gameWorld.addSystem(interpolationSystem);
-        }
+        gameWorld.addSystem(new com.polsl.poiw.engine.system.NpcAnimationSystem());
 
         // in multiplayer the client adds InterpolationSystem + NetworkClock + ClientPrediction
         if (game.getGameInstance().isMultiplayer()) {
@@ -581,8 +430,11 @@ public class WorldContext implements Disposable {
         AssetService assetService = game.getAssetService();
         TextureAtlas objectsAtlas = assetService.get(AtlasAsset.OBJECTS);
         TextureAtlas creaturesAtlas = assetService.get(AtlasAsset.CREATURES);
+        TextureAtlas npcAtlas = assetService.get(AtlasAsset.NPC);
 
-        var objectFactory = new com.polsl.poiw.gameplay.tiled.DefaultTiledObjectFactory(gameWorld, objectsAtlas, creaturesAtlas);
+        var objectFactory = new com.polsl.poiw.gameplay.tiled.DefaultTiledObjectFactory(
+            gameWorld, objectsAtlas, creaturesAtlas, npcAtlas
+        );
         objectFactory.setSkipReplicatedDamageableObjects(game.getGameInstance().isMultiplayer());
         this.tiledParser = new TiledMapParser(gameWorld, assetService);
         tiledParser.setObjectFactory(objectFactory);

@@ -17,14 +17,12 @@ import com.polsl.poiw.shared.protocol.NetworkProtocol;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * PlayerController — zarządza lokalnym graczem.
- */
+/** Lokalny kontroler gracza. */
 public class PlayerController {
 
     private static final String TAG = "PlayerController";
-    private static final int ATTACK_INPUT_FLAG = 1 << 30;
-    private static final int INPUT_SEQUENCE_MASK = ATTACK_INPUT_FLAG - 1;
+    private static final int INPUT_SEQUENCE_MASK = (1 << 30) - 1;
+    private static final float INPUT_RESEND_INTERVAL = 1f / 30f;
 
     private GameInstance gameInstance;
     private GameWorld world;
@@ -47,6 +45,10 @@ public class PlayerController {
 
     // sequential input number for prediction/reconciliation
     private int nextInputSequence = 0;
+    private float inputResendTimer = 0f;
+    private float lastSentDirX = Float.NaN;
+    private float lastSentDirY = Float.NaN;
+    private boolean lastSentSprinting;
 
     // client-side prediction buffer (set by WorldContext in multiplayer)
     private ClientPrediction clientPrediction;
@@ -54,9 +56,6 @@ public class PlayerController {
     public PlayerController() {
     }
 
-    // ===== Lifecycle =====
-
-    /** Wywoływane po stworzeniu controllera */
     public void initialize(GameInstance gameInstance, GameWorld world, GameMode gameMode,
                            HUD hud, Skin skin, TextureAtlas itemsAtlas) {
         this.gameInstance = gameInstance;
@@ -68,13 +67,10 @@ public class PlayerController {
         setupHUD();
     }
 
-    /** Konfiguracja początkowego HUD. Override w subklasach. */
     protected void setupHUD() {
     }
 
-    /** Aktualizacja co klatkę. Override w subklasach. */
     public void tick(float delta) {
-        // in multiplayer: send current input to server every frame
         if (gameInstance != null && gameInstance.isClient() && possessedPawn != null) {
             var move = possessedPawn.getComponent(
                 com.polsl.poiw.engine.component.MovementComponent.class);
@@ -83,69 +79,73 @@ public class PlayerController {
                 float dirY = move.getDirection().y;
                 boolean sprinting = move.isSprinting();
                 boolean attackPressed = consumeLocalAttackPressed();
-                int sequenceNumber = sendInputToServer(dirX, dirY, sprinting, attackPressed);
+                if (attackPressed) {
+                    sendAttackRequestToServer();
+                }
 
-                // save predicted position for reconciliation
+                inputResendTimer += delta;
+                if (!shouldSendInput(dirX, dirY, sprinting)) {
+                    return;
+                }
+
+                int sequenceNumber = sendInputToServer(dirX, dirY, sprinting);
+                rememberSentInput(dirX, dirY, sprinting);
+
                 if (clientPrediction != null && sequenceNumber >= 0) {
                     CollisionComponent coll = possessedPawn.getComponentByType(CollisionComponent.class);
                     if (coll != null && coll.getBody() != null) {
                         Vector2 bodyPos = coll.getBody().getPosition();
-                        clientPrediction.saveMove(sequenceNumber, dirX, dirY, bodyPos.x, bodyPos.y);
+                        Vector2 velocity = coll.getBody().getLinearVelocity();
+                        clientPrediction.saveMove(
+                            sequenceNumber,
+                            dirX,
+                            dirY,
+                            sprinting,
+                            bodyPos.x,
+                            bodyPos.y,
+                            velocity.x,
+                            velocity.y
+                        );
                     }
                 }
             }
         }
     }
 
-    /** Renderowanie wykonywane przed HUD-em. Override w subklasach, jeśli potrzebny jest screen-space pass. */
     public void renderBeforeHud() {
     }
 
-    /** Sprzątanie przy zamykaniu */
     public void destroy() {
         unpossess();
         removeAllWidgets();
     }
 
-    // ===== Possess / Unpossess =====
-
-    /**
-     * Przejmuje kontrolę nad aktorem (possess).
-     * Poprzednio kontrolowany aktor jest zwalniany.
-     */
     public void possess(Actor pawn) {
         if (possessedPawn != null) {
             unpossess();
         }
         this.possessedPawn = pawn;
+        resetInputSyncState();
         pawn.setOwnerId(playerId);
         Gdx.app.debug(TAG, "Possess: Actor #" + pawn.getActorId());
         onPossess(pawn);
     }
 
-    /** Zwalnia kontrolę nad aktorem */
     public void unpossess() {
         if (possessedPawn != null) {
             Gdx.app.debug(TAG, "Unpossess: Actor #" + possessedPawn.getActorId());
             possessedPawn = null;
+            resetInputSyncState();
             onUnpossess();
         }
     }
 
-    /** Reakcja na possess — override w subklasach */
     protected void onPossess(Actor pawn) {
     }
 
-    /** Reakcja na unpossess — override w subklasach */
     protected void onUnpossess() {
     }
 
-    // ===== Widget Management =====
-
-    /**
-     * Dodaje widget do viewportu HUD.
-     * Widget jest śledzony i automatycznie usuwany przy destroy().
-     */
     public void addWidgetToViewport(UserWidget widget) {
         if (hud == null) {
             Gdx.app.error(TAG, "Brak HUD — nie można dodać widgetu do viewportu");
@@ -155,14 +155,12 @@ public class PlayerController {
         hud.addToViewport(widget);
     }
 
-    /** Usuwa widget z viewportu HUD */
     public void removeWidgetFromViewport(UserWidget widget) {
         if (hud == null) return;
         managedWidgets.remove(widget);
         hud.removeFromViewport(widget);
     }
 
-    /** Usuwa wszystkie widgety dodane przez ten controller */
     public void removeAllWidgets() {
         if (hud == null) return;
         for (UserWidget widget : new ArrayList<>(managedWidgets)) {
@@ -170,8 +168,6 @@ public class PlayerController {
         }
         managedWidgets.clear();
     }
-
-    // ===== Gettery =====
 
     public Actor getPossessedPawn() { return possessedPawn; }
     public GameInstance getGameInstance() { return gameInstance; }
@@ -188,10 +184,6 @@ public class PlayerController {
 
     public void setClientPrediction(ClientPrediction prediction) { this.clientPrediction = prediction; }
 
-    // ===== Networking =====
-
-    // on server: called when client sends input every update
-    // applies movement direction to the posesed pawn
     public void receiveClientInput(float dirX, float dirY, boolean sprinting, int sequence) {
         if (possessedPawn == null) return;
         var move = possessedPawn.getComponent(
@@ -202,8 +194,7 @@ public class PlayerController {
         }
     }
 
-    // sends current input to server on the client
-    public int sendInputToServer(float dirX, float dirY, boolean sprinting, boolean attackPressed) {
+    public int sendInputToServer(float dirX, float dirY, boolean sprinting) {
         if (gameInstance == null || !gameInstance.isClient()) return -1;
         var netDriver = gameInstance.getNetDriver();
         if (netDriver == null) return -1;
@@ -216,10 +207,55 @@ public class PlayerController {
         msg.dirX = dirX;
         msg.dirY = dirY;
         msg.sprinting = sprinting;
-        msg.sequenceNumber = attackPressed ? sequenceNumber | ATTACK_INPUT_FLAG : sequenceNumber;
+        msg.sequenceNumber = sequenceNumber;
         msg.timestamp = gameInstance.getServerTime();
-        netDriver.sendToServer(msg, attackPressed);
+        netDriver.sendToServer(msg, false);
         return sequenceNumber;
+    }
+
+    private void sendAttackRequestToServer() {
+        if (gameInstance == null || !gameInstance.isClient()) {
+            return;
+        }
+
+        var netDriver = gameInstance.getNetDriver();
+        if (netDriver == null) {
+            return;
+        }
+
+        var msg = new NetworkProtocol.ClientAttackRequest();
+        msg.playerId = playerId;
+        netDriver.sendToServer(msg, true);
+    }
+
+    private boolean shouldSendInput(float dirX, float dirY, boolean sprinting) {
+        if (Float.isNaN(lastSentDirX) || Float.isNaN(lastSentDirY)) {
+            return true;
+        }
+
+        boolean changed = Math.abs(dirX - lastSentDirX) > 0.0001f
+            || Math.abs(dirY - lastSentDirY) > 0.0001f
+            || sprinting != lastSentSprinting;
+        if (changed) {
+            return true;
+        }
+
+        boolean moving = Math.abs(dirX) > 0.0001f || Math.abs(dirY) > 0.0001f || sprinting;
+        return moving && inputResendTimer >= INPUT_RESEND_INTERVAL;
+    }
+
+    private void rememberSentInput(float dirX, float dirY, boolean sprinting) {
+        lastSentDirX = dirX;
+        lastSentDirY = dirY;
+        lastSentSprinting = sprinting;
+        inputResendTimer = 0f;
+    }
+
+    private void resetInputSyncState() {
+        inputResendTimer = 0f;
+        lastSentDirX = Float.NaN;
+        lastSentDirY = Float.NaN;
+        lastSentSprinting = false;
     }
 
     private boolean consumeLocalAttackPressed() {

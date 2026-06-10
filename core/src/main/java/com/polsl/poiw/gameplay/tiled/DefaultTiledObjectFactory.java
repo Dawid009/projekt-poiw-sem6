@@ -24,11 +24,13 @@ import com.polsl.poiw.gameplay.actor.CropKind;
 import com.polsl.poiw.gameplay.actor.CreatureKind;
 import com.polsl.poiw.gameplay.actor.MineableActor;
 import com.polsl.poiw.gameplay.actor.MineableKind;
+import com.polsl.poiw.gameplay.actor.NpcTraderActor;
 import com.polsl.poiw.gameplay.actor.PropActor;
 import com.polsl.poiw.gameplay.actor.TreeActor;
 import com.polsl.poiw.gameplay.actor.TreeKind;
 import com.polsl.poiw.gameplay.actor.TrainingDummyActor;
 import com.polsl.poiw.gameplay.actor.TriggerActor;
+import com.polsl.poiw.gameplay.trade.TraderKind;
 
 import com.badlogic.gdx.maps.tiled.TiledMap;
 import com.badlogic.gdx.maps.tiled.TiledMapTileLayer;
@@ -48,14 +50,19 @@ public class DefaultTiledObjectFactory implements TiledObjectFactory {
     private final GameWorld gameWorld;
     private final TextureAtlas objectsAtlas;
     private final TextureAtlas creaturesAtlas;
+    private final TextureAtlas npcAtlas;
     private TiledMap currentMap;
     private TiledMapTileLayer waterLayer;
     private boolean skipReplicatedDamageableObjects;
 
-    public DefaultTiledObjectFactory(GameWorld gameWorld, TextureAtlas objectsAtlas, TextureAtlas creaturesAtlas) {
+    public DefaultTiledObjectFactory(GameWorld gameWorld,
+                                     TextureAtlas objectsAtlas,
+                                     TextureAtlas creaturesAtlas,
+                                     TextureAtlas npcAtlas) {
         this.gameWorld = gameWorld;
         this.objectsAtlas = objectsAtlas;
         this.creaturesAtlas = creaturesAtlas;
+        this.npcAtlas = npcAtlas;
     }
 
     /**
@@ -168,6 +175,7 @@ public class DefaultTiledObjectFactory implements TiledObjectFactory {
         MineableKind mineableKind = getMineableKind(tile, type);
         TreeKind treeKind = getTreeKind(tile, type);
         CropData cropData = getCropData(tile, type);
+        TraderKind traderKind = getTraderKind(tile, tileType);
         boolean chestTile = isChestTile(tile);
 
         if (cropData != null && collData == null) {
@@ -350,6 +358,35 @@ public class DefaultTiledObjectFactory implements TiledObjectFactory {
             Gdx.app.debug(TAG, "Crop '" + cropData.kind() + "' stage=" + cropData.growthStage()
                 + " at (" + worldX + ", " + worldY + ")");
             return crop;
+        }
+
+        if (traderKind != null) {
+            if (skipReplicatedDamageableObjects) {
+                Gdx.app.debug(TAG, "Skipping local trader spawn in multiplayer: " + traderKind);
+                return null;
+            }
+
+            if (npcAtlas == null) {
+                Gdx.app.error(TAG, "Brak atlasu NPC dla handlarza: " + traderKind);
+                return null;
+            }
+
+            NpcTraderActor trader = new NpcTraderActor();
+            trader.configure(
+                npcAtlas,
+                traderKind,
+                sizeW,
+                sizeH,
+                collData != null ? collData.halfW : 0f,
+                collData != null ? collData.halfH : 0f,
+                collData != null ? new Vector2(collData.offsetX, collData.offsetY) : Vector2.Zero,
+                sortOffsetY,
+                zOrder
+            );
+
+            gameWorld.spawnActor(trader, new Vector2(worldX, worldY));
+            Gdx.app.debug(TAG, "Trader '" + traderKind + "' at (" + worldX + ", " + worldY + ")");
+            return trader;
         }
 
         if (chestTile) {
@@ -620,6 +657,17 @@ public class DefaultTiledObjectFactory implements TiledObjectFactory {
 
     private boolean isChestTile(TiledMapTile tile) {
         return "chest".equalsIgnoreCase(getStringProperty(tile, "container_type", ""));
+    }
+
+    private TraderKind getTraderKind(TiledMapTile tile, String tileType) {
+        if (tile == null) {
+            return null;
+        }
+        String npcType = getStringProperty(tile, "npc_type", "");
+        if (npcType.isBlank() && !"NPC".equalsIgnoreCase(tileType)) {
+            return null;
+        }
+        return TraderKind.fromId(npcType);
     }
 
     /** Daje małą domyślną kolizję cropa, gdy tile nie ma własnego objectgroup. */

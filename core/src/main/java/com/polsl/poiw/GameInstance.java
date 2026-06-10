@@ -16,18 +16,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
 
-/**
- * GameInstance — globalny stan gry utrzymywany przez cały czas życia aplikacji.
- * <p>
- * Odpowiada za:
- * <ul>
- *   <li>Rejestr dostępnych poziomów ({@link LevelRegistry})</li>
- *   <li>Przechodzenie między światami (travel)</li>
- *   <li>Śledzenie aktywnego poziomu</li>
- *   <li>Konfigurację sesji (tryb gry, host, nazwa gracza)</li>
- *   <li>Zarządzanie stanem sesji sieciowej ({@link SessionState})</li>
- * </ul>
- */
+/** Trzyma stan sesji gry, poziomy i przejścia między nimi. */
 public class GameInstance {
 
     private static final String TAG = "GameInstance";
@@ -35,21 +24,13 @@ public class GameInstance {
     private final AuthService authService = new AuthService();
     private final SinglePlayerSaveService singlePlayerSaveService = new SinglePlayerSaveService();
 
-    // ===== Konfiguracja sesji =====
-
     public enum Mode { SINGLE_PLAYER, MULTIPLAYER }
 
-    /**
-     * stan sesji sieciowej — kontroluje dozwolone przejścia i guardy
-     */
+    /** Prosty stan klienta podczas łączenia i zmiany map. */
     public enum SessionState {
-        /** brak aktywnego połączenia */
         DISCONNECTED,
-        /** trwa próba połączenia z serwerem (czekanie na ServerAccept) */
         CONNECTING,
-        /** połączenie potwierdzone (ServerAccept otrzymany) */
         CONNECTED,
-        /** trwa zmiana mapy (server travel / client travel) */
         TRAVELLING
     }
 
