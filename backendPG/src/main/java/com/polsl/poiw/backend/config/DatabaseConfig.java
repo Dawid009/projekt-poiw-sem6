@@ -50,8 +50,7 @@ public class DatabaseConfig {
                                  "\"dataRejestracji\" TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
                                  ");";
 
-        // Migracja: dodaj kolumne jesli tabela juz istnieje bez niej
-        String migrujCzasWGrzeSQL = "ALTER TABLE GRACZE ADD COLUMN IF NOT EXISTS \"czasWGrze\" BIGINT DEFAULT 0;";
+       
 
         // Migracja: unikalna nazwa gracza (login) — warunek dla logowania po loginie
         String migrujUnikatNazwySQL = "DO $$ BEGIN " +
@@ -59,14 +58,7 @@ public class DatabaseConfig {
             "ALTER TABLE GRACZE ADD CONSTRAINT gracze_nazwa_unique UNIQUE (nazwa); " +
             "END IF; END $$;";
 
-        // Migracja: usuwa stara tabele PUNKTY jesli ma nieaktualna strukture (kolumna graczId lub nazwaGracza)
-        String migrujDropStarejPunktySQL = "DO $$ BEGIN " +
-            "IF EXISTS (SELECT 1 FROM information_schema.columns " +
-            "           WHERE table_schema = 'public' AND table_name = 'punkty' " +
-            "           AND column_name IN ('graczId', 'nazwaGracza')) THEN " +
-            "DROP TABLE PUNKTY; " +
-            "END IF; END $$;";
-
+       
         // Tabela statystyk — relacja 1:1 z GRACZE (id = id gracza)
         String createPunktySQL = "CREATE TABLE IF NOT EXISTS PUNKTY (" +
                                  "id INT PRIMARY KEY REFERENCES GRACZE(id), " +
@@ -89,13 +81,12 @@ public class DatabaseConfig {
              Statement stmt = conn.createStatement()) {
 
             stmt.execute(createGraczeSQL);
-            stmt.execute(migrujCzasWGrzeSQL);
             try {
                 stmt.execute(migrujUnikatNazwySQL);
             } catch (SQLException eMigr) {
                 System.err.println("Migracja unique nazwy: " + eMigr.getMessage());
             }
-            stmt.execute(migrujDropStarejPunktySQL); // usuwa stara PUNKTY z graczId/nazwaGracza
+            
             stmt.execute(createPunktySQL);           // tworzy nowa PUNKTY (1:1 z GRACZE)
             stmt.execute(initBrakujacychPunktySQL);  // uzupelnia wiersze dla istniejacych graczy
 

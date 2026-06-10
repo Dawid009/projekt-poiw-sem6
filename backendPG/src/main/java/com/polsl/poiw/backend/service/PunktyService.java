@@ -110,9 +110,26 @@ public class PunktyService {
         return getAllScoresSorted();
     }
 
-    // Pobiera TOP N graczy wedlug punktow.
+    // Pobiera TOP N graczy wedlug punktow — LIMIT w SQL.
     public static List<Punkty> getTopScores(int limit) {
-        return getAllScoresSorted().stream().limit(limit).toList();
+        List<Punkty> scores = new ArrayList<>();
+        String sql = SELECT_COLS + " ORDER BY \"punkty\" DESC LIMIT ?";
+
+        try (Connection conn = DatabaseConfig.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setInt(1, limit);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    scores.add(mapRow(rs));
+                }
+            }
+
+        } catch (SQLException e) {
+            System.err.println("Blad przy pobieraniu TOP " + limit + " wynikow: " + e.getMessage());
+        }
+
+        return scores;
     }
 
     // Pobiera statystyki konkretnego gracza po nazwie.
@@ -136,7 +153,7 @@ public class PunktyService {
         return null;
     }
 
-    // Alias dla kompatybilnosci â€” zwraca statystyki gracza jako liste (max 1 element).
+    // Alias dla kompatybilnosci zwraca statystyki gracza jako liste (max 1 element).
     public static List<Punkty> getScoresByPlayer(String nazwa) {
         List<Punkty> wynik = new ArrayList<>();
         Punkty p = getStatsByPlayerName(nazwa);
