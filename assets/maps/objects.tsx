@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<tileset version="1.10" tiledversion="1.12.0" name="objects" tilewidth="96" tileheight="128" tilecount="65" columns="0">
+<tileset version="1.10" tiledversion="1.12.0" name="objects" class="Crop" tilewidth="96" tileheight="128" tilecount="66" columns="0">
  <grid orientation="orthogonal" width="1" height="1"/>
  <tile id="1" type="Object">
   <properties>
@@ -210,7 +210,7 @@
    <property name="damage" type="float" value="7"/>
    <property name="damageDelay" type="float" value="7"/>
    <property name="hostile" type="bool" value="false"/>
-   <property name="life" type="float" value="100"/>
+   <property name="life" type="float" value="70"/>
    <property name="speed" type="float" value="2"/>
   </properties>
   <image source="../raw/creatures/cow/cow_idle_left_0.png" width="32" height="32"/>
@@ -234,7 +234,7 @@
    <property name="damage" type="float" value="4"/>
    <property name="damageDelay" type="float" value="5"/>
    <property name="hostile" type="bool" value="false"/>
-   <property name="life" type="float" value="90"/>
+   <property name="life" type="float" value="60"/>
    <property name="speed" type="float" value="2"/>
   </properties>
   <image source="../raw/creatures/pig/pig_idle_left_0.png" width="32" height="32"/>
@@ -258,7 +258,7 @@
    <property name="damage" type="float" value="4"/>
    <property name="damageDelay" type="float" value="5"/>
    <property name="hostile" type="bool" value="false"/>
-   <property name="life" type="float" value="90"/>
+   <property name="life" type="float" value="65"/>
    <property name="speed" type="float" value="2"/>
   </properties>
   <image source="../raw/creatures/sheep/sheep_idle_left_0.png" width="32" height="32"/>
@@ -306,7 +306,7 @@
    <property name="damage" type="float" value="12"/>
    <property name="damageDelay" type="float" value="1"/>
    <property name="hostile" type="bool" value="true"/>
-   <property name="life" type="float" value="120"/>
+   <property name="life" type="float" value="60"/>
    <property name="speed" type="float" value="3"/>
   </properties>
   <image source="../raw/creatures/skeleton/skeleton_idle_right_00.png" width="32" height="32"/>
@@ -343,7 +343,7 @@
    <property name="damage" type="float" value="9"/>
    <property name="damageDelay" type="float" value="1.4"/>
    <property name="hostile" type="bool" value="true"/>
-   <property name="life" type="float" value="150"/>
+   <property name="life" type="float" value="80"/>
    <property name="speed" type="float" value="2"/>
   </properties>
   <image source="../raw/creatures/slime_green/slime_green_idle_00.png" width="64" height="64"/>
@@ -457,5 +457,11 @@
  </tile>
  <tile id="75">
   <image source="../raw/objects/misc/cow_poop_3.png" width="10" height="10"/>
+ </tile>
+ <tile id="80" type="Spawner">
+  <properties>
+   <property name="creature_type" propertytype="CreatureType" value="NULL"/>
+  </properties>
+  <image source="../raw/objects/misc/spawner.png" width="16" height="16"/>
  </tile>
 </tileset>

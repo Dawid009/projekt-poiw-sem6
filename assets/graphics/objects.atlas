@@ -111,7 +111,7 @@ misc/cow_poop
   index: 0
 misc/cow_poop
   rotate: false
-  xy: 460, 166
+  xy: 480, 166
   size: 10, 10
   orig: 10, 10
   offset: 0, 0
@@ -125,7 +125,7 @@ misc/cow_poop
   index: 2
 misc/cow_poop
   rotate: false
-  xy: 474, 166
+  xy: 232, 122
   size: 10, 10
   orig: 10, 10
   offset: 0, 0
@@ -137,9 +137,16 @@ misc/lantern
   orig: 16, 48
   offset: 0, 0
   index: -1
+misc/spawner
+  rotate: false
+  xy: 400, 160
+  size: 16, 16
+  orig: 16, 16
+  offset: 0, 0
+  index: -1
 misc/wet_dirt
   rotate: false
-  xy: 440, 160
+  xy: 460, 160
   size: 16, 16
   orig: 16, 16
   offset: 0, 0
@@ -195,14 +202,14 @@ training_dummy/damaged_down
   index: 4
 trap/trap_off
   rotate: false
-  xy: 400, 160
+  xy: 420, 160
   size: 16, 16
   orig: 16, 16
   offset: 0, 0
   index: -1
 trap/trap_on
   rotate: false
-  xy: 420, 160
+  xy: 440, 160
   size: 16, 16
   orig: 16, 16
   offset: 0, 0

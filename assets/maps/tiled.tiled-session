@@ -21,15 +21,15 @@
         },
         "mainmap.tmx": {
             "expandedGroupLayers": [
-                15,
+                5,
                 12,
-                5
+                15
             ],
-            "scale": 2,
-            "selectedLayer": 4,
+            "scale": 4,
+            "selectedLayer": 11,
             "viewCenter": {
-                "x": 545.5,
-                "y": 704.75
+                "x": 725.75,
+                "y": 114.375
             }
         },
         "objects.tsx": {
@@ -44,7 +44,7 @@
         }
     },
     "frame.defaultDuration": 120,
-    "last.imagePath": "C:/studia/Poiw (sem6)/projekt-poiw-sem6/assets/raw/npc/miner/idle",
+    "last.imagePath": "C:/studia/Poiw (sem6)/projekt-poiw-sem6/assets/raw/objects/misc",
     "openFiles": [
         "mainmap.tmx",
         "objects.tsx",
@@ -53,7 +53,7 @@
         "decor.tsx"
     ],
     "project": "tiled.tiled-project",
-    "property.type": "NPCType",
+    "property.type": "int",
     "recentFiles": [
         "decor.tsx",
         "fence_tileset.tsx",
