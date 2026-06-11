@@ -60,8 +60,28 @@ public final class UiSkinStyles {
         return style;
     }
 
+    public static Label.LabelStyle copyScaledLabelStyle(Skin baseSkin, Skin fontSkin, String fontName, float fontScale) {
+        Label.LabelStyle style = baseSkin.has(DEFAULT_LABEL_STYLE, Label.LabelStyle.class)
+            ? copyLabelStyle(baseSkin.get(DEFAULT_LABEL_STYLE, Label.LabelStyle.class))
+            : new Label.LabelStyle();
+        Skin effectiveFontSkin = fontSkin != null ? fontSkin : baseSkin;
+        style.font = resolveScaledFont(effectiveFontSkin, fontName, resolveFont(effectiveFontSkin, fontName, style.font), fontScale);
+        if (style.fontColor == null) {
+            style.fontColor = Color.WHITE.cpy();
+        }
+        return style;
+    }
+
     static TextButton.TextButtonStyle copyTextButtonStyle(Skin skin, String styleName) {
         return new TextButton.TextButtonStyle(skin.get(styleName, TextButton.TextButtonStyle.class));
+    }
+
+    public static TextButton.TextButtonStyle copyTextButtonStyle(Skin baseSkin, String styleName,
+                                                                 Skin fontSkin, String fontName, float fontScale) {
+        TextButton.TextButtonStyle style = copyTextButtonStyle(baseSkin, styleName);
+        Skin effectiveFontSkin = fontSkin != null ? fontSkin : baseSkin;
+        style.font = resolveScaledFont(effectiveFontSkin, fontName, resolveFont(effectiveFontSkin, fontName, style.font), fontScale);
+        return style;
     }
 
     static TextButton.TextButtonStyle copyCompactTextButtonStyle(Skin skin, String styleName,
@@ -295,7 +315,7 @@ public final class UiSkinStyles {
             false
         );
         scaledFont.getData().setScale(fontScale);
-        scaledFont.setUseIntegerPositions(true);
+        scaledFont.setUseIntegerPositions(false);
         return scaledFont;
     }
 

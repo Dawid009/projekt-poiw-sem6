@@ -112,7 +112,7 @@ public class MainPlayerController extends PlayerController {
         progressBar.addChild(hpText);
         addWidgetToViewport(progressBar);
 
-        inventoryPanel = new InventoryPanelWidget(getSkin(), getItemsAtlas());
+        inventoryPanel = new InventoryPanelWidget(getSkin(), overlaySkin, getItemsAtlas(), "Ekwipunek", 8, 4, true);
         inventoryPanel.setAnchor(EAnchor.CENTER);
         inventoryPanel.setAlignment(EAnchor.CENTER);
         inventoryPanel.setOffset(0f, 0f);
@@ -143,7 +143,7 @@ public class MainPlayerController extends PlayerController {
         });
         addWidgetToViewport(inventoryPanel);
 
-        chestPanel = new InventoryPanelWidget(getSkin(), getItemsAtlas(), "Skrzynia", 4, 4, false);
+        chestPanel = new InventoryPanelWidget(getSkin(), overlaySkin, getItemsAtlas(), "Skrzynia", 4, 4, false);
         chestPanel.setAnchor(EAnchor.CENTER);
         chestPanel.setAlignment(EAnchor.CENTER);
         chestPanel.setVisibility(EVisibility.HIDDEN);
@@ -167,7 +167,7 @@ public class MainPlayerController extends PlayerController {
         });
         addWidgetToViewport(chestPanel);
 
-        tradePanel = new TradePanelWidget(getSkin(), getItemsAtlas());
+        tradePanel = new TradePanelWidget(getSkin(), overlaySkin, getItemsAtlas());
         tradePanel.setAnchor(EAnchor.CENTER);
         tradePanel.setAlignment(EAnchor.CENTER);
         tradePanel.setVisibility(EVisibility.HIDDEN);

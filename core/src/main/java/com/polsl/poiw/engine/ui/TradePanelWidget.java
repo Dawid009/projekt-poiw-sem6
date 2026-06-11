@@ -35,6 +35,7 @@ public class TradePanelWidget extends UserWidget {
     private static final float BUTTON_COLUMN_WIDTH = 28f;
     private static final float BUY_BUTTON_WIDTH = 26f;
     private static final float BUY_BUTTON_HEIGHT = 14f;
+    private static final float ITEM_TEXT_LEFT_PAD = 2f;
 
     public interface TradePanelActionListener {
         void onBuyRequested(int traderSlotIndex, String itemId);
@@ -51,6 +52,7 @@ public class TradePanelWidget extends UserWidget {
     ) {}
 
     private final Skin skin;
+    private final Skin textSkin;
     private final TextureAtlas itemsAtlas;
     private final Window window;
     private final Label traderLabel;
@@ -64,15 +66,19 @@ public class TradePanelWidget extends UserWidget {
     private List<InventoryStack> sellItems = List.of();
 
     public TradePanelWidget(Skin skin, TextureAtlas itemsAtlas) {
+        this(skin, skin, itemsAtlas);
+    }
+
+    public TradePanelWidget(Skin skin, Skin textSkin, TextureAtlas itemsAtlas) {
         super();
         this.skin = skin;
+        this.textSkin = textSkin != null ? textSkin : skin;
         this.itemsAtlas = itemsAtlas;
         this.window = new Window("Handel", skin);
         this.window.setMovable(false);
 
-        this.traderLabel = new Label("Kupiec", UiSkinStyles.resolveLabelStyle(skin, "default"));
+        this.traderLabel = new Label("Kupiec", UiSkinStyles.copyScaledLabelStyle(skin, this.textSkin, "font", 0.56f));
         this.traderLabel.setColor(Color.WHITE);
-        this.traderLabel.setFontScale(0.56f);
 
         this.offersTable = new Table();
         this.offersTable.top().left();
@@ -96,12 +102,10 @@ public class TradePanelWidget extends UserWidget {
         this.offersScrollPane.setCancelTouchFocus(false);
         this.offersScrollPane.setScrollBarTouch(false);
 
-        Label sellLabel = new Label("Towary do sprzedazy", UiSkinStyles.resolveLabelStyle(skin, "default"));
-        sellLabel.setFontScale(0.5f);
+        Label sellLabel = new Label("Towary do sprzedazy", UiSkinStyles.copyScaledLabelStyle(skin, this.textSkin, "font", 0.5f));
 
         this.sellSlotsTable = new Table();
-        this.sellButton = new TextButton("Sprzedaj", UiSkinStyles.copyTextButtonStyle(skin, "default"));
-        this.sellButton.getLabel().setFontScale(0.6f);
+        this.sellButton = new TextButton("Sprzedaj", UiSkinStyles.copyTextButtonStyle(skin, "default", this.textSkin, "font", 0.6f));
         this.sellButton.addListener(new ClickListener() {
             @Override
             public void clicked(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y) {
@@ -176,7 +180,7 @@ public class TradePanelWidget extends UserWidget {
         headerBuy.setColor(Color.WHITE);
         headerSell.setColor(Color.WHITE);
 
-        offersTable.add(headerItem).left().width(ITEM_COLUMN_WIDTH).padBottom(1f).padRight(2f);
+        offersTable.add(headerItem).left().width(ITEM_COLUMN_WIDTH).padLeft(ITEM_TEXT_LEFT_PAD).padBottom(1f).padRight(2f);
         offersTable.add(headerBuy).left().width(PRICE_COLUMN_WIDTH).padBottom(1f).padRight(2f);
         offersTable.add(headerSell).left().width(PRICE_COLUMN_WIDTH).padBottom(1f).padRight(2f);
         offersTable.add().width(BUTTON_COLUMN_WIDTH);
@@ -191,8 +195,7 @@ public class TradePanelWidget extends UserWidget {
             Label itemNameLabel = new Label(itemLabel, scaledLabelStyle());
             Label buyLabel = new Label(offer.buyPriceLabel(), scaledLabelStyle());
             Label sellLabel = new Label(offer.sellPriceLabel(), scaledLabelStyle());
-            TextButton buyButton = new TextButton("Kup", UiSkinStyles.copyTextButtonStyle(skin, "default"));
-            buyButton.getLabel().setFontScale(0.55f);
+            TextButton buyButton = new TextButton("Kup", UiSkinStyles.copyTextButtonStyle(skin, "default", textSkin, "font", 0.55f));
             buyButton.setDisabled(offer.quantity() <= 0 || definition == null);
             buyButton.addListener(new ClickListener() {
                 @Override
@@ -210,7 +213,7 @@ public class TradePanelWidget extends UserWidget {
                 }
             });
 
-            offersTable.add(itemNameLabel).left().width(ITEM_COLUMN_WIDTH).padBottom(0.8f).padRight(2f);
+            offersTable.add(itemNameLabel).left().width(ITEM_COLUMN_WIDTH).padLeft(ITEM_TEXT_LEFT_PAD).padBottom(0.8f).padRight(2f);
             offersTable.add(buyLabel).left().width(PRICE_COLUMN_WIDTH).padBottom(0.8f).padRight(2f);
             offersTable.add(sellLabel).left().width(PRICE_COLUMN_WIDTH).padBottom(0.8f).padRight(2f);
             offersTable.add(buyButton).width(BUY_BUTTON_WIDTH).height(BUY_BUTTON_HEIGHT).padBottom(0.8f);
@@ -247,8 +250,8 @@ public class TradePanelWidget extends UserWidget {
         }
 
         Image icon = createIcon(stack.getDefinition());
-        Label quantityLabel = new Label(String.valueOf(stack.getQuantity()), UiSkinStyles.resolveLabelStyle(skin, "list"));
-        quantityLabel.setFontScale(0.6f);
+        Label quantityLabel = new Label(String.valueOf(stack.getQuantity()),
+            UiSkinStyles.copyScaledLabelStyle(skin, textSkin, "list", 0.6f));
 
         Table content = new Table();
         content.add(icon).size(ICON_SIZE, ICON_SIZE);
@@ -288,7 +291,7 @@ public class TradePanelWidget extends UserWidget {
     }
 
     private Label.LabelStyle scaledLabelStyle() {
-        Label.LabelStyle style = UiSkinStyles.copyScaledLabelStyle(skin, "font", CONTENT_FONT_SCALE);
+        Label.LabelStyle style = UiSkinStyles.copyScaledLabelStyle(skin, textSkin, "font", CONTENT_FONT_SCALE);
         style.fontColor = Color.WHITE;
         return style;
     }

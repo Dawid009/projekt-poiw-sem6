@@ -2,11 +2,14 @@ package com.polsl.poiw.engine.level;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.maps.tiled.TiledMap;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.utils.Disposable;
+import com.badlogic.gdx.utils.ObjectMap;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.polsl.poiw.Main;
 import com.polsl.poiw.engine.asset.AssetService;
@@ -90,6 +93,7 @@ public class WorldContext implements Disposable {
         if (skinAsset == SkinAsset.MENU) {
             MenuSkinPatcher.apply(this.skin, game.getAssetService().get(SkinAsset.DEFAULT));
         }
+        configureSkinFontRendering(this.skin);
         TextureAtlas itemsAtlas = game.getAssetService().get(AtlasAsset.ITEMS);
 
         Stage hudStage = new Stage(new FitViewport(320f, 180f), game.getBatch());
@@ -126,6 +130,33 @@ public class WorldContext implements Disposable {
 
     private SkinAsset resolveSkinAsset() {
         return levelDef != null && !levelDef.isGameWorld() ? SkinAsset.MENU : SkinAsset.DEFAULT;
+    }
+
+    private void configureSkinFontRendering(Skin skin) {
+        if (skin == null) {
+            return;
+        }
+
+        ObjectMap<String, BitmapFont> fonts = skin.getAll(BitmapFont.class);
+        for (BitmapFont font : fonts.values()) {
+            if (font == null) {
+                continue;
+            }
+
+            font.setUseIntegerPositions(false);
+        }
+
+        for (BitmapFont font : fonts.values()) {
+            if (font == null) {
+                continue;
+            }
+
+            for (var region : font.getRegions()) {
+                if (region != null && region.getTexture() != null) {
+                    region.getTexture().setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest);
+                }
+            }
+        }
     }
 
     /**

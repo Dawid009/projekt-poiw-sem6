@@ -48,6 +48,7 @@ public class InventoryPanelWidget extends UserWidget {
     }
 
     private final Skin skin;
+    private final Skin textSkin;
     private final TextureAtlas itemsAtlas;
     private final Window window;
     private final Table itemsTable;
@@ -71,10 +72,11 @@ public class InventoryPanelWidget extends UserWidget {
     private InventoryActionListener actionListener;
 
     public InventoryPanelWidget(Skin skin, TextureAtlas itemsAtlas) {
-        this(skin, itemsAtlas, "Ekwipunek", DEFAULT_GRID_COLUMNS, DEFAULT_VISIBLE_ROWS, true);
+        this(skin, skin, itemsAtlas, "Ekwipunek", DEFAULT_GRID_COLUMNS, DEFAULT_VISIBLE_ROWS, true);
     }
 
     public InventoryPanelWidget(Skin skin,
+                                Skin textSkin,
                                 TextureAtlas itemsAtlas,
                                 String title,
                                 int gridColumns,
@@ -82,6 +84,7 @@ public class InventoryPanelWidget extends UserWidget {
                                 boolean showActionButtons) {
         super();
         this.skin = skin;
+        this.textSkin = textSkin != null ? textSkin : skin;
         this.itemsAtlas = itemsAtlas;
         this.gridColumns = Math.max(1, gridColumns);
         this.visibleRows = Math.max(1, visibleRows);
@@ -95,20 +98,17 @@ public class InventoryPanelWidget extends UserWidget {
         this.itemsTable = new Table();
         this.itemsTable.top().left();
 
-        Label.LabelStyle titleStyle = UiSkinStyles.resolveLabelStyle(skin, "default");
+        Label.LabelStyle titleStyle = UiSkinStyles.copyScaledLabelStyle(skin, this.textSkin, "font", 0.55f);
         this.titleLabel = new Label(title != null && !title.isBlank() ? title : "Ekwipunek", titleStyle);
         this.titleLabel.setColor(Color.WHITE);
-        this.titleLabel.setFontScale(0.55f);
         this.titleLabel.setAlignment(Align.left);
 
-        Label.LabelStyle tooltipNameStyle = UiSkinStyles.resolveLabelStyle(skin, "list");
+        Label.LabelStyle tooltipNameStyle = UiSkinStyles.copyScaledLabelStyle(skin, this.textSkin, "list", 0.72f);
         this.tooltipNameLabel = new Label("", tooltipNameStyle);
-        this.tooltipNameLabel.setFontScale(0.72f);
 
-        Label.LabelStyle tooltipDescStyle = UiSkinStyles.resolveLabelStyle(skin, "list");
+        Label.LabelStyle tooltipDescStyle = UiSkinStyles.copyScaledLabelStyle(skin, this.textSkin, "list", 0.58f);
         this.tooltipDescLabel = new Label("", tooltipDescStyle);
         this.tooltipDescLabel.setWrap(true);
-        this.tooltipDescLabel.setFontScale(0.58f);
 
         this.tooltipTable = new Table();
         this.tooltipTable.setBackground(skin.getDrawable("list"));
@@ -117,12 +117,9 @@ public class InventoryPanelWidget extends UserWidget {
         this.tooltipDescCell = this.tooltipTable.add(tooltipDescLabel).left();
         this.tooltipTable.setVisible(false);
 
-        this.useButton = new TextButton("Uzyj", UiSkinStyles.copyTextButtonStyle(skin, "default"));
-        this.dropButton = new TextButton("Wyrzuc", UiSkinStyles.copyTextButtonStyle(skin, "default"));
-        this.assignButton = new TextButton("Przypisz", UiSkinStyles.copyTextButtonStyle(skin, "default"));
-        this.useButton.getLabel().setFontScale(0.6f);
-        this.dropButton.getLabel().setFontScale(0.6f);
-        this.assignButton.getLabel().setFontScale(0.6f);
+        this.useButton = new TextButton("Uzyj", UiSkinStyles.copyTextButtonStyle(skin, "default", this.textSkin, "font", 0.6f));
+        this.dropButton = new TextButton("Wyrzuc", UiSkinStyles.copyTextButtonStyle(skin, "default", this.textSkin, "font", 0.6f));
+        this.assignButton = new TextButton("Przypisz", UiSkinStyles.copyTextButtonStyle(skin, "default", this.textSkin, "font", 0.6f));
 
         Table buttonRow = new Table();
         buttonRow.defaults().width(BUTTON_WIDTH).height(BUTTON_HEIGHT).padTop(1f);
@@ -281,8 +278,8 @@ public class InventoryPanelWidget extends UserWidget {
 
         Image icon = createIcon(definition);
 
-        Label quantity = new Label(String.valueOf(stack.getQuantity()), UiSkinStyles.resolveLabelStyle(skin, "list"));
-        quantity.setFontScale(0.6f);
+        Label quantity = new Label(String.valueOf(stack.getQuantity()),
+            UiSkinStyles.copyScaledLabelStyle(skin, textSkin, "list", 0.6f));
 
         Table iconLayer = new Table();
         iconLayer.add(icon).size(ICON_SIZE, ICON_SIZE);
