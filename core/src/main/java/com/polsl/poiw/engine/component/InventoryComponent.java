@@ -232,6 +232,19 @@ public class InventoryComponent extends AbstractActorComponent {
         return snapshot;
     }
 
+    public List<InventoryStack> clearAndExtractSnapshot() {
+        List<InventoryStack> snapshot = getItemsSnapshot();
+        if (snapshot.isEmpty()) {
+            return snapshot;
+        }
+
+        stacks.clear();
+        clearAssignedItem();
+        syncReplicatedStacks();
+        broadcastChange();
+        return snapshot;
+    }
+
     /** Zamienia zawartość inventory na prostą listę wpisów do save'a. */
     public List<SaveGameData.InventoryEntryData> buildSaveEntries() {
         List<SaveGameData.InventoryEntryData> entries = new ArrayList<>();
@@ -418,8 +431,16 @@ public class InventoryComponent extends AbstractActorComponent {
             return;
         }
 
+        clearAssignedItem();
+    }
+
+    private void clearAssignedItem() {
+        if (getOwner() == null) {
+            return;
+        }
+
         PlayerAssignedItemComponent assignedItemComponent = getOwner().getComponent(PlayerAssignedItemComponent.class);
-        if (assignedItemComponent != null && itemId.equals(assignedItemComponent.getAssignedItemId())) {
+        if (assignedItemComponent != null) {
             assignedItemComponent.clearAssignedItem();
         }
     }

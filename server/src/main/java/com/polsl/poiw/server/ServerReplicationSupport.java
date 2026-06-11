@@ -246,15 +246,9 @@ final class ServerReplicationSupport {
                          Map<Integer, PlayerController> playerControllers,
                          int connectionId,
                          int playerId,
-                         String playerName) {
-        ConnectionManager connMgr = netDriver.getConnectionManager();
-        int playerIndex = connMgr.getPlayerCount() - 1;
-        Vector2 spawnPos;
-        if (tiledParser != null && !tiledParser.getAllPlayerStartPositions().isEmpty()) {
-            spawnPos = tiledParser.getPlayerStartPosition(playerIndex);
-        } else {
-            spawnPos = gameMode.getPlayerStartPosition(playerIndex);
-        }
+                         String playerName,
+                         int spawnIndex) {
+        Vector2 spawnPos = resolvePlayerSpawnPosition(gameMode, tiledParser, spawnIndex);
 
         AbstractActor pawn;
         if (gameMode.getDefaultPawnClass() != null) {
@@ -295,6 +289,14 @@ final class ServerReplicationSupport {
 
         Gdx.app.log(TAG, "Spawned pawn for player " + playerName
             + " at (" + spawnPos.x + ", " + spawnPos.y + ")");
+    }
+
+    Vector2 resolvePlayerSpawnPosition(GameMode gameMode, TiledMapParser tiledParser, int spawnIndex) {
+        if (tiledParser != null && !tiledParser.getAllPlayerStartPositions().isEmpty()) {
+            return new Vector2(tiledParser.getPlayerStartPosition(spawnIndex));
+        }
+
+        return new Vector2(gameMode.getPlayerStartPosition(spawnIndex));
     }
 
     private void sendReplicationUpdatesInChunks(int connectionId,
@@ -364,24 +366,32 @@ final class ServerReplicationSupport {
 
     private Map<String, Object> buildInitialSpawnProperties(com.polsl.poiw.engine.actor.Actor actor) {
         if (actor instanceof TrainingDummyActor trainingDummy) {
-            return trainingDummy.buildInitialReplicationProperties();
+            return toSerializableSpawnProperties(trainingDummy.buildInitialReplicationProperties());
         }
         if (actor instanceof com.polsl.poiw.gameplay.actor.AbstractCreatureActor creature) {
-            return creature.buildInitialReplicationProperties();
+            return toSerializableSpawnProperties(creature.buildInitialReplicationProperties());
         }
         if (actor instanceof com.polsl.poiw.gameplay.actor.AbstractTiledTargetActor tiledTargetActor) {
-            return tiledTargetActor.buildInitialReplicationProperties();
+            return toSerializableSpawnProperties(tiledTargetActor.buildInitialReplicationProperties());
         }
         if (actor instanceof TiledVisualActor tiledVisualActor) {
-            return tiledVisualActor.buildInitialReplicationProperties();
+            return toSerializableSpawnProperties(tiledVisualActor.buildInitialReplicationProperties());
         }
         if (actor instanceof ItemPickupActor itemPickupActor) {
-            return itemPickupActor.buildInitialReplicationProperties();
+            return toSerializableSpawnProperties(itemPickupActor.buildInitialReplicationProperties());
         }
         if (actor instanceof NpcTraderActor npcTraderActor) {
-            return npcTraderActor.buildInitialReplicationProperties();
+            return toSerializableSpawnProperties(npcTraderActor.buildInitialReplicationProperties());
         }
-        return Map.of();
+        return new HashMap<>();
+    }
+
+    private Map<String, Object> toSerializableSpawnProperties(Map<String, Object> properties) {
+        if (properties == null || properties.isEmpty()) {
+            return new HashMap<>();
+        }
+
+        return new HashMap<>(properties);
     }
 
     private boolean hasCorrectionPositionChanged(PlayerConnection conn, Vector2 pos, Vector2 vel) {

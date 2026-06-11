@@ -43,6 +43,7 @@ public final class NetworkSerializer {
         // input
         kryo.register(NetworkProtocol.ClientInputUpdate.class);
         kryo.register(NetworkProtocol.ClientAttackRequest.class);
+        kryo.register(NetworkProtocol.ClientRespawnRequest.class);
         kryo.register(NetworkProtocol.InventoryActionType.class);
         kryo.register(NetworkProtocol.ClientInventoryAction.class);
         kryo.register(NetworkProtocol.ClientToolSelection.class);

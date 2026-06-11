@@ -7,6 +7,7 @@ import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.polsl.poiw.Main;
 import com.polsl.poiw.engine.component.CombatComponent;
 import com.polsl.poiw.engine.component.DamageReactionComponent;
+import com.polsl.poiw.engine.component.HealthComponent;
 import com.polsl.poiw.engine.component.MovementComponent;
 import com.polsl.poiw.engine.component.PlayerAnimationComponent;
 import com.polsl.poiw.engine.component.PlayerToolComponent;
@@ -32,6 +33,7 @@ public class PlayerAnimationSystem extends IteratingSystem {
         PlayerAnimationComponent animation = PlayerAnimationComponent.MAPPER.get(entity);
         CombatComponent combat = CombatComponent.MAPPER.get(entity);
         DamageReactionComponent damageReaction = DamageReactionComponent.MAPPER.get(entity);
+        HealthComponent health = entity.getComponent(HealthComponent.class);
         PlayerToolComponent toolComponent = PlayerToolComponent.MAPPER.get(entity);
         PlayerToolType toolType = toolComponent != null ? toolComponent.getActiveTool() : PlayerToolType.SWORD;
         float movementAnimationSpeedScale = resolveMovementAnimationSpeedScale(movement);
@@ -47,6 +49,11 @@ public class PlayerAnimationSystem extends IteratingSystem {
             sprite.getColor().set(1f, 0.45f, 0.45f, 1f);
         } else {
             sprite.getColor().set(1f, 1f, 1f, 1f);
+        }
+
+        if (health != null && !health.isAlive()) {
+            applyFrameScale(transform, sprite.getRegion());
+            return;
         }
 
         if (combat == null) {

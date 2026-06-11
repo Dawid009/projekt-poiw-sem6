@@ -37,6 +37,7 @@ import com.polsl.poiw.input.GameControllerState;
 import com.polsl.poiw.input.KeyboardController;
 import com.polsl.poiw.gameplay.actor.ItemPickupActor;
 import com.polsl.poiw.gameplay.actor.TiledVisualActor;
+import com.polsl.poiw.gameplay.character.PlayerCharacter;
 import com.polsl.poiw.gameplay.level.LevelDefinitions;
 
 /** Aktywna instancja poziomu z całym stanem świata i UI. */
@@ -598,6 +599,8 @@ public class WorldContext implements Disposable {
             Gdx.app.log(TAG, "=== END NETWORK DEBUG ===");
         }
 
+        boolean deathInputLock = isLocalPlayerDead();
+
         // T — toggle chat input (multiplayer only)
         if (chatWidget != null && !chatWidget.isInputActive() && Gdx.input.isKeyJustPressed(Input.Keys.T)) {
             chatWidget.activateInput();
@@ -605,10 +608,16 @@ public class WorldContext implements Disposable {
                 keyboardController.setActiveState(com.polsl.poiw.input.IdleControllerState.class);
             }
         }
-        // restore game input when chat is deactivated
-        if (chatWidget != null && !chatWidget.isInputActive() && keyboardController != null
-            && keyboardController.getActiveState() instanceof com.polsl.poiw.input.IdleControllerState) {
-            keyboardController.setActiveState(GameControllerState.class);
+
+        boolean chatInputLock = chatWidget != null && chatWidget.isInputActive();
+        if (keyboardController != null) {
+            boolean shouldBlockGameplayInput = chatInputLock || deathInputLock;
+            boolean isIdle = keyboardController.getActiveState() instanceof com.polsl.poiw.input.IdleControllerState;
+            if (shouldBlockGameplayInput && !isIdle) {
+                keyboardController.setActiveState(com.polsl.poiw.input.IdleControllerState.class);
+            } else if (!shouldBlockGameplayInput && isIdle) {
+                keyboardController.setActiveState(GameControllerState.class);
+            }
         }
 
         // TAB — show/hide player list (multiplayer only)
@@ -644,6 +653,14 @@ public class WorldContext implements Disposable {
         // HUD tick i act
         updateDebugHud(delta);
         hud.update(delta);
+    }
+
+    private boolean isLocalPlayerDead() {
+        if (playerController == null || !(playerController.getPossessedPawn() instanceof PlayerCharacter player)) {
+            return false;
+        }
+
+        return player.isDead();
     }
 
     private void updateDebugHud(float delta) {

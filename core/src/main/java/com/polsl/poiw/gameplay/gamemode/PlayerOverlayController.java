@@ -5,6 +5,7 @@ import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
 import com.polsl.poiw.GameInstance;
 import com.polsl.poiw.engine.auth.AuthService;
+import com.polsl.poiw.engine.ui.DeathMenuWidget;
 import com.polsl.poiw.engine.ui.EVisibility;
 import com.polsl.poiw.engine.ui.InventoryPanelWidget;
 import com.polsl.poiw.engine.ui.PauseMenuWidget;
@@ -20,6 +21,7 @@ final class PlayerOverlayController {
     private final PauseMenuWidget pauseMenu;
     private final SettingsPanelWidget settingsPanel;
     private final StatsPanelWidget statsPanel;
+    private final DeathMenuWidget deathMenu;
     private final TextBlock saveStatusText;
     private final Runnable clearInteractionPanels;
 
@@ -30,6 +32,7 @@ final class PlayerOverlayController {
                             PauseMenuWidget pauseMenu,
                             SettingsPanelWidget settingsPanel,
                             StatsPanelWidget statsPanel,
+                            DeathMenuWidget deathMenu,
                             TextBlock saveStatusText,
                             Runnable clearInteractionPanels) {
         this.owner = owner;
@@ -37,6 +40,7 @@ final class PlayerOverlayController {
         this.pauseMenu = pauseMenu;
         this.settingsPanel = settingsPanel;
         this.statsPanel = statsPanel;
+        this.deathMenu = deathMenu;
         this.saveStatusText = saveStatusText;
         this.clearInteractionPanels = clearInteractionPanels;
     }
@@ -53,6 +57,10 @@ final class PlayerOverlayController {
     }
 
     void handlePauseToggle() {
+        if (deathMenu != null && deathMenu.isVisible()) {
+            return;
+        }
+
         if (Gdx.input == null || !Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
             return;
         }
@@ -78,7 +86,8 @@ final class PlayerOverlayController {
     boolean isOverlayVisible() {
         return (pauseMenu != null && pauseMenu.isVisible())
             || (settingsPanel != null && settingsPanel.isVisible())
-            || (statsPanel != null && statsPanel.isVisible());
+            || (statsPanel != null && statsPanel.isVisible())
+            || (deathMenu != null && deathMenu.isVisible());
     }
 
     void hidePauseMenu() {
@@ -181,6 +190,11 @@ final class PlayerOverlayController {
         }
     }
 
+    void saveAndQuitToMainMenu() {
+        saveGameProgress();
+        quitToMainMenu();
+    }
+
     void saveGameProgress() {
         GameInstance gameInstance = owner.getGameInstance();
         if (gameInstance == null || !gameInstance.isSinglePlayer()) {
@@ -198,6 +212,32 @@ final class PlayerOverlayController {
         }
     }
 
+    void showDeathMenu() {
+        hideInventory();
+        if (pauseMenu != null) {
+            pauseMenu.setVisibility(EVisibility.HIDDEN);
+        }
+        if (settingsPanel != null) {
+            settingsPanel.setVisibility(EVisibility.HIDDEN);
+        }
+        if (statsPanel != null) {
+            statsPanel.setVisibility(EVisibility.HIDDEN);
+        }
+        if (deathMenu != null) {
+            deathMenu.setVisibility(EVisibility.VISIBLE);
+        }
+    }
+
+    void hideDeathMenu() {
+        if (deathMenu != null) {
+            deathMenu.setVisibility(EVisibility.HIDDEN);
+        }
+    }
+
+    boolean isDeathMenuVisible() {
+        return deathMenu != null && deathMenu.isVisible();
+    }
+
     void reset() {
         if (pauseMenu != null) {
             pauseMenu.setVisibility(EVisibility.HIDDEN);
@@ -207,6 +247,9 @@ final class PlayerOverlayController {
         }
         if (statsPanel != null) {
             statsPanel.setVisibility(EVisibility.HIDDEN);
+        }
+        if (deathMenu != null) {
+            deathMenu.setVisibility(EVisibility.HIDDEN);
         }
         if (saveStatusText != null) {
             saveStatusText.setVisibility(EVisibility.HIDDEN);

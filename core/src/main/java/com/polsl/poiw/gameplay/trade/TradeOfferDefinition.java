@@ -2,6 +2,10 @@ package com.polsl.poiw.gameplay.trade;
 
 import com.polsl.poiw.engine.inventory.ItemDefinition;
 
+/**
+ * Definicja pojedynczej oferty kupca.
+ * Przechowuje sprzedawany przedmiot, stan początkowy i ceny kupna/sprzedaży.
+ */
 public record TradeOfferDefinition(
     ItemDefinition itemDefinition,
     int initialStock,

@@ -14,6 +14,7 @@ public class PlayerConnection {
     private int lastAcceptedInputSeq;
     private int lastCorrectionSentSeq;
     private int lastCorrectionSentTick;
+    private int spawnIndex;
     private float lastCorrectionX;
     private float lastCorrectionY;
     private float lastCorrectionVelX;
@@ -21,7 +22,7 @@ public class PlayerConnection {
     private int rejectedInputCount;
     private float ping;
 
-    public PlayerConnection(int connectionId, int playerId, String playerName) {
+    public PlayerConnection(int connectionId, int playerId, String playerName, int spawnIndex) {
         this.connectionId = connectionId;
         this.playerId = playerId;
         this.playerName = playerName;
@@ -29,6 +30,7 @@ public class PlayerConnection {
         this.lastAcceptedInputSeq = -1;
         this.lastCorrectionSentSeq = -1;
         this.lastCorrectionSentTick = -1;
+        this.spawnIndex = Math.max(0, spawnIndex);
         this.lastCorrectionX = Float.NaN;
         this.lastCorrectionY = Float.NaN;
         this.lastCorrectionVelX = Float.NaN;
@@ -50,6 +52,8 @@ public class PlayerConnection {
     public void setLastCorrectionSentSeq(int seq) { this.lastCorrectionSentSeq = seq; }
     public int getLastCorrectionSentTick() { return lastCorrectionSentTick; }
     public void setLastCorrectionSentTick(int tick) { this.lastCorrectionSentTick = tick; }
+    public int getSpawnIndex() { return spawnIndex; }
+    public void setSpawnIndex(int spawnIndex) { this.spawnIndex = Math.max(0, spawnIndex); }
     public float getLastCorrectionX() { return lastCorrectionX; }
     public void setLastCorrectionX(float x) { this.lastCorrectionX = x; }
     public float getLastCorrectionY() { return lastCorrectionY; }

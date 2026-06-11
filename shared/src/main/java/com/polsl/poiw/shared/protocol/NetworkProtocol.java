@@ -9,7 +9,7 @@ import java.util.Map;
 public final class NetworkProtocol {
 
     // wersja protokołu - musi być taka sama między klientem i serwerem
-    public static final int PROTOCOL_VERSION = 10;
+    public static final int PROTOCOL_VERSION = 11;
 
     // maksymalna długość wiadomości czatu
     public static final int MAX_CHAT_MESSAGE_LENGTH = 60;
@@ -94,6 +94,10 @@ public final class NetworkProtocol {
     }
 
     public static class ClientAttackRequest {
+        public int playerId;
+    }
+
+    public static class ClientRespawnRequest {
         public int playerId;
     }
 

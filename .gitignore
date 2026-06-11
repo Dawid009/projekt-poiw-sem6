@@ -1,5 +1,6 @@
 ## Gradle:
 .gradle/
+.gradle-local/
 gradle-app.setting
 /build/
 /android/build/
@@ -14,6 +15,7 @@ gradle-app.setting
 /server/build/
 /backendPG/build/
 /shared/build/
+/utils/build/
 
 ## Java:
 *.class

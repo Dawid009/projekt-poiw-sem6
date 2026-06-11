@@ -39,6 +39,7 @@ public class PlayerCharacter extends AbstractActor {
 
     private static final float PLAYER_SPEED = 3.5f;
     private static final float MAX_HEALTH = 100f;
+    private static final float DEATH_ROTATION_DEG = -90f;
     private static final String PLAYER_REGION = "player";
     private static final float SPRITE_PX = 32f;
     private static final float PIXELS_PER_METER = 16f;
@@ -47,14 +48,23 @@ public class PlayerCharacter extends AbstractActor {
     private static final float COLLISION_X_PX = 11f;
     private static final float COLLISION_Y_PX = 18f;
     private static final float SPRITE_CENTER_PX = 16f;
+    private boolean deathStateApplied;
+    private boolean deathDropHandled;
 
     public PlayerCharacter() {
     }
 
+    /** Dodaje komponenty potrzebne do działania gracza po stronie serwera. */
     public void configureServer() {
         addCommonComponents(SPRITE_PX / PIXELS_PER_METER, false);
     }
 
+    /**
+     * Dodaje pełną konfigurację klienta, razem ze sprite'em i animacjami.
+     *
+     * @param atlas atlas bazowy gracza
+     * @param playerActionsAtlas atlas animacji akcji
+     */
     public void configure(TextureAtlas atlas, TextureAtlas playerActionsAtlas) {
         TextureAtlas playerAtlas = resolvePlayerAtlas(atlas, playerActionsAtlas);
         TextureRegion region = playerAtlas != null ? playerAtlas.findRegion(PLAYER_REGION) : null;
@@ -89,67 +99,183 @@ public class PlayerCharacter extends AbstractActor {
         if (hc != null) hc.applyDamage(amount);
     }
 
+    /** Leczy gracza o podaną wartość, z zachowaniem górnego limitu HP. */
     public void heal(float amount) {
         HealthComponent hc = getComponent(HealthComponent.class);
         if (hc != null) hc.heal(amount);
     }
 
+    /** Zwraca {@code true}, gdy gracz ma dodatnią liczbę punktów życia. */
     public boolean isAlive() {
         HealthComponent hc = getComponent(HealthComponent.class);
         return hc != null && hc.isAlive();
     }
 
+    /** Zwraca {@code true}, gdy punkty życia spadły do zera. */
+    public boolean isDead() {
+        return !isAlive();
+    }
+
+    /** Zwraca bindowalne aktualne HP używane przez HUD i inne widoki. */
     public PropertyBinding<Float> getHealth() {
         HealthComponent hc = getComponent(HealthComponent.class);
         return hc != null ? hc.getHealthProperty() : new PropertyBinding<>(0f);
     }
 
+    /** Zwraca bindowalne maksymalne HP gracza. */
     public PropertyBinding<Float> getMaxHealth() {
         HealthComponent hc = getComponent(HealthComponent.class);
         return hc != null ? hc.getMaxHealthProperty() : new PropertyBinding<>(0f);
     }
 
+    /** Zwraca główne inventory gracza. */
     public InventoryComponent getInventoryComponent() {
         return getComponent(InventoryComponent.class);
     }
 
+    /** Zwraca licznik zmian inventory do odświeżania UI. */
     public PropertyBinding<Integer> getInventoryRevision() {
         InventoryComponent inventory = getInventoryComponent();
         return inventory != null ? inventory.getRevisionBinding() : new PropertyBinding<>(0);
     }
 
+    /** Zwraca migawkę zawartości inventory. */
     public List<InventoryStack> getInventoryItems() {
         InventoryComponent inventory = getInventoryComponent();
         return inventory != null ? inventory.getItemsSnapshot() : List.of();
     }
 
+    /** Zwraca komponent aktywnego narzędzia gracza. */
     public PlayerToolComponent getPlayerToolComponent() {
         return getComponent(PlayerToolComponent.class);
     }
 
+    /** Zwraca pomocniczy koszyk handlowy używany przy sprzedaży do NPC. */
     public TradeBasketComponent getTradeBasketComponent() {
         return getComponent(TradeBasketComponent.class);
     }
 
+    /** Zwraca licznik zmian koszyka handlowego do odświeżania UI. */
     public PropertyBinding<Integer> getTradeBasketRevision() {
         TradeBasketComponent tradeBasket = getTradeBasketComponent();
         return tradeBasket != null ? tradeBasket.getRevisionBinding() : new PropertyBinding<>(0);
     }
 
+    /** Zwraca migawkę zawartości koszyka handlowego. */
     public List<InventoryStack> getTradeBasketItems() {
         TradeBasketComponent tradeBasket = getTradeBasketComponent();
         return tradeBasket != null ? tradeBasket.getItemsSnapshot() : List.of();
     }
 
+    /** Zwraca aktualnie wybrane narzędzie gracza. */
     public PlayerToolType getActiveTool() {
         PlayerToolComponent toolComponent = getPlayerToolComponent();
         return toolComponent != null ? toolComponent.getActiveTool() : PlayerToolType.SWORD;
     }
 
+    /** Zwraca komponent przypisanego przedmiotu szybkiego użycia. */
     public PlayerAssignedItemComponent getPlayerAssignedItemComponent() {
         return getComponent(PlayerAssignedItemComponent.class);
     }
 
+    @Override
+    public void tick(float delta) {
+        super.tick(delta);
+        syncDeathState();
+    }
+
+    /** Przełącza gracza w stan śmierci bez niszczenia aktora. */
+    public void enterDeathState() {
+        MovementComponent movement = getComponent(MovementComponent.class);
+        if (movement != null) {
+            movement.getDirection().setZero();
+            movement.setSprinting(false);
+            movement.setRooted(true);
+        }
+
+        CollisionComponent collision = getComponentByType(CollisionComponent.class);
+        Body body = collision != null ? collision.getBody() : null;
+        if (body != null) {
+            body.setLinearVelocity(0f, 0f);
+        }
+
+        TransformComponent transform = getComponent(TransformComponent.class);
+        if (transform != null) {
+            transform.setRotationDeg(DEATH_ROTATION_DEG);
+        }
+
+        deathStateApplied = true;
+    }
+
+    /** Informuje, czy po śmierci trzeba jeszcze wyrzucić przedmioty tego gracza. */
+    public boolean needsDeathDropHandling() {
+        return isDead() && !deathDropHandled;
+    }
+
+    /**
+     * Czyści inventory i koszyk handlowy, zwracając listę stacków do wyrzucenia na mapę.
+     *
+     * @return lista stacków należących do gracza w momencie śmierci
+     */
+    public List<InventoryStack> clearOwnedItemsForDrop() {
+        List<InventoryStack> droppedStacks = new java.util.ArrayList<>();
+
+        InventoryComponent inventory = getInventoryComponent();
+        if (inventory != null) {
+            droppedStacks.addAll(inventory.clearAndExtractSnapshot());
+        }
+
+        TradeBasketComponent tradeBasket = getTradeBasketComponent();
+        if (tradeBasket != null) {
+            droppedStacks.addAll(tradeBasket.clearAndExtractSnapshot());
+        }
+
+        PlayerAssignedItemComponent assignedItemComponent = getPlayerAssignedItemComponent();
+        if (assignedItemComponent != null) {
+            assignedItemComponent.clearAssignedItem();
+        }
+
+        deathDropHandled = true;
+        return droppedStacks;
+    }
+
+    /**
+     * Przywraca gracza do życia i ustawia go w podanym punkcie odrodzenia.
+     *
+     * @param spawnPosition pozycja startowa po respawnie
+     */
+    public void respawnAt(Vector2 spawnPosition) {
+        Vector2 resolvedSpawn = spawnPosition != null ? spawnPosition : new Vector2();
+        setWorldPosition(resolvedSpawn.x, resolvedSpawn.y);
+
+        HealthComponent health = getComponent(HealthComponent.class);
+        if (health != null) {
+            health.restoreState(health.getMaxHealth(), health.getMaxHealth());
+        }
+
+        MovementComponent movement = getComponent(MovementComponent.class);
+        if (movement != null) {
+            movement.getDirection().setZero();
+            movement.setSprinting(false);
+            movement.setRooted(false);
+        }
+
+        TransformComponent transform = getComponent(TransformComponent.class);
+        if (transform != null) {
+            transform.setRotationDeg(0f);
+        }
+
+        CollisionComponent collision = getComponentByType(CollisionComponent.class);
+        Body body = collision != null ? collision.getBody() : null;
+        if (body != null) {
+            body.setLinearVelocity(0f, 0f);
+        }
+
+        deathStateApplied = false;
+        deathDropHandled = false;
+    }
+
+    /** Buduje dane gracza zapisywane do savegame. */
     public SaveGameData.PlayerData buildSaveData() {
         SaveGameData.PlayerData data = new SaveGameData.PlayerData();
         TransformComponent transform = getComponent(TransformComponent.class);
@@ -181,6 +307,7 @@ public class PlayerCharacter extends AbstractActor {
         return data;
     }
 
+    /** Odtwarza stan gracza z danych savegame. */
     public void applySaveData(SaveGameData.PlayerData data) {
         if (data == null) {
             return;
@@ -213,6 +340,33 @@ public class PlayerCharacter extends AbstractActor {
         if (assignedItemComponent != null) {
             assignedItemComponent.setAssignedItemId(data.assignedItemId);
         }
+    }
+
+    private void syncDeathState() {
+        if (isDead()) {
+            if (!deathStateApplied) {
+                enterDeathState();
+            }
+            return;
+        }
+
+        if (!deathStateApplied) {
+            return;
+        }
+
+        MovementComponent movement = getComponent(MovementComponent.class);
+        if (movement != null) {
+            movement.setRooted(false);
+            movement.getDirection().setZero();
+            movement.setSprinting(false);
+        }
+
+        TransformComponent transform = getComponent(TransformComponent.class);
+        if (transform != null) {
+            transform.setRotationDeg(0f);
+        }
+
+        deathStateApplied = false;
     }
 
     private void setWorldPosition(float x, float y) {

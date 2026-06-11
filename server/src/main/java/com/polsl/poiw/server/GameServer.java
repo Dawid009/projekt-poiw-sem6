@@ -62,6 +62,7 @@ public class GameServer implements ApplicationListener {
     private static final int HALF_INPUT_SEQUENCE_SPACE = INPUT_SEQUENCE_SPACE / 2;
     private static final int INITIAL_REPLICATION_BATCH_SIZE = 32;
     private static final int INITIAL_MOVEMENT_SNAPSHOT_BATCH_SIZE = 48;
+    private static final float DEATH_DROP_PICKUP_GRACE = 0.7f;
 
     private GameWorld gameWorld;
     private NetDriver netDriver;
@@ -86,14 +87,23 @@ public class GameServer implements ApplicationListener {
     private int maxPlayers = 4;
     private final Set<Integer> knownReplicatedActorIds = new HashSet<>();
 
+    /** Tworzy serwer z domyślną konfiguracją portów i limitu graczy. */
     public GameServer() {}
 
+    /**
+     * Tworzy serwer z podaną konfiguracją połączeń.
+     *
+     * @param tcpPort port TCP używany do wiadomości niezawodnych
+     * @param udpPort port UDP używany do snapshotów ruchu
+     * @param maxPlayers maksymalna liczba graczy na serwerze
+     */
     public GameServer(int tcpPort, int udpPort, int maxPlayers) {
         this.tcpPort = tcpPort;
         this.udpPort = udpPort;
         this.maxPlayers = maxPlayers;
     }
 
+    /** Inicjalizuje świat serwera, systemy gameplayowe i warstwę sieciową. */
     @Override
     public void create() {
         Gdx.app.setLogLevel(com.badlogic.gdx.Application.LOG_DEBUG);
@@ -146,6 +156,7 @@ public class GameServer implements ApplicationListener {
         Gdx.app.log(TAG, "Mapa załadowana — spawn points: " + tiledParser.getAllPlayerStartPositions().size());
     }
 
+    /** Wykonuje pojedynczy tick pętli serwera. */
     @Override
     public void render() {
         float delta = Gdx.graphics.getDeltaTime();
@@ -166,6 +177,7 @@ public class GameServer implements ApplicationListener {
         netDriver.processMessages();
 
         gameWorld.update(delta);
+        handleDeadPlayerDrops();
         replicationSupport.replicateActorLifecycleChanges();
 
         replicationSupport.sendPlayerCorrections(playerControllers);
@@ -228,6 +240,8 @@ public class GameServer implements ApplicationListener {
             handleClientInput(connectionId, input);
         } else if (message instanceof NetworkProtocol.ClientAttackRequest attackRequest) {
             handleClientAttack(connectionId, attackRequest);
+        } else if (message instanceof NetworkProtocol.ClientRespawnRequest respawnRequest) {
+            handleClientRespawn(connectionId, respawnRequest);
         } else if (message instanceof NetworkProtocol.ClientInventoryAction inventoryAction) {
             handleClientInventoryAction(connectionId, inventoryAction);
         } else if (message instanceof NetworkProtocol.ClientToolSelection toolSelection) {
@@ -278,12 +292,14 @@ public class GameServer implements ApplicationListener {
             return;
         }
 
+        int spawnIndex = connMgr.getPlayerCount();
+
         // assign playerId
         int playerId = nextPlayerId.getAndIncrement();
         String playerName = connect.playerName != null ? connect.playerName : "Player" + playerId;
 
         // register connection
-        connMgr.addConnection(connectionId, playerId, playerName);
+        connMgr.addConnection(connectionId, playerId, playerName, spawnIndex);
 
         // send accept message
         var accept = new NetworkProtocol.ServerAccept();
@@ -297,7 +313,7 @@ public class GameServer implements ApplicationListener {
 
         replicationSupport.sendExistingActors(connectionId);
         replicationSupport.sendFullReplicationState(connectionId, INITIAL_REPLICATION_BATCH_SIZE);
-        replicationSupport.spawnPlayerPawn(gameMode, tiledParser, playerControllers, connectionId, playerId, playerName);
+        replicationSupport.spawnPlayerPawn(gameMode, tiledParser, playerControllers, connectionId, playerId, playerName, spawnIndex);
         replicationSupport.sendImmediateSnapshot(connectionId, INITIAL_MOVEMENT_SNAPSHOT_BATCH_SIZE);
 
         // inform GameMode
@@ -342,6 +358,9 @@ public class GameServer implements ApplicationListener {
 
         PlayerController pc = playerControllers.get(connectionId);
         if (pc == null) return;
+        if (!(pc.getPossessedPawn() instanceof PlayerCharacter player) || player.isDead()) {
+            return;
+        }
 
         pc.receiveClientInput(input.dirX, input.dirY, input.sprinting, sequenceNumber);
         conn.setLastAcceptedInputSeq(sequenceNumber);
@@ -354,14 +373,43 @@ public class GameServer implements ApplicationListener {
             return;
         }
 
-        var pawn = pc.getPossessedPawn();
-        if (pawn == null) {
+        if (!(pc.getPossessedPawn() instanceof PlayerCharacter player) || player.isDead()) {
             return;
         }
 
-        CombatComponent combat = pawn.getComponent(CombatComponent.class);
+        CombatComponent combat = player.getComponent(CombatComponent.class);
         if (combat != null) {
             combat.requestAttack();
+        }
+    }
+
+    private void handleClientRespawn(int connectionId, NetworkProtocol.ClientRespawnRequest request) {
+        PlayerController controller = playerControllers.get(connectionId);
+        if (controller == null) {
+            return;
+        }
+
+        if (request != null && request.playerId > 0 && request.playerId != controller.getPlayerId()) {
+            Gdx.app.debug(TAG, "Ignoring respawn with mismatched playerId from conn=" + connectionId);
+            return;
+        }
+
+        if (!(controller.getPossessedPawn() instanceof PlayerCharacter player) || !player.isDead()) {
+            return;
+        }
+
+        PlayerConnection connection = netDriver.getConnectionManager().getByConnectionId(connectionId);
+        int spawnIndex = connection != null ? connection.getSpawnIndex() : Math.max(0, controller.getPlayerId() - 1);
+        Vector2 spawnPosition = replicationSupport.resolvePlayerSpawnPosition(gameMode, tiledParser, spawnIndex);
+        player.respawnAt(spawnPosition);
+
+        if (connection != null) {
+            connection.setLastCorrectionSentSeq(-1);
+            connection.setLastCorrectionSentTick(-1);
+            connection.setLastCorrectionX(Float.NaN);
+            connection.setLastCorrectionY(Float.NaN);
+            connection.setLastCorrectionVelX(Float.NaN);
+            connection.setLastCorrectionVelY(Float.NaN);
         }
     }
 
@@ -431,7 +479,7 @@ public class GameServer implements ApplicationListener {
             return;
         }
 
-        if (!(controller.getPossessedPawn() instanceof PlayerCharacter player)) {
+        if (!(controller.getPossessedPawn() instanceof PlayerCharacter player) || player.isDead()) {
             return;
         }
 
@@ -476,7 +524,7 @@ public class GameServer implements ApplicationListener {
             return;
         }
 
-        if (!(controller.getPossessedPawn() instanceof PlayerCharacter player)) {
+        if (!(controller.getPossessedPawn() instanceof PlayerCharacter player) || player.isDead()) {
             return;
         }
 
@@ -503,7 +551,7 @@ public class GameServer implements ApplicationListener {
             return;
         }
 
-        if (!(controller.getPossessedPawn() instanceof PlayerCharacter player)) {
+        if (!(controller.getPossessedPawn() instanceof PlayerCharacter player) || player.isDead()) {
             return;
         }
 
@@ -545,7 +593,7 @@ public class GameServer implements ApplicationListener {
             return;
         }
 
-        if (!(controller.getPossessedPawn() instanceof PlayerCharacter player)) {
+        if (!(controller.getPossessedPawn() instanceof PlayerCharacter player) || player.isDead()) {
             return;
         }
 
@@ -587,7 +635,7 @@ public class GameServer implements ApplicationListener {
             Gdx.app.debug(TAG, "Ignoring trade transfer with mismatched playerId from conn=" + connectionId);
             return;
         }
-        if (!(controller.getPossessedPawn() instanceof PlayerCharacter player)) {
+        if (!(controller.getPossessedPawn() instanceof PlayerCharacter player) || player.isDead()) {
             return;
         }
         if (!(gameWorld.getActorById(request.traderActorId) instanceof NpcTraderActor trader)) {
@@ -628,7 +676,7 @@ public class GameServer implements ApplicationListener {
             Gdx.app.debug(TAG, "Ignoring trade purchase with mismatched playerId from conn=" + connectionId);
             return;
         }
-        if (!(controller.getPossessedPawn() instanceof PlayerCharacter player)) {
+        if (!(controller.getPossessedPawn() instanceof PlayerCharacter player) || player.isDead()) {
             return;
         }
         if (!(gameWorld.getActorById(request.traderActorId) instanceof NpcTraderActor trader)) {
@@ -662,7 +710,7 @@ public class GameServer implements ApplicationListener {
             Gdx.app.debug(TAG, "Ignoring trade sell with mismatched playerId from conn=" + connectionId);
             return;
         }
-        if (!(controller.getPossessedPawn() instanceof PlayerCharacter player)) {
+        if (!(controller.getPossessedPawn() instanceof PlayerCharacter player) || player.isDead()) {
             return;
         }
         if (!(gameWorld.getActorById(request.traderActorId) instanceof NpcTraderActor trader)) {
@@ -697,6 +745,31 @@ public class GameServer implements ApplicationListener {
         }
     }
 
+    private void handleDeadPlayerDrops() {
+        for (PlayerController controller : playerControllers.values()) {
+            if (!(controller.getPossessedPawn() instanceof PlayerCharacter player)) {
+                continue;
+            }
+            if (!player.needsDeathDropHandling()) {
+                continue;
+            }
+
+            dropPlayerItemsOnDeath(player);
+        }
+    }
+
+    private void dropPlayerItemsOnDeath(PlayerCharacter player) {
+        java.util.List<InventoryStack> droppedStacks = player.clearOwnedItemsForDrop();
+        for (int index = 0; index < droppedStacks.size(); index++) {
+            InventoryStack stack = droppedStacks.get(index);
+            if (stack == null || stack.getDefinition() == null || stack.getQuantity() <= 0) {
+                continue;
+            }
+
+            spawnDeathDropAroundPlayer(player, stack.getDefinition(), stack.getQuantity(), index, droppedStacks.size());
+        }
+    }
+
     private void spawnItemNearPlayer(PlayerCharacter player,
                                      ItemDefinition item,
                                      int quantity,
@@ -724,6 +797,35 @@ public class GameServer implements ApplicationListener {
         gameWorld.spawnActor(pickupActor, spawnPosition);
     }
 
+    private void spawnDeathDropAroundPlayer(PlayerCharacter player,
+                                            ItemDefinition item,
+                                            int quantity,
+                                            int dropIndex,
+                                            int totalDrops) {
+        if (gameWorld == null || player == null || item == null || quantity <= 0) {
+            return;
+        }
+
+        TransformComponent transform = player.getComponent(TransformComponent.class);
+        Vector2 playerPosition = player.getPosition();
+        float playerWidth = transform != null ? transform.getSize().x : 1f;
+        float playerHeight = transform != null ? transform.getSize().y : 1f;
+        float itemSize = 0.5f;
+        float angle = totalDrops <= 0 ? 0f : (float) (Math.PI * 2.0 * dropIndex / Math.max(1, totalDrops));
+        float radius = 0.55f + 0.08f * (dropIndex % 3);
+
+        Vector2 spawnPosition = new Vector2(
+            playerPosition.x + playerWidth * 0.5f - itemSize * 0.5f + (float) Math.cos(angle) * radius,
+            playerPosition.y + playerHeight * 0.5f + (float) Math.sin(angle) * radius
+        );
+
+        ItemPickupActor pickupActor = new ItemPickupActor();
+        pickupActor.configureServer(item, quantity);
+        pickupActor.setReplicated(true);
+        pickupActor.setPickupGrace(player.getActorId(), DEATH_DROP_PICKUP_GRACE);
+        gameWorld.spawnActor(pickupActor, spawnPosition);
+    }
+
     @Override
     public void resize(int width, int height) {}
 
@@ -737,8 +839,10 @@ public class GameServer implements ApplicationListener {
     private int travelIdCounter = 0;
 
     /**
-     * initiates server travel — notifies all clients to travel to levelId.
-     * preserveControllers = true → clients keep their PlayerController across levels.
+     * Rozpoczyna zmianę mapy po stronie serwera i wysyła polecenie travel do klientów.
+     *
+     * @param levelId identyfikator docelowego poziomu
+     * @param preserveControllers czy klienci mają zachować swoje kontrolery między mapami
      */
     public void serverTravel(String levelId, boolean preserveControllers) {
         travelIdCounter++;
@@ -751,6 +855,7 @@ public class GameServer implements ApplicationListener {
         netDriver.sendToAllClients(travel, true);
     }
 
+    /** Zamyka serwer i zwalnia zasoby świata oraz sterownika sieciowego. */
     @Override
     public void dispose() {
         Gdx.app.log(TAG, "Shutting down server...");

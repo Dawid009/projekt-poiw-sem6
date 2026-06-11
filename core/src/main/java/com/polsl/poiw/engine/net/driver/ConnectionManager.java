@@ -18,8 +18,8 @@ public class ConnectionManager {
     // playerId -> PlayerConnection
     private final Map<Integer, PlayerConnection> byPlayerId = new ConcurrentHashMap<>();
 
-    public void addConnection(int connectionId, int playerId, String playerName) {
-        PlayerConnection conn = new PlayerConnection(connectionId, playerId, playerName);
+    public void addConnection(int connectionId, int playerId, String playerName, int spawnIndex) {
+        PlayerConnection conn = new PlayerConnection(connectionId, playerId, playerName, spawnIndex);
         byConnectionId.put(connectionId, conn);
         byPlayerId.put(playerId, conn);
     }

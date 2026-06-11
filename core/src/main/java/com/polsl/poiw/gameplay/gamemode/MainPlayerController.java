@@ -23,6 +23,7 @@ import com.polsl.poiw.engine.inventory.InventoryStack;
 import com.polsl.poiw.engine.inventory.ItemDefinition;
 import com.polsl.poiw.engine.ui.EAnchor;
 import com.polsl.poiw.engine.ui.EVisibility;
+import com.polsl.poiw.engine.ui.DeathMenuWidget;
 import com.polsl.poiw.engine.ui.InventoryPanelWidget;
 import com.polsl.poiw.engine.ui.PauseMenuWidget;
 import com.polsl.poiw.engine.ui.ProgressBarWidget;
@@ -63,6 +64,7 @@ public class MainPlayerController extends PlayerController {
     private TradePanelWidget tradePanel;
     private ToolbeltWidget toolbeltWidget;
     private PauseMenuWidget pauseMenu;
+    private DeathMenuWidget deathMenu;
     private TextBlock saveStatusText;
     private SettingsPanelWidget settingsPanel;
     private StatsPanelWidget statsPanel;
@@ -81,6 +83,7 @@ public class MainPlayerController extends PlayerController {
     private int selectedHotbarSlot = 0;
     private ChestActor activeChest;
     private NpcTraderActor activeTrader;
+    private boolean respawnRequestPending;
 
     /** Aktualne wartości do formatowania tekstu */
     private float currentHp = 0f;
@@ -199,6 +202,11 @@ public class MainPlayerController extends PlayerController {
         pauseMenu.setSaveVisible(getGameInstance() != null && getGameInstance().isSinglePlayer());
         addWidgetToViewport(pauseMenu);
 
+        deathMenu = new DeathMenuWidget(overlaySkin);
+        deathMenu.setAnchor(EAnchor.CENTER);
+        deathMenu.setAlignment(EAnchor.CENTER);
+        addWidgetToViewport(deathMenu);
+
         saveStatusText = new TextBlock("Zapisano gre", getSkin());
         saveStatusText.setAnchor(EAnchor.TOP_CENTER);
         saveStatusText.setAlignment(EAnchor.TOP_CENTER);
@@ -225,6 +233,7 @@ public class MainPlayerController extends PlayerController {
             pauseMenu,
             settingsPanel,
             statsPanel,
+            deathMenu,
             saveStatusText,
             this::clearActiveContainerPanels
         );
@@ -252,7 +261,18 @@ public class MainPlayerController extends PlayerController {
 
             @Override
             public void onQuitRequested() {
-                overlayController.quitToMainMenu();
+                overlayController.saveAndQuitToMainMenu();
+            }
+        });
+        deathMenu.setActionListener(new DeathMenuWidget.DeathMenuActionListener() {
+            @Override
+            public void onRespawnRequested() {
+                handleRespawnRequested();
+            }
+
+            @Override
+            public void onQuitRequested() {
+                overlayController.saveAndQuitToMainMenu();
             }
         });
         settingsPanel.setCloseAction(overlayController::closeSettingsToPauseMenu);
@@ -319,6 +339,7 @@ public class MainPlayerController extends PlayerController {
             }
             handleTradeBasketChanged(player);
             refreshAssignedItemSlot(player);
+            respawnRequestPending = false;
             if (overlayController != null) {
                 overlayController.updateStatsUiState();
             }
@@ -366,6 +387,7 @@ public class MainPlayerController extends PlayerController {
         trackedInventoryQuantities.clear();
         activeChest = null;
         activeTrader = null;
+        respawnRequestPending = false;
 
         if (inventoryPanel != null) {
             inventoryPanel.setItems(java.util.List.of());
@@ -394,16 +416,30 @@ public class MainPlayerController extends PlayerController {
         }
     }
 
+    /** Czyści bindy i widgety przypisane do tego kontrolera. */
     @Override
     public void destroy() {
         onUnpossess();
         super.destroy();
     }
 
+    /** Obsługuje logikę HUD-u, menu oraz wejście lokalnego gracza w trakcie klatki. */
     @Override
     public void tick(float delta) {
         if (overlayController != null) {
             overlayController.updateSaveStatus(delta);
+        }
+
+        if (getPossessedPawn() instanceof PlayerCharacter player) {
+            if (player.isDead()) {
+                handlePlayerDeath(player);
+                return;
+            }
+
+            respawnRequestPending = false;
+            if (overlayController != null && overlayController.isDeathMenuVisible()) {
+                overlayController.hideDeathMenu();
+            }
         }
 
         if (GameInstance.isChatInputActive()) {
@@ -433,6 +469,21 @@ public class MainPlayerController extends PlayerController {
         handleToolAttack();
         handleAssignedItemUse();
         super.tick(delta);
+    }
+
+    private void handlePlayerDeath(PlayerCharacter player) {
+        if (player == null) {
+            return;
+        }
+
+        if (player.hasAuthority() && player.needsDeathDropHandling()) {
+            dropPlayerItemsOnDeath(player);
+        }
+
+        if (overlayController != null) {
+            overlayController.showDeathMenu();
+        }
+        clearPendingAttackState();
     }
 
     private void updateHpText() {
@@ -932,6 +983,18 @@ public class MainPlayerController extends PlayerController {
         }
     }
 
+    private void dropPlayerItemsOnDeath(PlayerCharacter player) {
+        List<InventoryStack> droppedStacks = player.clearOwnedItemsForDrop();
+        for (int index = 0; index < droppedStacks.size(); index++) {
+            InventoryStack stack = droppedStacks.get(index);
+            if (stack == null || stack.getDefinition() == null || stack.getQuantity() <= 0) {
+                continue;
+            }
+
+            spawnDeathDropAroundPlayer(player, stack.getDefinition(), stack.getQuantity(), index, droppedStacks.size());
+        }
+    }
+
     private void assignSelectedItem(int slotIndex, String itemId) {
         if (itemId == null || itemId.isBlank() || !(getPossessedPawn() instanceof PlayerCharacter player)) {
             return;
@@ -1229,6 +1292,17 @@ public class MainPlayerController extends PlayerController {
         gameInstance.getNetDriver().sendToServer(request, true);
     }
 
+    private void requestRespawn() {
+        GameInstance gameInstance = getGameInstance();
+        if (gameInstance == null || !gameInstance.isClient() || gameInstance.getNetDriver() == null) {
+            return;
+        }
+
+        NetworkProtocol.ClientRespawnRequest request = new NetworkProtocol.ClientRespawnRequest();
+        request.playerId = getPlayerId();
+        gameInstance.getNetDriver().sendToServer(request, true);
+    }
+
     private void handleAssignedItemChanged(String itemId) {
         assignedItemId = itemId != null ? itemId.trim() : "";
 
@@ -1320,6 +1394,73 @@ public class MainPlayerController extends PlayerController {
         pickupActor.configure(item, quantity, getItemsAtlas());
         pickupActor.setPickupGrace(player.getActorId(), pickupGraceSeconds);
         world.spawnActor(pickupActor, spawnPosition);
+    }
+
+    private void spawnDeathDropAroundPlayer(PlayerCharacter player,
+                                            ItemDefinition item,
+                                            int quantity,
+                                            int dropIndex,
+                                            int totalDrops) {
+        GameWorld world = getWorld();
+        if (world == null || player == null || item == null || quantity <= 0) {
+            return;
+        }
+
+        TransformComponent transform = player.getComponent(TransformComponent.class);
+        Vector2 playerPosition = player.getPosition();
+        float playerWidth = transform != null ? transform.getSize().x : 1f;
+        float playerHeight = transform != null ? transform.getSize().y : 1f;
+        float itemSize = 0.5f;
+        float angle = totalDrops <= 0 ? 0f : (float) (Math.PI * 2.0 * dropIndex / Math.max(1, totalDrops));
+        float radius = 0.55f + 0.08f * (dropIndex % 3);
+
+        Vector2 spawnPosition = new Vector2(
+            playerPosition.x + playerWidth * 0.5f - itemSize * 0.5f + (float) Math.cos(angle) * radius,
+            playerPosition.y + playerHeight * 0.5f + (float) Math.sin(angle) * radius
+        );
+
+        ItemPickupActor pickupActor = new ItemPickupActor();
+        pickupActor.configure(item, quantity, getItemsAtlas());
+        pickupActor.setPickupGrace(player.getActorId(), 0.7f);
+        world.spawnActor(pickupActor, spawnPosition);
+    }
+
+    private void handleRespawnRequested() {
+        if (!(getPossessedPawn() instanceof PlayerCharacter player) || !player.isDead()) {
+            return;
+        }
+
+        GameInstance gameInstance = getGameInstance();
+        if (gameInstance != null && gameInstance.isClient()) {
+            if (respawnRequestPending) {
+                return;
+            }
+
+            respawnRequestPending = true;
+            requestRespawn();
+            return;
+        }
+
+        Vector2 spawnPosition = resolveRespawnPosition();
+        player.respawnAt(spawnPosition);
+        respawnRequestPending = false;
+        if (overlayController != null) {
+            overlayController.hideDeathMenu();
+        }
+    }
+
+    private Vector2 resolveRespawnPosition() {
+        GameInstance gameInstance = getGameInstance();
+        if (gameInstance != null && gameInstance.getActiveWorldContext() != null
+            && gameInstance.getActiveWorldContext().getTiledParser() != null) {
+            return new Vector2(gameInstance.getActiveWorldContext().getTiledParser().getPlayerStartPosition(0));
+        }
+
+        if (getGameMode() != null) {
+            return new Vector2(getGameMode().getPlayerStartPosition(0));
+        }
+
+        return new Vector2(2f, 2f);
     }
 
     private void clearActiveContainerPanels() {
