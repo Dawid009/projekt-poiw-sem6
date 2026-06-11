@@ -368,6 +368,37 @@
         {
             "color": "#ffa0a0a4",
             "drawFill": true,
+            "id": 18,
+            "members": [
+                {
+                    "name": "check_radius",
+                    "type": "int",
+                    "value": 0
+                },
+                {
+                    "name": "creature_type",
+                    "propertyType": "CreatureType",
+                    "type": "string",
+                    "value": "NULL"
+                }
+            ],
+            "name": "Spawner",
+            "type": "class",
+            "useAs": [
+                "property",
+                "map",
+                "layer",
+                "object",
+                "tile",
+                "tileset",
+                "wangcolor",
+                "wangset",
+                "project"
+            ]
+        },
+        {
+            "color": "#ffa0a0a4",
+            "drawFill": true,
             "id": 14,
             "members": [
                 {
