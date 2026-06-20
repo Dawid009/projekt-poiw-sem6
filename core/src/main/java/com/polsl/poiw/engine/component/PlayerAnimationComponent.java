@@ -11,7 +11,8 @@ import com.polsl.poiw.gameplay.tool.PlayerToolType;
 import java.util.EnumMap;
 
 /**
- * Komponent animacji gracza — przechowuje animacje idle/walk dla 4 kierunków.
+ * Trzyma animacje gracza i wybiera odpowiednia klatke zależnie od kierunku, ruchu i ataku.
+ * To nie rysuje nic samo z siebie, tylko daje gotowy frame dla systemu renderowania.
  */
 public class PlayerAnimationComponent extends AbstractActorComponent {
     public static final ComponentMapper<PlayerAnimationComponent> MAPPER =
@@ -62,10 +63,12 @@ public class PlayerAnimationComponent extends AbstractActorComponent {
         buildAttackAnimations(playerActionsAtlas);
     }
 
+    /** Aktualizuje stan animacji na podstawie samego kierunku ruchu. */
     public void update(Vector2 direction, float delta) {
         update(direction, 1f, delta);
     }
 
+    /** Aktualizuje stan animacji i pozwala przyspieszyc klatki chodzenia. */
     public void update(Vector2 direction, float movementAnimationSpeedScale, float delta) {
         boolean currentlyMoving = direction != null && !direction.isZero(MOVE_EPSILON);
         Direction resolvedDirection = resolveDirection(direction);
@@ -73,10 +76,15 @@ public class PlayerAnimationComponent extends AbstractActorComponent {
         applyState(resolvedDirection, currentlyMoving, false, movementAnimationSpeedScale, delta);
     }
 
+    /** Ustawia stan animacji recznie, np. gdy postac atakuje. */
     public void applyState(Direction direction, boolean currentlyMoving, boolean currentlyAttacking, float delta) {
         applyState(direction, currentlyMoving, currentlyAttacking, 1f, delta);
     }
 
+    /**
+     * Glowny update animacji.
+     * Pilnuje, kiedy trzeba zresetowac licznik czasu, a kiedy tylko go przesunac dalej.
+     */
     public void applyState(
         Direction direction,
         boolean currentlyMoving,
@@ -99,14 +107,17 @@ public class PlayerAnimationComponent extends AbstractActorComponent {
         }
     }
 
+    /** Zwraca klatke, która w danym momencie powinna być narysowana. */
     public TextureRegion getCurrentFrame() {
         return getCurrentAnimation().getKeyFrame(stateTime);
     }
 
+    /** Startuje animacje ataku mieczem, bez podawania narzedzia. */
     public void startAttack(Direction direction) {
         startAttack(direction, PlayerToolType.SWORD);
     }
 
+    /** Startuje animacje ataku dla konkretnego narzedzia. */
     public void startAttack(Direction direction, PlayerToolType toolType) {
         Direction resolvedDirection = direction != null ? direction : facingDirection;
         currentAttackTool = toolType != null ? toolType : PlayerToolType.SWORD;
@@ -117,30 +128,36 @@ public class PlayerAnimationComponent extends AbstractActorComponent {
         stateTime = 0f;
     }
 
+    /** Odpalany przy otrzymaniu damage flasha na czerwono. */
     public void triggerDamageFlash() {
         damageFlashRemaining = DAMAGE_FLASH_DURATION;
     }
 
+    /** Zmniejsza czas trwania czerwonego flasha. */
     public void tickDamageFlash(float delta) {
         if (damageFlashRemaining > 0f) {
             damageFlashRemaining = Math.max(0f, damageFlashRemaining - delta);
         }
     }
 
+    /** Zmniejsza czas wizualizacji ataku, zeby animacja mogla wrocic do idle/walk. */
     public void tickAttackVisual(float delta) {
         if (attackVisualRemaining > 0f) {
             attackVisualRemaining = Math.max(0f, attackVisualRemaining - delta);
         }
     }
 
+    /** Sprawdza, czy gracz nadal ma wlaczony czerwony flash obrazen. */
     public boolean isDamageFlashActive() {
         return damageFlashRemaining > 0f;
     }
 
+    /** Sprawdza, czy animacja ataku nadal powinna byc widoczna. */
     public boolean isAttackVisualActive() {
         return attackVisualRemaining > 0f;
     }
 
+    /** Zwraca kierunek, w ktorym gracz jest teraz ustawiony. */
     public Direction getFacingDirection() {
         return facingDirection;
     }
@@ -183,6 +200,7 @@ public class PlayerAnimationComponent extends AbstractActorComponent {
         return direction.y < 0f ? Direction.DOWN : Direction.UP;
     }
 
+    /** Szuka animacji ataku dla konkretnego narzedzia i kierunku. */
     private Animation<TextureRegion> getAttackAnimation(PlayerToolType toolType, Direction direction) {
         DirectionalAnimationSet directionalAnimationSet = attackAnimations.get(toolType);
         if (directionalAnimationSet == null) {
@@ -197,6 +215,7 @@ public class PlayerAnimationComponent extends AbstractActorComponent {
         };
     }
 
+    /** Buduje mapę animacji ataku dla wszystkich narzedzi gracza. */
     private void buildAttackAnimations(TextureAtlas playerActionsAtlas) {
         attackAnimations.put(
             PlayerToolType.SWORD,
@@ -251,6 +270,7 @@ public class PlayerAnimationComponent extends AbstractActorComponent {
         );
     }
 
+    /** Tworzy cztery animacje kierunkowe z atlasu. */
     private DirectionalAnimationSet createDirectionalAnimationSet(
         TextureAtlas atlas,
         String downRegion,
@@ -267,6 +287,7 @@ public class PlayerAnimationComponent extends AbstractActorComponent {
         );
     }
 
+    /** Tworzy animacje kierunkowe i odbija lewy kierunek, jesli atlas go nie ma. */
     private DirectionalAnimationSet createDirectionalAnimationSetWithFlippedLeft(
         TextureAtlas atlas,
         String downRegion,
@@ -282,6 +303,7 @@ public class PlayerAnimationComponent extends AbstractActorComponent {
         );
     }
 
+    /** Wczytuje prosta animacje z atlasu i ustawia tryb zapetlenia. */
     private Animation<TextureRegion> createLoopAnimation(TextureAtlas atlas, String regionName, float frameDuration) {
         var frames = atlas.findRegions(regionName);
         if (frames == null || frames.size == 0) {
@@ -293,6 +315,7 @@ public class PlayerAnimationComponent extends AbstractActorComponent {
         return animation;
     }
 
+    /** Wczytuje pojedyncza animacje, ktora nie ma sie zapetlac. */
     private Animation<TextureRegion> createSingleAnimation(TextureAtlas atlas, String regionName, float frameDuration) {
         var frames = atlas.findRegions(regionName);
         if (frames == null || frames.size == 0) {
@@ -304,6 +327,7 @@ public class PlayerAnimationComponent extends AbstractActorComponent {
         return animation;
     }
 
+    /** Wczytuje pojedyncza animacje z gotowej listy klatek. */
     private Animation<TextureRegion> createSingleAnimation(Array<TextureRegion> frames, float frameDuration) {
         if (frames == null || frames.size == 0) {
             throw new IllegalArgumentException("Nie znaleziono klatek animacji narzędzia");
@@ -314,6 +338,7 @@ public class PlayerAnimationComponent extends AbstractActorComponent {
         return animation;
     }
 
+    /** Kopiuje klatki i odbija je w poziomie, zeby zrobic lustrzaną wersję animacji. */
     private Array<TextureRegion> createFlippedFrames(TextureAtlas atlas, String regionName) {
         var sourceFrames = atlas.findRegions(regionName);
         if (sourceFrames == null || sourceFrames.size == 0) {
@@ -329,6 +354,7 @@ public class PlayerAnimationComponent extends AbstractActorComponent {
         return flippedFrames;
     }
 
+    /** Prosty zestaw animacji kierunkowych dla jednego typu ruchu lub ataku. */
     private record DirectionalAnimationSet(
         Animation<TextureRegion> down,
         Animation<TextureRegion> left,

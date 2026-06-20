@@ -26,10 +26,12 @@ public class InventoryComponent extends AbstractActorComponent {
     @RepNotify("onReplicatedStacksChanged")
     private String replicatedStacks = "";
 
+    /** Inventory jest replikowane, bo jego stan musi byc taki sam na kliencie i serwerze. */
     public InventoryComponent() {
         setReplicated(true);
     }
 
+    /** Dodaje przedmiot do inventory i zwraca, ile sztuk faktycznie weszlo. */
     public int addItem(ItemDefinition definition, int quantity) {
         if (definition == null || quantity <= 0) {
             return 0;
@@ -43,6 +45,10 @@ public class InventoryComponent extends AbstractActorComponent {
         return added;
     }
 
+    /**
+     * Najpierw probuje dopelnic istniejące stacki, a potem tworzy nowe sloty.
+     * Dzięki temu inventory zachowuje się naturalnie i nie marnuje miejsca.
+     */
     private int mergeItem(ItemDefinition definition, int quantity) {
         int remaining = quantity;
         int maxQuantity = definition.getMaxStack();
@@ -74,6 +80,7 @@ public class InventoryComponent extends AbstractActorComponent {
         return quantity - remaining;
     }
 
+    /** Sprawdza, czy da się dodać całą wskazaną ilość przedmiotów. */
     public boolean canAddItem(ItemDefinition definition, int quantity) {
         if (definition == null || quantity <= 0) {
             return false;
@@ -82,6 +89,7 @@ public class InventoryComponent extends AbstractActorComponent {
         return computeAddableQuantity(definition, quantity) >= quantity;
     }
 
+    /** Usuwa wskazaną liczbę sztuk przedmiotu po jego ID. */
     public int removeItem(String itemId, int quantity) {
         if (itemId == null || itemId.isBlank() || quantity <= 0) {
             return 0;
@@ -117,6 +125,7 @@ public class InventoryComponent extends AbstractActorComponent {
         return removed;
     }
 
+    /** Zużywa przedmiot i aplikuje leczenie, jeśli to item konsumpcyjny. */
     public boolean useItem(String itemId) {
         InventoryRecord record = findFirstRecord(itemId);
         if (record == null || record.quantity <= 0) {
@@ -145,6 +154,7 @@ public class InventoryComponent extends AbstractActorComponent {
         return true;
     }
 
+    /** Sprawdza, czy dany item można teraz użyć. */
     public boolean canUse(String itemId) {
         InventoryRecord record = findFirstRecord(itemId);
         return record != null
@@ -155,12 +165,14 @@ public class InventoryComponent extends AbstractActorComponent {
             && getOwner().getComponent(HealthComponent.class) != null;
     }
 
+    /** Zwraca stack po ID, jeśli taki istnieje. */
     public InventoryStack getStack(String itemId) {
         int index = findFirstRecordIndex(itemId);
         InventoryRecord record = index >= 0 ? stacks.get(index) : null;
         return record != null ? new InventoryStack(record.definition, record.quantity, index) : null;
     }
 
+    /** Zwraca stack z konkretnego slotu. */
     public InventoryStack getStackAt(int slotIndex) {
         if (slotIndex < 0 || slotIndex >= stacks.size()) {
             return null;
@@ -170,6 +182,7 @@ public class InventoryComponent extends AbstractActorComponent {
         return record != null ? new InventoryStack(record.definition, record.quantity, slotIndex) : null;
     }
 
+    /** Usuwa przedmioty z konkretnego slotu. */
     public int removeItemAt(int slotIndex, int quantity) {
         if (slotIndex < 0 || slotIndex >= stacks.size() || quantity <= 0) {
             return 0;
@@ -195,6 +208,7 @@ public class InventoryComponent extends AbstractActorComponent {
         return removed;
     }
 
+    /** Używa itemu znajdującego się w konkretnym slocie. */
     public boolean useItemAt(int slotIndex) {
         if (slotIndex < 0 || slotIndex >= stacks.size()) {
             return false;
@@ -222,8 +236,8 @@ public class InventoryComponent extends AbstractActorComponent {
         return true;
     }
 
+    /** Zwraca kopię listy stacków, żeby UI nie mogło zmienić stanu komponentu bezpośrednio. */
     public List<InventoryStack> getItemsSnapshot() {
-        // UI dostaje kopie, zeby nie grzebalo w stanie komponentu.
         List<InventoryStack> snapshot = new ArrayList<>();
         for (int index = 0; index < stacks.size(); index++) {
             InventoryRecord record = stacks.get(index);
@@ -232,6 +246,7 @@ public class InventoryComponent extends AbstractActorComponent {
         return snapshot;
     }
 
+    /** Pobiera aktualne stacki i jednocześnie czyści całe inventory. */
     public List<InventoryStack> clearAndExtractSnapshot() {
         List<InventoryStack> snapshot = getItemsSnapshot();
         if (snapshot.isEmpty()) {
@@ -283,26 +298,32 @@ public class InventoryComponent extends AbstractActorComponent {
         broadcastChange();
     }
 
+    /** Zwraca licznik zmian, który UI może obserwować. */
     public PropertyBinding<Integer> getRevisionBinding() {
         return revisionBinding;
     }
 
+    /** Ustawia, ile slotów maksymalnie może mieć to inventory. */
     public void setMaxSlots(int maxSlots) {
         this.maxSlots = maxSlots > 0 ? maxSlots : Integer.MAX_VALUE;
     }
 
+    /** Zwraca limit slotów. */
     public int getMaxSlots() {
         return maxSlots;
     }
 
+    /** Zwraca liczbę zajętych slotów. */
     public int getOccupiedSlotCount() {
         return stacks.size();
     }
 
+    /** Zwiększa licznik zmian, żeby UI wiedziało, że trzeba odświeżyć zawartość. */
     private void broadcastChange() {
         revisionBinding.set(++revision);
     }
 
+    /** Zamienia stan inventory na jeden string do replikacji. */
     private void syncReplicatedStacks() {
         String serialized = serializeStacks();
         if (Objects.equals(replicatedStacks, serialized)) {
@@ -313,12 +334,14 @@ public class InventoryComponent extends AbstractActorComponent {
         markDirty("replicatedStacks");
     }
 
+    /** Odtwarza inventory po stronie klienta z zserializowanej wartości. */
     @SuppressWarnings("unused")
     private void onReplicatedStacksChanged() {
         deserializeStacks(replicatedStacks);
         broadcastChange();
     }
 
+    /** Sprowadza wszystkie sloty do prostego formatu tekstowego. */
     private String serializeStacks() {
         if (stacks.isEmpty()) {
             return "";
@@ -339,6 +362,7 @@ public class InventoryComponent extends AbstractActorComponent {
         return builder.toString();
     }
 
+    /** Odtwarza stacki z tekstu otrzymanego z replikacji. */
     private void deserializeStacks(String serialized) {
         stacks.clear();
         if (serialized == null || serialized.isBlank()) {
@@ -376,6 +400,7 @@ public class InventoryComponent extends AbstractActorComponent {
         }
     }
 
+    /** Sprawdza, ile sztuk danego itemu da się jeszcze dołożyć. */
     private int computeAddableQuantity(ItemDefinition definition, int requestedQuantity) {
         int remaining = requestedQuantity;
         int maxQuantity = definition.getMaxStack();
@@ -407,11 +432,13 @@ public class InventoryComponent extends AbstractActorComponent {
         return requestedQuantity - remaining + addable;
     }
 
+    /** Szuka pierwszego stacka o danym itemId. */
     private InventoryRecord findFirstRecord(String itemId) {
         int index = findFirstRecordIndex(itemId);
         return index >= 0 ? stacks.get(index) : null;
     }
 
+    /** Szuka indeksu pierwszego stacka o danym itemId. */
     private int findFirstRecordIndex(String itemId) {
         if (itemId == null || itemId.isBlank()) {
             return -1;
@@ -426,6 +453,7 @@ public class InventoryComponent extends AbstractActorComponent {
         return -1;
     }
 
+    /** Czyści przypisany item, jeśli zniknął z inventory. */
     private void clearAssignedItemIfMissing(String itemId) {
         if (itemId == null || itemId.isBlank() || findFirstRecord(itemId) != null || getOwner() == null) {
             return;
@@ -434,6 +462,7 @@ public class InventoryComponent extends AbstractActorComponent {
         clearAssignedItem();
     }
 
+    /** Usuwa przypisany item z hotbara. */
     private void clearAssignedItem() {
         if (getOwner() == null) {
             return;

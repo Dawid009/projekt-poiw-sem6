@@ -9,6 +9,10 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Prosta warstwa do logowania, rejestrowania i wysylania statystyk gracza.
+ * Trzyma tez zapamietane dane do logowania oraz aktualna sesje.
+ */
 public class AuthService {
 
     private static final String PREFS_NAME = "poiw-auth";
@@ -33,10 +37,15 @@ public class AuthService {
     private boolean statsFlushInFlight;
     private int pendingStatsUserId = -1;
 
+    /** Wczytuje zapamietane dane przy starcie serwisu. */
     public AuthService() {
         loadRememberedCredentials();
     }
 
+    /**
+     * Aktualizuje licznik czasu gry i okresowo odswieza sesje oraz statystyki.
+     * To jest wywolywane raz na frame.
+     */
     public void tick(float delta) {
         if (activeSession == null || activeSession.offline) {
             return;
@@ -61,34 +70,42 @@ public class AuthService {
         }
     }
 
+    /** Sprawdza, czy jakakolwiek sesja jest obecnie aktywna. */
     public boolean isAuthenticated() {
         return activeSession != null;
     }
 
+    /** Zwraca nazwe zalogowanego gracza albo pusty napis, gdy nie ma sesji. */
     public String getCurrentUsername() {
         return activeSession != null ? activeSession.username : "";
     }
 
+    /** Sprawdza, czy gracz jest w trybie offline. */
     public boolean isOfflineSession() {
         return activeSession != null && activeSession.offline;
     }
 
+    /** Zwraca email zalogowanego konta. */
     public String getCurrentEmail() {
         return activeSession != null ? activeSession.email : "";
     }
 
+    /** Zwraca laczny czas gry zapisany w aktywnej sesji. */
     public long getCurrentPlaytimeSeconds() {
         return activeSession != null ? activeSession.playtimeSeconds : 0L;
     }
 
+    /** Zwraca id zalogowanego uzytkownika lub -1, gdy nie ma sesji. */
     public int getCurrentUserId() {
         return activeSession != null ? activeSession.userId : -1;
     }
 
+    /** Zwraca dane logowania zapamietane w Preferences. */
     public RememberedCredentials getRememberedCredentials() {
         return new RememberedCredentials(rememberedLogin, rememberedPassword, rememberedEmail);
     }
 
+    /** Startuje lokalna sesje offline, bez backendu. */
     public SessionSnapshot startOfflineSession() {
         activeSession = new ActiveSession(-1, "", "offline", 0L, true);
         resetSessionTimers();
@@ -96,6 +113,9 @@ public class AuthService {
         return snapshot();
     }
 
+    /**
+     * Wysyla login i haslo do backendu oraz ustawia aktywna sesje po sukcesie.
+     */
     public void login(String login, String password, AuthResultListener listener) {
         String normalizedLogin = login == null ? "" : login.trim();
         String normalizedPassword = password == null ? "" : password;
@@ -145,6 +165,9 @@ public class AuthService {
         });
     }
 
+    /**
+     * Najpierw tworzy konto, a potem od razu loguje gracza na nowe dane.
+     */
     public void register(String login, String email, String password, AuthResultListener listener) {
         String normalizedLogin = login == null ? "" : login.trim();
         String normalizedEmail = email == null ? "" : email.trim().toLowerCase();
@@ -180,6 +203,9 @@ public class AuthService {
         });
     }
 
+    /**
+     * Kończy sesje lokalnie i dodatkowo wysyla logout do backendu, jesli to tryb online.
+     */
     public void logout(Runnable onComplete) {
         ActiveSession sessionToClose = activeSession;
         boolean offlineSession = sessionToClose != null && sessionToClose.offline;
@@ -192,30 +218,36 @@ public class AuthService {
         flushPendingStats(() -> finishLogout(sessionToClose, onComplete));
     }
 
+    /** Rejestruje pojedyncze sciecie drzewa do statystyk. */
     public void recordTreeCut() {
         queueStatsDelta(0, 0, 0, 0, 1, 0, 0);
     }
 
+    /** Rejestruje zabicie przeciwnika do statystyk. */
     public void recordEnemyKill() {
         queueStatsDelta(0, 0, 1, 0, 0, 0, 0);
     }
 
+    /** Rejestruje zabicie zwierzecia do statystyk. */
     public void recordAnimalKill() {
         queueStatsDelta(0, 0, 0, 1, 0, 0, 0);
     }
 
+    /** Dodaje do kolejki zebrane surowce. */
     public void recordCollectedResources(int quantity) {
         if (quantity > 0) {
             queueStatsDelta(0, 0, 0, 0, 0, quantity, 0);
         }
     }
 
+    /** Dodaje do kolejki zebrane plony. */
     public void recordCollectedCrops(int quantity) {
         if (quantity > 0) {
             queueStatsDelta(0, 0, 0, 0, 0, 0, quantity);
         }
     }
 
+    /** Pobiera aktualne statystyki gracza z backendu. */
     public void fetchCurrentStats(StatsResultListener listener) {
         ActiveSession session = activeSession;
         if (session == null || session.offline) {
@@ -247,15 +279,18 @@ public class AuthService {
         }));
     }
 
+    /** Sprawdza, czy sa jeszcze jakies nienadane zmiany statystyk. */
     public boolean hasPendingStats() {
         return !pendingStats.isEmpty();
     }
 
+    /** Zapisuje wejscie do gry jako jedna z metryk statystyk. */
     private void recordGameEntry() {
         queueStatsDelta(0, 1, 0, 0, 0, 0, 0);
         flushPendingStats(null);
     }
 
+    /** Czyści sesje lokalnie i ewentualnie wysyla logout do backendu. */
     private void finishLogout(ActiveSession sessionToClose, Runnable onComplete) {
         boolean offlineSession = sessionToClose != null && sessionToClose.offline;
         activeSession = null;
@@ -289,6 +324,7 @@ public class AuthService {
         });
     }
 
+    /** Dodaje delte statystyk do bufora, ale tylko dla zalogowanej sesji online. */
     private void queueStatsDelta(int points,
                                  int entryCount,
                                  int enemyKills,
@@ -309,6 +345,7 @@ public class AuthService {
         pendingStats.add(points, entryCount, enemyKills, animalKills, treesCut, collectedResources, collectedCrops);
     }
 
+    /** Wysyla zebrane statystyki do backendu, a po sukcesie odpala callbacki. */
     private void flushPendingStats(Runnable afterFlush) {
         if (afterFlush != null) {
             postFlushCallbacks.add(afterFlush);
@@ -368,6 +405,7 @@ public class AuthService {
         });
     }
 
+    /** Buduje prosty JSON z delty statystyk. */
     private String buildStatsUpdateBody(int userId, StatsDelta stats) {
         return "{\"id\":" + userId +
             ",\"punkty\":" + stats.points +
@@ -380,6 +418,7 @@ public class AuthService {
             "}";
     }
 
+    /** Parsuje odpowiedz backendu ze statystykami gracza. */
     private PlayerStatsSnapshot parsePlayerStats(String json) {
         Integer userId = extractInt(json, "id");
         String username = extractString(json, "nazwa");
@@ -410,23 +449,27 @@ public class AuthService {
         );
     }
 
+    /** Czyści bufor statystyk, gdy sesja zmienia sie albo sie konczy. */
     private void clearPendingStats() {
         pendingStats.clear();
         pendingStatsUserId = -1;
     }
 
+    /** Zeruje timery odpowiedzialne za odswiezanie sesji i playtime. */
     private void resetSessionTimers() {
         refreshTimer = 0f;
         playtimeAccumulator = 0f;
         refreshInFlight = false;
     }
 
+    /** Zeruje stan wysylania statystyk. */
     private void resetStatsTransportState() {
         statsFlushTimer = 0f;
         statsFlushInFlight = false;
         postFlushCallbacks.clear();
     }
 
+    /** Odpala wszystkie callbacki, ktore czekaly na flush statystyk. */
     private void runPostFlushCallbacks() {
         if (postFlushCallbacks.isEmpty()) {
             return;
@@ -441,6 +484,7 @@ public class AuthService {
         }
     }
 
+    /** Wysyla ping odswiezajacy sesje na backendzie. */
     private void sendRefresh(int userId) {
         refreshInFlight = true;
         String body = "{\"id\":" + userId + "}";
@@ -462,14 +506,17 @@ public class AuthService {
         });
     }
 
+    /** Wysyla zwykly request POST. */
     private void sendPost(String path, String body, ResponseHandler handler) {
         sendRequest(Net.HttpMethods.POST, path, body, handler);
     }
 
+    /** Wysyla request GET. */
     private void sendGet(String path, ResponseHandler handler) {
         sendRequest(Net.HttpMethods.GET, path, null, handler);
     }
 
+    /** Buduje i wysyla request HTTP, a odpowiedz przekazuje na glowny watek. */
     private void sendRequest(String method, String path, String body, ResponseHandler handler) {
         Net.HttpRequest request = new Net.HttpRequest(method);
         request.setUrl(resolveBaseUrl() + path);
@@ -503,16 +550,19 @@ public class AuthService {
         });
     }
 
+    /** Koduje fragment URL tak, zeby bezpiecznie przeszedl w adresie zapytania. */
     private String urlEncode(String value) {
         return URLEncoder.encode(value == null ? "" : value, StandardCharsets.UTF_8);
     }
 
+    /** Zwraca prosty snapshot obecnej sesji do UI. */
     private SessionSnapshot snapshot() {
         return activeSession == null
             ? null
             : new SessionSnapshot(activeSession.userId, activeSession.email, activeSession.username, activeSession.playtimeSeconds);
     }
 
+    /** Wczytuje dane logowania zapisane lokalnie na dysku. */
     private void loadRememberedCredentials() {
         Preferences prefs = Gdx.app.getPreferences(PREFS_NAME);
         rememberedLogin = prefs.getString(KEY_LOGIN, "");
@@ -520,6 +570,7 @@ public class AuthService {
         rememberedEmail = prefs.getString(KEY_EMAIL, "");
     }
 
+    /** Zapamietuje dane udanego logowania, zeby UI moglo je potem podpowiedziec. */
     private void rememberSuccessfulLogin(String login, String password, String email) {
         rememberedLogin = login;
         rememberedPassword = password;
@@ -532,6 +583,7 @@ public class AuthService {
         prefs.flush();
     }
 
+    /** Usuwa zapisane dane logowania z Preferences. */
     private void clearRememberedCredentials() {
         rememberedLogin = "";
         rememberedPassword = "";
@@ -544,30 +596,35 @@ public class AuthService {
         prefs.flush();
     }
 
+    /** Odsyla wynik do listenera bez sprawdzania watkow wywolujacego kodu. */
     private void postSuccess(AuthResultListener listener, SessionSnapshot snapshot) {
         if (listener != null) {
             listener.onSuccess(snapshot);
         }
     }
 
+    /** Odsyla blad do listenera bez sprawdzania watkow wywolujacego kodu. */
     private void postFailure(AuthResultListener listener, String message) {
         if (listener != null) {
             listener.onFailure(message);
         }
     }
 
+    /** Odsyla wynik statystyk do listenera. */
     private void postStatsSuccess(StatsResultListener listener, PlayerStatsSnapshot snapshot) {
         if (listener != null) {
             listener.onSuccess(snapshot);
         }
     }
 
+    /** Odsyla blad pobierania statystyk do listenera. */
     private void postStatsFailure(StatsResultListener listener, String message) {
         if (listener != null) {
             listener.onFailure(message);
         }
     }
 
+    /** Czyta bazowy adres backendu z property systemowego albo z env. */
     private String resolveBaseUrl() {
         String systemProperty = System.getProperty("poiw.auth.baseUrl");
         if (systemProperty != null && !systemProperty.isBlank()) {
@@ -582,19 +639,23 @@ public class AuthService {
         return DEFAULT_BASE_URL;
     }
 
+    /** Usuwa koncowy slash z URL, zeby nie dublowac go przy sklejaniu sciezki. */
     private String trimTrailingSlash(String url) {
         return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
     }
 
+    /** Sprawdza, czy odpowiedz backendu wyglada jak poprawny sukces. */
     private boolean isSuccess(int statusCode, String responseBody) {
         return statusCode >= 200 && statusCode < 300 && Boolean.TRUE.equals(extractBoolean(responseBody, "ok"));
     }
 
+    /** Pobiera pole `blad` z JSON-a, a jak sie nie da, to zwraca fallback. */
     private String extractError(String json, String fallbackMessage) {
         String error = extractString(json, "blad");
         return error != null && !error.isBlank() ? error : fallbackMessage;
     }
 
+    /** Zwraca wartosc logiczna z prostego JSON-a. */
     private Boolean extractBoolean(String json, String key) {
         String raw = extractRawValue(json, key);
         if (raw == null) {
@@ -603,6 +664,7 @@ public class AuthService {
         return Boolean.parseBoolean(raw);
     }
 
+    /** Zwraca liczbe calkowita z prostego JSON-a. */
     private Integer extractInt(String json, String key) {
         String raw = extractRawValue(json, key);
         if (raw == null) {
@@ -615,6 +677,7 @@ public class AuthService {
         }
     }
 
+    /** Zwraca liczbe typu long z prostego JSON-a. */
     private Long extractLong(String json, String key) {
         String raw = extractRawValue(json, key);
         if (raw == null) {
@@ -627,6 +690,7 @@ public class AuthService {
         }
     }
 
+    /** Wyciaga zwykly napis z bardzo prostego JSON-a bez pelnego parsera. */
     private String extractString(String json, String key) {
         if (json == null || json.isBlank()) {
             return null;
@@ -676,6 +740,7 @@ public class AuthService {
         return null;
     }
 
+    /** Wyciaga surowa wartosc pola z prostego JSON-a. */
     private String extractRawValue(String json, String key) {
         if (json == null || json.isBlank()) {
             return null;
@@ -707,6 +772,7 @@ public class AuthService {
         return json.substring(valueStart, valueEnd).trim();
     }
 
+    /** Escapuje znaki specjalne, zeby JSON byl poprawny. */
     private String escapeJson(String value) {
         return value
             .replace("\\", "\\\\")
@@ -716,22 +782,27 @@ public class AuthService {
             .replace("\t", "\\t");
     }
 
+    /** Listener uzywany po logowaniu i rejestracji. */
     public interface AuthResultListener {
         void onSuccess(SessionSnapshot session);
         void onFailure(String message);
     }
 
+    /** Listener do pobierania statystyk gracza. */
     public interface StatsResultListener {
         void onSuccess(PlayerStatsSnapshot stats);
         void onFailure(String message);
     }
 
+    /** Lokalna kopia danych logowania zapamietywanych w prefsach. */
     public record RememberedCredentials(String login, String password, String email) {
     }
 
+    /** Krótki snapshot sesji, ktory trafia do UI po zalogowaniu. */
     public record SessionSnapshot(int userId, String email, String username, long playtimeSeconds) {
     }
 
+    /** Dane statystyk gracza pobierane z backendu. */
     public record PlayerStatsSnapshot(int userId,
                                       String username,
                                       int points,
@@ -743,11 +814,13 @@ public class AuthService {
                                       int collectedCrops) {
     }
 
+    /** Prosty interfejs do obslugi odpowiedzi HTTP. */
     private interface ResponseHandler {
         void onResponse(int statusCode, String responseBody);
         void onFailure(String message);
     }
 
+    /** Bieżąca sesja logowania i jej podstawowe dane. */
     private static final class ActiveSession {
         private final int userId;
         private final String email;
@@ -764,6 +837,7 @@ public class AuthService {
         }
     }
 
+    /** Bufor zmian statystyk wysylanych do backendu. */
     private static final class StatsDelta {
         private int points;
         private int entryCount;

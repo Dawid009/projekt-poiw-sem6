@@ -6,7 +6,8 @@ import com.polsl.poiw.engine.net.RepNotify;
 import com.polsl.poiw.engine.net.Replicated;
 
 /**
- * Krótkotrwała zewnętrzna prędkość domieszana do ruchu aktora po otrzymaniu trafienia.
+ * Prosty komponent odrzutu po trafieniu.
+ * Trzyma dodatkową prędkość, która przez chwile pcha aktora w bok i lekko go podbija.
  */
 public class KnockbackComponent extends AbstractActorComponent {
     public static final ComponentMapper<KnockbackComponent> MAPPER =
@@ -41,6 +42,10 @@ public class KnockbackComponent extends AbstractActorComponent {
         setReplicated(true);
     }
 
+    /**
+     * Zadaje odrzut w podanym kierunku.
+     * Używane np. po otrzymaniu damage przez gracza albo potwora.
+     */
     public void apply(Vector2 direction, float strength) {
         if (direction == null || direction.isZero(0.001f) || strength <= 0f) {
             return;
@@ -56,6 +61,7 @@ public class KnockbackComponent extends AbstractActorComponent {
         markDirty("impulseCounter");
     }
 
+    /** Oslabia odrzut z uplywem czasu. */
     public void tick(float delta) {
         if (!velocity.isZero(MIN_ACTIVE_SPEED)) {
             float decay = Math.max(0f, 1f - damping * delta);
@@ -72,14 +78,17 @@ public class KnockbackComponent extends AbstractActorComponent {
         }
     }
 
+    /** Zwraca `true`, gdy odrzut nadal realnie dziala. */
     public boolean isActive() {
         return !velocity.isZero(MIN_ACTIVE_SPEED);
     }
 
+    /** Aktualna dodatkowa predkosc odrzutu. */
     public Vector2 getVelocity() {
         return velocity;
     }
 
+    /** Zwraca pionowe podbicie, ktore ladnie sprzedaje efekt trafienia. */
     public float getLiftOffsetY() {
         if (liftTime >= liftDuration || liftDuration <= 0f || liftHeight <= 0f) {
             return 0f;
@@ -89,12 +98,14 @@ public class KnockbackComponent extends AbstractActorComponent {
         return 4f * liftHeight * progress * (1f - progress);
     }
 
+    /** Ustawia tempo gaszenia odrzutu. */
     public void setDamping(float damping) {
         if (damping > 0f) {
             this.damping = damping;
         }
     }
 
+    /** Odtwarza odrzut po stronie klienta na podstawie zreplikowanych danych. */
     @SuppressWarnings("unused")
     private void onImpulseChanged() {
         if (getOwner() != null && getOwner().hasAuthority()) {
@@ -109,6 +120,7 @@ public class KnockbackComponent extends AbstractActorComponent {
         startImpulse(tmpDirection, impulseStrength);
     }
 
+    /** Dodaje wewnetrzna predkosc i pilnuje, zeby nie byla zbyt duza. */
     private void startImpulse(Vector2 direction, float strength) {
         tmpDirection.set(direction).nor().scl(strength);
         velocity.add(tmpDirection);
